@@ -1,4 +1,4 @@
-/**
+//**
  * Navy Officer Document Parsing Utilities
  * 
  * Parses ODC (Officer Data Card), OSR (Officer Summary Record), and PSR (Performance Summary Report)
@@ -401,70 +401,112 @@ function extractPromotionHistory(text: string): RankDate[] {
 
 /**
  * Extract AQD entries from text
+ * 
+ * ODC Block 72 Format: [3-char code] [2-digit year] [title]
+ * Example: "6ZF 18 RESEARCHER"
+ *          "FMF 15 FLEET MARINE FORCE"
+ *          "JS7 23 JPME PHASE1"
+ * 
+ * OSR Format: Title only in "Special Qualifications" section
  */
 function extractAQDs(text: string): AQDEntry[] {
   const aqds: AQDEntry[] = [];
   
-  // Look for "ADDITIONAL QUAL DESIG" section or "72 ADDITIONAL QUAL DESIG"
-  // Format: CODE YR TITLE
-  // Example: "62D 22 *FACULTY DEV"
-  //          "JS7 23 JPME PHASE1"
-  //          "67A 17 EXECUTIVE M"
+  // Common words to filter out (these are NOT AQD codes)
+  const filterWords = new Set(['THE', 'AND', 'FOR', 'CODE', 'YR', 'BLK', 'SEE', 'NOT', 'HAS', 'WAS', 'ARE', 'ALL', 'ANY']);
+  
+  // Filter out document structure codes with 4-digit parenthetical numbers
+  // These are line numbers/position references, NOT AQDs
+  // Example false positives: SSHTA(2012), ERACBD(2019), ACDASED(2027)
+  const isDocumentStructureCode = (line: string): boolean => {
+    return /[A-Z]{3,}\(\d{4}\)/.test(line);
+  };
   
   const lines = text.split('\n');
   let inAQDSection = false;
+  let inSpecialQualSection = false;
   
   for (const line of lines) {
+    // Skip lines that look like document structure codes
+    if (isDocumentStructureCode(line)) {
+      continue;
+    }
+    
+    // Detect Block 72 / AQD section start
+    if (line.includes('72') && (line.includes('ADDITIONAL QUAL') || line.includes('AQD'))) {
+      inAQDSection = true;
+      continue;
+    }
     if (line.includes('ADDITIONAL QUAL DESIG') || line.includes('ADDITIONAL QUALIFICATION')) {
       inAQDSection = true;
       continue;
     }
     
-    // AQD pattern: 2-3 letter/number code, 2-digit year, title
-    // Pattern: "62D 22 *FACULTY DEV" or "JS7 23 JPME PHASE1"
-    const aqdMatch = line.match(/^\s*([A-Z0-9]{2,3})\s+(\d{2})\s+\*?([A-Z\s]+)/i);
+    // Detect OSR Special Qualifications section
+    if (line.includes('SPECIAL QUAL') || line.includes('SPEC QUAL')) {
+      inSpecialQualSection = true;
+      continue;
+    }
+    
+    // Exit section on new block number or major section header
+    if (/^\s*\d{2}\s+[A-Z]{3,}/.test(line) && !line.includes('ADDITIONAL')) {
+      inAQDSection = false;
+    }
+    
+    // ODC Block 72 AQD pattern: exactly 3 alphanumeric code + space + 2-digit year + space + title
+    // Pattern: "6ZF 18 RESEARCHER" or "FMF 15 FLEET MARINE FORCE"
+    const aqdMatch = line.match(/^\s*([A-Z0-9]{3})\s+(\d{2})\s+\*?([A-Z][A-Z\s*]+)/i);
     if (aqdMatch) {
       const code = aqdMatch[1].toUpperCase();
       const year = aqdMatch[2];
-      const title = aqdMatch[3].trim();
+      const title = aqdMatch[3].trim().replace(/^\*/, '').replace(/\s+/g, ' ');
       
-      // Filter out noise
-      if (!['THE', 'AND', 'FOR', 'CODE', 'YR'].includes(code) && title.length > 2) {
-        aqds.push({ code, year: `20${year}`, title });
+      // Validate: code should be 3 chars, year should be reasonable (00-50 for 2000s)
+      const yearNum = parseInt(year);
+      if (!filterWords.has(code) && title.length > 2 && yearNum >= 0 && yearNum <= 50) {
+        if (!aqds.find(a => a.code === code)) {
+          aqds.push({ code, year: `20${year}`, title });
+        }
       }
     }
     
-    // Also look for inline format: "67A 17 EXECUTIVE M"
-    const inlineMatches = [...line.matchAll(/\b([A-Z0-9]{2,3})\s+(\d{2})\s+([A-Z*][A-Z\s]{3,})/gi)];
+    // Also look for inline format within lines (not at start)
+    const inlineMatches = [...line.matchAll(/\b([A-Z0-9]{3})\s+(\d{2})\s+\*?([A-Z][A-Z\s]{3,})/gi)];
     for (const match of inlineMatches) {
       const code = match[1].toUpperCase();
       const year = match[2];
-      const title = match[3].trim().replace(/^\*/, '');
+      const title = match[3].trim().replace(/^\*/, '').replace(/\s+/g, ' ');
       
-      if (!aqds.find(a => a.code === code) && !['THE', 'AND', 'FOR'].includes(code)) {
+      const yearNum = parseInt(year);
+      if (!aqds.find(a => a.code === code) && !filterWords.has(code) && yearNum >= 0 && yearNum <= 50) {
         aqds.push({ code, year: `20${year}`, title });
       }
     }
   }
   
-  // Also search for known AQD patterns anywhere in text
+  // Search for known AQD patterns anywhere in text (as backup)
   const knownAQDPatterns = [
-    { pattern: /\b(67A)\b.*?(EXECUTIVE|EXEC\s*MED)/i, title: 'Executive Medicine' },
-    { pattern: /\b(67B)\b.*?(EXPEDITIONARY|EXPED)/i, title: 'Expeditionary Medicine' },
-    { pattern: /\b(67G)\b.*?(MANAGED\s*CARE)/i, title: 'Managed Care' },
-    { pattern: /\b(JS7)\b.*?(JPME|JOINT)/i, title: 'JPME Phase 1' },
-    { pattern: /\b(JS8)\b.*?(JPME|JOINT)/i, title: 'JPME Phase 2' },
-    { pattern: /\b(62D)\b.*?(FACULTY|FAC\s*DEV)/i, title: 'Faculty Development' },
-    { pattern: /\b(6ZC)\b.*?(ASSOC\s*PROF|ASSOCIATE)/i, title: 'Associate Professor' },
-    { pattern: /\b(6ZB)\b.*?(ASST\s*PROF|ASSISTANT)/i, title: 'Assistant Professor' },
-    { pattern: /\b(68M)\b.*?(GHS|GLOBAL)/i, title: 'Global Health' },
-    { pattern: /\b(6OC)\b.*?(HOSP|HOSPSHIP)/i, title: 'Hospital Ship' },
+    { pattern: /\b(67A)\s+(\d{2})?\s*(EXECUTIVE|EXEC\s*MED)/i, title: 'Executive Medicine' },
+    { pattern: /\b(67B)\s+(\d{2})?\s*(EXPEDITIONARY|EXPED)/i, title: 'Expeditionary Medicine' },
+    { pattern: /\b(67G)\s+(\d{2})?\s*(MANAGED\s*CARE)/i, title: 'Managed Care' },
+    { pattern: /\b(JS7)\s+(\d{2})?\s*(JPME|JOINT.*PHASE\s*1)/i, title: 'JPME Phase 1' },
+    { pattern: /\b(JS8)\s+(\d{2})?\s*(JPME|JOINT.*PHASE\s*2)/i, title: 'JPME Phase 2' },
+    { pattern: /\b(62D)\s+(\d{2})?\s*(FACULTY|FAC\s*DEV)/i, title: 'Faculty Development' },
+    { pattern: /\b(6ZC)\s+(\d{2})?\s*(ASSOC\s*PROF|ASSOCIATE)/i, title: 'Associate Professor' },
+    { pattern: /\b(6ZB)\s+(\d{2})?\s*(ASST\s*PROF|ASSISTANT)/i, title: 'Assistant Professor' },
+    { pattern: /\b(6ZF)\s+(\d{2})?\s*(RESEARCH)/i, title: 'Researcher' },
+    { pattern: /\b(68M)\s+(\d{2})?\s*(GHS|GLOBAL)/i, title: 'Global Health' },
+    { pattern: /\b(6OC)\s+(\d{2})?\s*(HOSP|HOSPSHIP)/i, title: 'Hospital Ship' },
+    { pattern: /\b(FMF)\s+(\d{2})?\s*(FLEET\s*MARINE|WARFARE)/i, title: 'Fleet Marine Force' },
+    { pattern: /\b(SWO)\s+(\d{2})?\s*(SURFACE\s*WARFARE)/i, title: 'Surface Warfare Officer' },
+    { pattern: /\b(SCW)\s+(\d{2})?\s*(SEABEE\s*COMBAT)/i, title: 'Seabee Combat Warfare' },
   ];
   
   for (const { pattern, title } of knownAQDPatterns) {
     const match = text.match(pattern);
     if (match && !aqds.find(a => a.code === match[1].toUpperCase())) {
-      aqds.push({ code: match[1].toUpperCase(), year: '', title });
+      const year = match[2] ? `20${match[2]}` : '';
+      aqds.push({ code: match[1].toUpperCase(), year, title });
     }
   }
   
@@ -564,21 +606,56 @@ function extractEducation(text: string): ParsedOfficerData['education'] {
 
 /**
  * Extract security clearance from text
+ * 
+ * ODC Field 92 SECURITY formats:
+ * - "V V" or "V V [year]" = Top Secret (V = inVestigation at TS level)
+ * - "S S" or "S S [year]" = Secret
+ * - "T T" or "T [year]" = Top Secret (alternate format)
+ * - Investigation year is 2-digit (e.g., "65" = 2065 or 1965, context-dependent)
  */
 function extractSecurityClearance(text: string): ParsedOfficerData['securityClearance'] {
-  // Look for security clearance indicator
-  // Field 92 SECURITY: "S" or "T" followed by investigation year
-  // Pattern: "S S 65" or "92 SECURITY ... S ... 65"
+  // Look for security clearance indicator in various formats
   
-  const clearanceMatch = text.match(/SECURITY[^\n]*([ST])\s+(?:[ST]\s+)?(\d{2})/i) ||
-                         text.match(/\b([ST])\s+[ST]?\s*(\d{2})\s+\d{4}\b/);
+  // Format 1: "V V" pattern for Top Secret (most common)
+  const vvMatch = text.match(/\bV\s+V\s*(\d{2})?\b/i);
+  if (vvMatch) {
+    const year = vvMatch[1] || '';
+    return {
+      level: 'Top Secret',
+      investigationYear: year ? `20${year}` : '',
+    };
+  }
   
+  // Format 2: "S S" pattern for Secret
+  const ssMatch = text.match(/\bS\s+S\s*(\d{2})?\b/i);
+  if (ssMatch) {
+    const year = ssMatch[1] || '';
+    return {
+      level: 'Secret',
+      investigationYear: year ? `20${year}` : '',
+    };
+  }
+  
+  // Format 3: SECURITY field with T or S indicator
+  const clearanceMatch = text.match(/SECURITY[^\n]*\b([TSV])\s+(?:[TSV]\s+)?(\d{2})/i);
   if (clearanceMatch) {
     const level = clearanceMatch[1].toUpperCase();
     const year = clearanceMatch[2];
     
     return {
-      level: level === 'T' ? 'TOP SECRET' : 'SECRET',
+      level: level === 'V' || level === 'T' ? 'Top Secret' : 'Secret',
+      investigationYear: `20${year}`,
+    };
+  }
+  
+  // Format 4: Standalone pattern like "T 65" or "S 65" near SECURITY
+  const standaloneMatch = text.match(/\b([TSV])\s+([TSV])?\s*(\d{2})\s+\d{4}\b/);
+  if (standaloneMatch) {
+    const level = standaloneMatch[1].toUpperCase();
+    const year = standaloneMatch[3];
+    
+    return {
+      level: level === 'V' || level === 'T' ? 'Top Secret' : 'Secret',
       investigationYear: `20${year}`,
     };
   }

@@ -1,0 +1,724 @@
+{
+  "fiscalYear": "FY26",
+  "lastUpdated": "2025-07-21",
+  "source": "NAVMED Leadership Course Catalog Medical Corps Edition",
+  "pocCareerPlanner": {
+    "name": "CAPT Shauna O'Sullivan",
+    "title": "Medical Corps Career Planner",
+    "email": "shauna.f.osullivan.mil@health.mil"
+  },
+  "courses": [
+    {
+      "id": "divolc",
+      "name": "Division Officer Leadership Course (DIVOLC)",
+      "category": "Leadership",
+      "description": "First course in Medical Department Officer's Learning Continuum. Provides Junior Officers tools to function as effective leaders at Division Officer level.",
+      "targetRank": ["O1", "O2", "O3"],
+      "requirement": "Service school requirement for all officers per MILPERSMAN 1301-906",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Bethesda, MD (NMLPDC)",
+          "cdp": "20XD",
+          "registration": "NMLPDC Academic Course Registration site",
+          "link": "https://obiwan2.health.mil/sites/nmfsc/apps/ACR/SitePages/courseInfo.aspx",
+          "poc": "usn.bethesda.navmedleadprodevcmd.list.nmpdc-ldr-devacademy@health.mil"
+        },
+        {
+          "location": "Portsmouth, VA (NMRTC)",
+          "cdp": "26KG",
+          "registration": "Email SEAT Department",
+          "poc": "usn.hampton-roads.navhospporsva.list.nmcp-seat-prodevelopment@health.mil"
+        },
+        {
+          "location": "San Diego, CA (NMRTC)",
+          "cdp": "26M5",
+          "poc": "usn.san-diego.navmedcensanca.mbx.nmcsd-seatadm@health.mil",
+          "phone": "(619) 532-7900"
+        }
+      ],
+      "funding": "Parent Command",
+      "prerequisites": [],
+      "jmespCompetencies": false,
+      "notes": "Required for officers who attended ODS after Jan 1, 2018"
+    },
+    {
+      "id": "ilc",
+      "name": "Intermediate Leadership Course (ILC)",
+      "category": "Leadership",
+      "description": "Provides intermediate-level Officers with Navy leadership skills required for next milestones and positions of increased responsibility. Replaces Department Head Leadership Course (DHLC).",
+      "targetRank": ["O4", "O5"],
+      "targetYearsCommissioned": "7-12 years",
+      "requirement": "Required for all intermediate-level officers",
+      "duration": "5 days",
+      "format": "In-person and Virtual",
+      "sessions": [
+        {
+          "location": "Dam Neck, VA",
+          "cdp": "17ZP",
+          "dates": [
+            {"seq": 10, "start": "2025-10-06", "end": "2025-10-10", "virtual": true},
+            {"seq": 20, "start": "2025-10-20", "end": "2025-10-24", "virtual": false},
+            {"seq": 30, "start": "2025-11-03", "end": "2025-11-07", "virtual": false},
+            {"seq": 40, "start": "2025-11-17", "end": "2025-11-21", "virtual": true},
+            {"seq": 50, "start": "2025-12-01", "end": "2025-12-05", "virtual": false},
+            {"seq": 60, "start": "2025-12-08", "end": "2025-12-12", "virtual": true},
+            {"seq": 70, "start": "2026-01-12", "end": "2026-01-16", "virtual": false},
+            {"seq": 80, "start": "2026-01-12", "end": "2026-01-16", "virtual": true},
+            {"seq": 90, "start": "2026-02-09", "end": "2026-02-13", "virtual": true},
+            {"seq": 100, "start": "2026-02-23", "end": "2026-02-27", "virtual": false},
+            {"seq": 110, "start": "2026-03-09", "end": "2026-03-13", "virtual": false},
+            {"seq": 120, "start": "2026-03-16", "end": "2026-03-20", "virtual": true},
+            {"seq": 130, "start": "2026-04-13", "end": "2026-04-17", "virtual": false},
+            {"seq": 140, "start": "2026-04-27", "end": "2026-05-01", "virtual": true},
+            {"seq": 150, "start": "2026-05-04", "end": "2026-05-08", "virtual": false},
+            {"seq": 160, "start": "2026-05-18", "end": "2026-05-22", "virtual": true},
+            {"seq": 170, "start": "2026-06-08", "end": "2026-06-12", "virtual": false},
+            {"seq": 180, "start": "2026-06-22", "end": "2026-06-26", "virtual": true},
+            {"seq": 190, "start": "2026-07-13", "end": "2026-07-17", "virtual": false},
+            {"seq": 200, "start": "2026-07-27", "end": "2026-07-31", "virtual": true},
+            {"seq": 210, "start": "2026-08-10", "end": "2026-08-15", "virtual": true},
+            {"seq": 220, "start": "2026-08-24", "end": "2026-08-28", "virtual": false},
+            {"seq": 230, "start": "2026-09-14", "end": "2026-09-18", "virtual": false},
+            {"seq": 240, "start": "2026-09-21", "end": "2026-09-25", "virtual": true}
+          ],
+          "poc": "NLEC_DMNK_STUDENT_MANAGEMENT@us.navy.mil"
+        },
+        {
+          "location": "San Diego, CA",
+          "cdp": "17ZM",
+          "dates": [
+            {"seq": 10, "start": "2025-10-20", "end": "2025-10-24", "virtual": false},
+            {"seq": 20, "start": "2025-11-03", "end": "2025-11-07", "virtual": false},
+            {"seq": 30, "start": "2025-11-17", "end": "2025-11-21", "virtual": false},
+            {"seq": 40, "start": "2025-12-08", "end": "2025-12-12", "virtual": false},
+            {"seq": 50, "start": "2026-01-12", "end": "2026-01-16", "virtual": false},
+            {"seq": 60, "start": "2026-02-09", "end": "2026-02-13", "virtual": false},
+            {"seq": 70, "start": "2026-02-23", "end": "2026-02-27", "virtual": false},
+            {"seq": 80, "start": "2026-03-09", "end": "2026-03-13", "virtual": false},
+            {"seq": 90, "start": "2026-04-13", "end": "2026-04-17", "virtual": false},
+            {"seq": 100, "start": "2026-05-18", "end": "2026-05-22", "virtual": false},
+            {"seq": 110, "start": "2026-06-01", "end": "2026-06-05", "virtual": false},
+            {"seq": 120, "start": "2026-06-22", "end": "2026-06-26", "virtual": false},
+            {"seq": 130, "start": "2026-07-13", "end": "2026-07-17", "virtual": false},
+            {"seq": 140, "start": "2026-07-27", "end": "2026-07-31", "virtual": false},
+            {"seq": 150, "start": "2026-08-10", "end": "2026-08-14", "virtual": false},
+            {"seq": 160, "start": "2026-08-24", "end": "2026-08-28", "virtual": false},
+            {"seq": 170, "start": "2026-09-14", "end": "2026-09-18", "virtual": false}
+          ],
+          "poc": "NLEC-SD-SLC/ILC-DISTRO@US.NAVY.MIL"
+        }
+      ],
+      "registration": "CeTARS/eNTRS via SEAT officer. Register at least 5 weeks prior.",
+      "cin": "H-7C-0104",
+      "funding": "Parent Command",
+      "quota": "8-24 officers per class",
+      "prerequisites": ["DIVOLC or equivalent"],
+      "jmespCompetencies": false,
+      "notes": "Replaces Department Head Leadership Course (DHLC)"
+    },
+    {
+      "id": "slc",
+      "name": "Senior Leadership Course (SLC)",
+      "category": "Leadership",
+      "description": "5-day seminar for Senior Officers at O5 and above. Designed to facilitate formal leadership and ethics education to support Fleet Centered Leader Development.",
+      "targetRank": ["O5", "O6"],
+      "requirement": "Recommended for senior officers heading to fleet-wide positions",
+      "duration": "5 days",
+      "format": "In-person and Virtual",
+      "sessions": [
+        {
+          "location": "Dam Neck, VA",
+          "cdp": "19UV",
+          "dates": [
+            {"seq": 10, "start": "2025-10-27", "end": "2025-10-31", "virtual": true},
+            {"seq": 20, "start": "2026-02-02", "end": "2026-02-06", "virtual": true},
+            {"seq": 30, "start": "2026-03-02", "end": "2026-03-06", "virtual": true},
+            {"seq": 40, "start": "2026-04-20", "end": "2026-04-24", "virtual": true},
+            {"seq": 50, "start": "2026-07-20", "end": "2026-07-24", "virtual": true},
+            {"seq": 60, "start": "2026-08-31", "end": "2026-09-04", "virtual": true}
+          ],
+          "poc": "NLEC_DMNK_STUDENT_MANAGEMENT@us.navy.mil"
+        },
+        {
+          "location": "San Diego, CA",
+          "cdp": "19UU",
+          "dates": [
+            {"seq": 10, "start": "2025-10-27", "end": "2025-10-31", "virtual": false},
+            {"seq": 20, "start": "2025-12-01", "end": "2025-12-05", "virtual": true},
+            {"seq": 30, "start": "2026-02-02", "end": "2026-02-06", "virtual": true},
+            {"seq": 40, "start": "2026-03-16", "end": "2026-03-20", "virtual": false},
+            {"seq": 50, "start": "2026-05-04", "end": "2026-05-08", "virtual": false},
+            {"seq": 60, "start": "2026-06-08", "end": "2026-06-12", "virtual": true},
+            {"seq": 80, "start": "2026-08-31", "end": "2026-09-04", "virtual": false}
+          ],
+          "poc": "NLEC-SD-SLC/ILC-DISTRO@US.NAVY.MIL"
+        }
+      ],
+      "registration": "CeTARS/eNTRS via SEAT officer",
+      "cin": "H-7C-0107",
+      "funding": "Parent Command",
+      "prerequisites": ["ILC or equivalent"],
+      "jmespCompetencies": false
+    },
+    {
+      "id": "broc",
+      "name": "Basic Readiness Officer Course (BROC)",
+      "category": "Readiness",
+      "description": "Second course in Medical Department Officer's Learning Continuum. Four-unit online course introducing organization, structure, business practices, and operational policies of Naval Medical Department.",
+      "targetRank": ["O1", "O2", "O3"],
+      "requirement": "Pre-requisite for AROC",
+      "duration": "Self-paced online (4 units)",
+      "format": "Online via Navy E-Learning (NEL)",
+      "sessions": [
+        {
+          "location": "Online",
+          "registration": "Self-enroll via Navy E-Learning",
+          "link": "https://learning.nel.navy.mil/",
+          "courseIds": [
+            {"unit": 1, "cin": "CFHP-NMLPDC-21-BROC-U1-V02", "topic": "Organizational Structure, Relationships, and Policy"},
+            {"unit": 2, "cin": "CFHP-NMLPDC-21-BROC-U2-V02", "topic": "Utilization and Management of Resources"},
+            {"unit": 3, "cin": "CFHP-NMLPDC-21-BROC-U3-V02", "topic": "Operational Policies and Procedure"},
+            {"unit": 4, "cin": "CFHP-NMLPDC-21-BROC-U4-V02", "topic": "Navy Medicine DIVO/DH Functions and Sailorization"}
+          ]
+        }
+      ],
+      "funding": "Free (online)",
+      "prerequisites": [],
+      "jmespCompetencies": true,
+      "jmespCount": 6,
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager",
+        "office": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    {
+      "id": "aroc",
+      "name": "Advanced Readiness Officer Course (AROC)",
+      "category": "Readiness",
+      "description": "Advanced readiness training for Medical Department Officers. Currently on pause pending Job, Duty, Task Analysis (JDTA) and Training Requirements Review (TRR).",
+      "targetRank": ["O3", "O4", "O5"],
+      "requirement": "Part of career progression pathway",
+      "status": "ON PAUSE - Check NMLPDC website for updates",
+      "format": "TBD",
+      "sessions": [],
+      "registration": "Check NMLPDC Academic Course Registration when available",
+      "link": "https://www.med.navy.mil/Naval-Medical-Leader-and-Professional-Development-Command/Officer-Training/Advanced-Readiness-Officer-Course-AROC/",
+      "registrationLink": "https://obiwan2.health.mil/sites/nmfsc/apps/ACR/SitePages/courseInfo.aspx",
+      "prerequisites": ["BROC"],
+      "jmespCompetencies": true,
+      "notes": "Updates coming - check website for most current information"
+    },
+    {
+      "id": "jpmei-fsp",
+      "name": "JPME I - Fleet Seminar Program",
+      "category": "Joint Professional Military Education",
+      "description": "Naval War College Joint Professional Military Education Phase I delivered to students who cannot attend in-residence. Expands critical and creative thinking for decision-making in maritime domain.",
+      "targetRank": ["O3", "O4", "O5", "O6"],
+      "requirement": "Required for 67B Expeditionary Medicine AQD. Important for senior leadership positions.",
+      "duration": "3 years (part-time)",
+      "format": "In-person seminars (one evening per week, 3 hours)",
+      "sessions": [
+        {
+          "location": "Multiple Naval bases across US",
+          "locationLink": "https://usnwc.edu/college-of-distance-education/Fleet-Seminar-Program/Locations-and-Availability.html"
+        }
+      ],
+      "applicationWindow": {
+        "open": "April 1",
+        "close": "May 31",
+        "forYear": "Academic Year 2025-2026"
+      },
+      "registration": "Online application during application window",
+      "link": "https://usnwc.edu/college-of-distance-education/Fleet-Seminar-Program/Enrollment.html",
+      "eligibility": "O3+ for Navy/USMC/USCG, O4+ for other services, GS11+ for civilians",
+      "funding": "Naval War College provides materials on loan basis",
+      "prerequisites": ["Baccalaureate Degree"],
+      "courses": ["Strategy and War", "Theater Security Decision Making", "Joint Maritime Operations"],
+      "poc": {
+        "name": "Ms. Ruth Chapman",
+        "phone": "(401) 856-5530",
+        "email": "fsp@usnwc.edu"
+      },
+      "notes": "Reference NAVADMIN 070/25 for Academic Year 2025-2026"
+    },
+    {
+      "id": "jpmei-online",
+      "name": "JPME I - Naval Command and Staff Online",
+      "category": "Joint Professional Military Education",
+      "description": "Online program educating students on fundamentals of U.S. national security policy, military strategy, and their relationship. Five educational modules.",
+      "targetRank": ["O3", "O4", "O5", "O6"],
+      "requirement": "Required for 67B Expeditionary Medicine AQD",
+      "duration": "40 weeks typical",
+      "format": "Online (asynchronous with some synchronous elements)",
+      "sessions": [
+        {
+          "location": "Online via Blackboard LMS",
+          "registration": "Online application (waitlist-based)",
+          "link": "https://nwc.empowerxl.com/forms/gen_cf/inq_app_exec_screen.cfm?scor_id=82AD5852B96E24B7560E772AC24A9D2C"
+        }
+      ],
+      "eligibility": "O3+ for Navy/USMC/USCG, O4+ for other services, GS11+ for civilians",
+      "funding": "Free (online)",
+      "prerequisites": ["Baccalaureate Degree"],
+      "modules": [
+        "Fundamentals of Strategy",
+        "The Security Environment", 
+        "Operational Art",
+        "Joint Capabilities",
+        "Joint Planning Process"
+      ],
+      "poc": {
+        "email": "ncsonline@usnwc.edu",
+        "phone": "(401) 856-5550"
+      },
+      "link": "https://usnwc.edu/college-of-distance-education/Online-Program/JPME-Phase-I.html"
+    },
+    {
+      "id": "hcm",
+      "name": "Healthcare Management Course (HCM)",
+      "category": "JMESI Executive Skills",
+      "description": "Tri-service course for first-time clinical supervisors providing administrative tools to manage clinical areas. Topics include civilian personnel, contracting, budgeting, quality management.",
+      "targetRank": ["O2", "O3", "O4"],
+      "targetGrade": "O2-4, E5-7, GS9-11",
+      "requirement": "Recommended for first-time clinical supervisors",
+      "duration": "4 days",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "dates": [
+            {"start": "2026-01-12", "end": "2026-01-15"},
+            {"start": "2026-05-11", "end": "2026-05-14"},
+            {"start": "2026-09-14", "end": "2026-09-17"}
+          ]
+        }
+      ],
+      "registration": "Self-nomination via JKO after completing Phase 1 prerequisites",
+      "registrationOpens": "60 days prior to course start",
+      "nominationDue": "3 weeks prior",
+      "prerequisites": [
+        {
+          "name": "JMESI Healthcare Management Course Phase 1",
+          "location": "Joint Knowledge Online (JKO)",
+          "duration": "7 hours",
+          "link": "https://jko.jten.mil/dha"
+        }
+      ],
+      "jkoEnrollment": "Search for course US300 after completing Phase 1",
+      "quota": 200,
+      "funding": "Free (tuition covered)",
+      "jmespCompetencies": true,
+      "poc": {
+        "name": "Mr. Andrew Munoz",
+        "organization": "DHA J7 EXCEL-JMESI",
+        "phone": "(210) 295-2652",
+        "email": "andrew.h.munoz.civ@health.mil"
+      },
+      "link": "https://www.health.mil/jmesi"
+    },
+    {
+      "id": "iesc",
+      "name": "Intermediate Executive Skills Course (IESC)",
+      "category": "JMESI Executive Skills",
+      "description": "Education and training on leadership and management skills necessary to serve in intermediate-level leadership position within DHA MTF.",
+      "targetRank": ["O4", "O5"],
+      "targetGrade": "O4-5, E7-8, GS11-13 (minimum O3, E6, GS9)",
+      "requirement": "Recommended for intermediate-level leaders in DHA facilities",
+      "duration": "4 days (live virtual) + 8 web-based modules",
+      "format": "Virtual (MS Teams)",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "dates": [
+            {"start": "2025-10-20", "end": "2025-10-23"},
+            {"start": "2026-02-23", "end": "2026-02-26"},
+            {"start": "2026-06-08", "end": "2026-06-11"}
+          ]
+        }
+      ],
+      "registration": "Self-nomination via JKO after completing Phase 1 prerequisites",
+      "registrationOpens": "90 days prior to course start",
+      "nominationDue": "2 weeks prior",
+      "prerequisites": [
+        {
+          "name": "JMESI-IES Course Phase 1",
+          "location": "Joint Knowledge Online (JKO)",
+          "link": "https://jko.jten.mil/dha"
+        }
+      ],
+      "jkoEnrollment": "Search for course US400 after completing Phase 1",
+      "quota": 300,
+      "funding": "Free (tuition covered)",
+      "jmespCompetencies": true,
+      "contributesToAQD": "67A Executive Medicine",
+      "poc": {
+        "name": "Mr. Andrew Munoz",
+        "organization": "DHA J7 EXCEL-JMESI",
+        "phone": "(210) 295-2652",
+        "email": "andrew.h.munoz.civ@health.mil"
+      },
+      "link": "https://www.health.mil/jmesi"
+    },
+    {
+      "id": "capstone",
+      "name": "Capstone for MHS Leaders Course",
+      "category": "JMESI Executive Skills",
+      "description": "Pinnacle educational event for senior MHS leaders. Speakers include Service Surgeons General, ASD(HA), DHA Director. Provides firsthand knowledge for MTF commanders.",
+      "targetRank": ["O6", "O7"],
+      "requirement": "For new lead agents, commanders of larger facilities, command surgeons",
+      "duration": "4 days",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "dates": [
+            {"start": "2025-11-17", "end": "2025-11-20"},
+            {"start": "2026-03-23", "end": "2026-03-26"},
+            {"start": "2026-07-13", "end": "2026-07-16"}
+          ]
+        }
+      ],
+      "registration": "Corps Chief's Office nomination - not self-nomination",
+      "nominationDue": "45 days prior",
+      "quota": 7,
+      "quotaNote": "7 seats per Corps per class",
+      "funding": "JMESI covers tuition",
+      "jmespCompetencies": true,
+      "contributesToAQD": "67A Executive Medicine",
+      "poc": {
+        "name": "Mr. Andrew Munoz",
+        "organization": "DHA J7 EXCEL-JMESI",
+        "phone": "(210) 295-2652",
+        "email": "andrew.h.munoz.civ@health.mil"
+      },
+      "link": "https://www.health.mil/jmesi"
+    },
+    {
+      "id": "sllc",
+      "name": "Senior Leader Legal Course (SLLC)",
+      "category": "Legal",
+      "description": "3-day course to prepare O5-O6 commanding officers, executive officers, and senior enlisted for legal issues as command triad. Covers UCMJ, admin separations, court-martial, ethics.",
+      "targetRank": ["O5", "O6"],
+      "requirement": "For COs, XOs, and SELs heading to command positions",
+      "duration": "3 days",
+      "format": "In-person (Newport) and Virtual",
+      "sessions": [
+        {
+          "location": "Newport, RI",
+          "cdp": "0258",
+          "dates": [
+            {"seq": 10, "start": "2025-10-14", "end": "2025-10-16"},
+            {"seq": 20, "start": "2025-11-04", "end": "2025-11-06"},
+            {"seq": 30, "start": "2026-01-20", "end": "2026-01-22"},
+            {"seq": 40, "start": "2026-02-10", "end": "2026-02-12"},
+            {"seq": 50, "start": "2026-03-10", "end": "2026-03-12"},
+            {"seq": 60, "start": "2026-03-31", "end": "2026-04-02"},
+            {"seq": 70, "start": "2026-04-21", "end": "2026-04-23"},
+            {"seq": 80, "start": "2026-05-05", "end": "2026-05-07"},
+            {"seq": 90, "start": "2026-05-26", "end": "2026-05-28"},
+            {"seq": 100, "start": "2026-06-16", "end": "2026-06-18"},
+            {"seq": 110, "start": "2026-06-30", "end": "2026-07-02"},
+            {"seq": 120, "start": "2026-07-21", "end": "2026-07-23"},
+            {"seq": 130, "start": "2026-08-11", "end": "2026-08-13"},
+            {"seq": 150, "start": "2026-09-08", "end": "2026-09-10"}
+          ]
+        },
+        {
+          "location": "Virtual",
+          "cdp": "24M5",
+          "dates": [
+            {"seq": 5, "start": "2025-11-18", "end": "2025-11-20"},
+            {"seq": 15, "start": "2025-12-09", "end": "2025-12-11"},
+            {"seq": 25, "start": "2026-01-13", "end": "2026-01-15"},
+            {"seq": 35, "start": "2026-02-17", "end": "2026-02-19"},
+            {"seq": 45, "start": "2026-03-24", "end": "2026-03-26"},
+            {"seq": 55, "start": "2026-06-02", "end": "2026-06-04"},
+            {"seq": 65, "start": "2026-09-22", "end": "2026-09-24"}
+          ]
+        }
+      ],
+      "registration": "eNTRS for Navy students. Detailers register incoming COs/XOs.",
+      "cin": "S-5F-0011",
+      "funding": "Parent Command",
+      "poc": {
+        "name": "LT Zach Osterloh",
+        "title": "Fleet Leader Legal Training Program Manager",
+        "phone": "(410) 841-3800 x130",
+        "email": "zachary.osterloh@njsonline.onmicrosoft.com"
+      },
+      "link": "https://www.jag.navy.mil/about/organization/ojag/njs/curriculum/soc/"
+    },
+    {
+      "id": "swmdoic",
+      "name": "Surface Warfare Medical Department Officer Indoctrination Course (SWMDOIC)",
+      "category": "Operational",
+      "description": "Orientation to Fleet operations for Medical Department Officers with ship assignments. Covers medical assets of surface vessels, admin requirements, preventive/occupational health.",
+      "targetRank": ["O2", "O3", "O4", "O5", "O6"],
+      "requirement": "Training prerequisite for Surface Warfare Medical Department Officer Qualification",
+      "duration": "2 weeks",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "San Diego, CA (SWMI)",
+          "cdp": "630B",
+          "dates": [
+            {"seq": 10, "start": "2025-10-13", "end": "2025-10-24"},
+            {"seq": 20, "start": "2026-05-04", "end": "2026-05-15"},
+            {"seq": 30, "start": "2026-07-13", "end": "2026-07-24"}
+          ]
+        }
+      ],
+      "registration": "CeTARS/eNTRS via education/training department",
+      "nominationDue": "40 days prior",
+      "cin": "B-6A-2301",
+      "funding": "Parent Command (Funded TAD or I-Stop)",
+      "quota": 35,
+      "prerequisites": ["High-Risk training physical"],
+      "contributesToAQD": "Surface Warfare Medical Department Officer",
+      "poc": {
+        "organization": "Surface Warfare Medical Institute",
+        "address": "34101 Farenholt Avenue, Bldg 14, San Diego, CA 92134",
+        "phone": "(619) 532-6195",
+        "dsn": "522-6195",
+        "email": "usn.san-diego.navmedotcswmica.mbx.fleet-training@health.mil"
+      },
+      "link": "https://www.med.navy.mil/Navy-Medicine-Operational-Training-Command/Surface-Warfare-Medical-Institute/Surface-Warfare-Medical-Officer-Indoctrination-Course-SWMDOIC/"
+    },
+    {
+      "id": "catfs",
+      "name": "Commander Amphibious Task Force Surgeon Course (CATF-S)",
+      "category": "Operational",
+      "description": "Prepares Medical Corps Officers for unique challenges of being CATF Surgeon. Upon graduation, eligible for assignment as CATF/ESG Surgeon and OIC of Fleet Surgical Team.",
+      "targetRank": ["O3", "O4", "O5", "O6"],
+      "requirement": "Satisfies MAP requirements for Echelon III Command and Control",
+      "duration": "2 weeks",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "San Diego, CA (SWMI)",
+          "cdp": "630C",
+          "dates": [
+            {"seq": 10, "start": "2026-03-23", "end": "2026-04-03"},
+            {"seq": 20, "start": "2026-09-21", "end": "2026-10-02"}
+          ]
+        }
+      ],
+      "registration": "CeTARS/eNTRS. Priority given to those filling or with orders to CATF-S billet.",
+      "nominationDue": "40 days prior",
+      "cin": "B-6A-1000",
+      "funding": "Parent Command (most candidates need local funding or no-cost status)",
+      "quota": 35,
+      "prerequisites": ["Previous operational experience preferred", "High-Risk training physical"],
+      "contributesToAQD": "CATF Surgeon qualification",
+      "poc": {
+        "organization": "Surface Warfare Medical Institute",
+        "address": "34101 Farenholt Avenue, Bldg 14, San Diego, CA 92134",
+        "phone": "(619) 532-6195",
+        "dsn": "522-6195",
+        "email": "usn.san-diego.navmedotcswmica.mbx.fleet-training@health.mil"
+      },
+      "link": "https://www.med.navy.mil/Navy-Medicine-Operational-Training-Command/Surface-Warfare-Medical-Institute/Commander-Amphibious-Task-Force-Surgeon-Course-CATF-S/"
+    },
+    {
+      "id": "medxellence",
+      "name": "MedXellence",
+      "category": "Executive Leadership",
+      "description": "40 hours of continuing education for current and aspiring MHS leaders. Combination of lectures, discussions, and small-group case study exercises based on real-world MHS scenarios.",
+      "targetRank": ["O4", "O5", "O6"],
+      "targetGrade": "O4-O6 and Civil Service equivalents",
+      "requirement": "For rising MHS executives who wish to be educated on MHS relevant issues",
+      "duration": "1 week (40 hours CE)",
+      "format": "In-person at USU",
+      "sessions": [
+        {
+          "location": "Uniformed Services University, Bethesda, MD",
+          "registration": "Self-nominate or supervisor nomination via USU website",
+          "link": "https://medschool.usuhs.edu/pmb/education/medxellence"
+        }
+      ],
+      "registration": "Online nomination. Selection based on Service, rank, corps, job title balance.",
+      "eligibility": "Must have at least 2 years of service remaining",
+      "funding": "No tuition; command funds travel/per-diem/lodging",
+      "jmespCompetencies": true,
+      "poc": {
+        "name": "LT Tyson Goodrich",
+        "title": "Course Administrator",
+        "email": "tyson.goodrich@usuhs.edu"
+      },
+      "link": "https://medschool.usuhs.edu/pmb/education/medxellence"
+    },
+    {
+      "id": "nmqsla",
+      "name": "Navy Medicine Quality, Safety, and Leadership Academy (NMQSLA)",
+      "category": "Quality/Safety",
+      "description": "HRO training for Navy Medicine leaders. Didactic and interactive sessions on HRO, quality, and safety concepts. Includes Capstone Project developing HRO initiative.",
+      "targetRank": ["O4", "O5", "O6"],
+      "requirement": "Mandated for milestone and command billets per BUMEDINSTs 1410.1 and 1412.D. Mandated for SEM billets per BUMEDINST 1412.2 (FY26+).",
+      "duration": "3-day Kick-Off + 5 Virtual Classroom sessions + Capstone presentation",
+      "format": "Hybrid (in-person kick-off, virtual sessions)",
+      "sessions": [
+        {
+          "location": "Virtual with in-person Kick-Off",
+          "frequency": "4 times per fiscal year",
+          "registration": "NMQSLA Support Team reaches out to identified billets. Others can request via email."
+        }
+      ],
+      "registration": "Contact NMQSLA Support Team to be added to waitlist",
+      "funding": "Free for service members (travel if applicable varies by Cohort)",
+      "quota": "~40 Scholars per Cohort",
+      "requirements": [
+        "Attend full 3-day Kick-Off",
+        "Attend 80% of 5 Virtual Classroom sessions",
+        "Complete Capstone Project presentation"
+      ],
+      "poc": [
+        {
+          "name": "CAPT Tracy Krauss, NC, USN",
+          "phone": "(703) 681-9264",
+          "cell": "(301) 956-5715",
+          "email": "tracy.r.krauss.mil@health.mil"
+        },
+        {
+          "name": "Ms. Carmen Birk",
+          "title": "BUMED Risk Manager (N5)",
+          "phone": "(703) 681-9187",
+          "email": "carmen.c.birk.civ@health.mil"
+        }
+      ],
+      "supportEmail": "usn.ncr.bumedfchva.mbx.qualityand-safetyleadershipacademy@health.mil"
+    },
+    {
+      "id": "iaifhl",
+      "name": "Interagency Institute for Federal Health Leaders",
+      "category": "Executive Leadership",
+      "description": "Two-week course for seasoned federal health care executives examining current health care policy and management issues. Faculty includes research leaders and national policy decision-makers.",
+      "targetRank": ["O5", "O6"],
+      "requirement": "For senior officers tracking toward Executive Medicine",
+      "duration": "2 weeks",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Washington, DC",
+          "dates": [
+            {"session": "146th", "start": "2025-09-08", "end": "2025-09-19"},
+            {"session": "147th", "start": "TBD", "end": "TBD"}
+          ]
+        }
+      ],
+      "registration": "Corps Chief's Office nomination - not self-nomination",
+      "nominationDue": "30 days prior",
+      "quota": 11,
+      "quotaNote": "11 quotas for Navy Medicine shared among four Corps",
+      "funding": "NMLPDC",
+      "jmespCompetencies": true,
+      "poc": {
+        "name": "CAPT Stacy Washington",
+        "title": "Director, Professional Development",
+        "organization": "NMLPDC",
+        "phone": "(301) 400-3935",
+        "email": "stacy.j.washington2.mil@health.mil"
+      },
+      "link": "https://www.fhceiaa.org/iiffhce-course"
+    },
+    {
+      "id": "nsls",
+      "name": "Navy Senior Leadership Seminar (NSLS)",
+      "category": "Executive Leadership",
+      "description": "5-day executive education program on strategic thinking, goal setting, risk management, financial management, innovative thinking, strategic communication, and organizational change.",
+      "targetRank": ["O5", "O6"],
+      "requirement": "For senior Navy Officers, Civilians, and Command Master Chiefs",
+      "duration": "5 days",
+      "format": "In-person (NPS Monterey) and Virtual (NSLS-O)",
+      "sessions": [
+        {
+          "location": "Naval Postgraduate School, Monterey, CA (or Virtual)",
+          "registration": "Corps Career Planner nomination",
+          "link": "https://nps.edu/web/cee/nsls"
+        }
+      ],
+      "registration": "Quotas managed by Navy Medicine Medical Department Corps Career Planners. Nomination via Chain of Command.",
+      "quota": 2,
+      "quotaNote": "2 seats for Navy Medicine shared among all Corps",
+      "funding": "NPS covers tuition. Parent command provides travel/lodging/per-diem for in-person.",
+      "poc": {
+        "organization": "Center for Executive Education - Naval Postgraduate School",
+        "email": "CEE@nps.edu",
+        "phone": "(831) 656-3850"
+      },
+      "link": "https://nps.edu/web/cee/nsls"
+    }
+  ],
+  "aqds": {
+    "67A": {
+      "name": "Executive Medicine",
+      "description": "Required per NDAA and BUMEDINST 1412.1B for Command Qualification Program (2D1 AQD)",
+      "requirements": {
+        "education": "Master's degree or higher (no waivers)",
+        "rank": "O4 and above",
+        "experience": "Department/Division Head (Clinical, Administrative, or Science) 2-year minimum tour",
+        "courses": ["JMESI Intermediate Executive Skills Course or equivalent"],
+        "operational": "One of: 2-year operational tour, combined deployment experience, or operational educational training"
+      },
+      "contributingCourses": ["iesc", "capstone", "hcm"],
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager",
+        "phone": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    "67B": {
+      "name": "Expeditionary Medicine",
+      "description": "For officers with warfare designator and JPME completion",
+      "requirements": {
+        "warfare": "Warfare Designator",
+        "jpme": "JPME I required",
+        "courses": "7 Core and 7 Additional courses (contact JMESP PM for list)"
+      },
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager", 
+        "phone": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    "67G": {
+      "name": "Managed Care",
+      "description": "For officers with 67A and managed care experience",
+      "requirements": {
+        "prerequisite": "67A Executive Medicine AQD",
+        "experience": "1 year Healthcare Business Operations at HQ (DHA, BUMED, Region, Market) or MTF directorate/department"
+      }
+    }
+  },
+  "careerMilestones": {
+    "O3": {
+      "typicalYears": "0-4",
+      "focus": ["Clinical competency", "Board certification", "Junior operational tour"],
+      "recommendedCourses": ["divolc", "broc", "swmdoic"],
+      "operationalOptions": ["Surface Fleet Physician", "Marine Battalion Surgeon", "Flight Surgeon", "Undersea Medical Officer"]
+    },
+    "O4": {
+      "typicalYears": "4-10",
+      "focus": ["Department Head experience", "Senior operational tour", "Begin JPME"],
+      "recommendedCourses": ["ilc", "aroc", "jpmei-fsp", "jpmei-online", "hcm", "iesc"],
+      "operationalOptions": ["Ship/Group SMO", "Regimental Surgeon", "Senior FS/UMO", "GHE Staff Officer"]
+    },
+    "O5": {
+      "typicalYears": "10-16",
+      "focus": ["Executive OMO tour", "Complete JPME I", "67A AQD", "Command screening"],
+      "recommendedCourses": ["slc", "iesc", "capstone", "sllc", "nmqsla", "medxellence"],
+      "operationalOptions": ["LHA/LHD/CVN SMO", "Group UMO", "GHE/HQ/PERS Staff", "FST OIC", "CATF Surgeon"]
+    },
+    "O6": {
+      "typicalYears": "16-22",
+      "focus": ["Command tour", "Senior Executive positions", "Flag track preparation"],
+      "recommendedCourses": ["capstone", "iaifhl", "nsls", "nmqsla"],
+      "operationalOptions": ["TYCOM/Fleet Surgeon", "Division/Group/Wing Surgeon", "Senior HQ/PERS", "Senior GHE Billet"]
+    }
+  }
+}

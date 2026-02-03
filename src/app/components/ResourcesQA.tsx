@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Upload, X, FileText, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { MessageCircle, Send, Upload, FileText, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
 
 // Set worker path
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -90,6 +91,42 @@ async function extractTextFromPDF(file: File): Promise<string> {
   return fullText;
 }
 
+// Extract text from Word documents (.doc, .docx)
+async function extractTextFromWord(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+// Extract text from PowerPoint (.pptx) - basic extraction
+async function extractTextFromPowerPoint(file: File): Promise<string> {
+  // PPTX files are ZIP archives containing XML
+  const arrayBuffer = await file.arrayBuffer();
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  
+  let fullText = '';
+  
+  // Get all slide XML files
+  const slideFiles = Object.keys(zip.files).filter(name => 
+    name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+  ).sort();
+  
+  for (const slideFile of slideFiles) {
+    const content = await zip.files[slideFile].async('text');
+    // Extract text from XML tags - basic regex approach
+    const textMatches = content.match(/<a:t>([^<]*)<\/a:t>/g) || [];
+    const slideText = textMatches
+      .map(match => match.replace(/<a:t>|<\/a:t>/g, ''))
+      .join(' ');
+    if (slideText.trim()) {
+      fullText += slideText + '\n';
+    }
+  }
+  
+  return fullText;
+}
+
 // Check for PII patterns
 function containsPII(text: string): boolean {
   const piiPatterns = [
@@ -101,6 +138,11 @@ function containsPII(text: string): boolean {
   ];
   
   return piiPatterns.some(pattern => pattern.test(text));
+}
+
+// Get file extension
+function getFileExtension(filename: string): string {
+  return filename.split('.').pop()?.toLowerCase() || '';
 }
 
 export default function ResourcesQA() {
@@ -164,14 +206,25 @@ export default function ResourcesQA() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.pdf')) {
-      alert('Please upload a PDF file');
+    const extension = getFileExtension(file.name);
+    const supportedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx'];
+    
+    if (!supportedExtensions.includes(extension)) {
+      alert('Please upload a PDF, Word (.doc, .docx), or PowerPoint (.ppt, .pptx) file');
       return;
     }
 
     setIsUploading(true);
     try {
-      const text = await extractTextFromPDF(file);
+      let text = '';
+      
+      if (extension === 'pdf') {
+        text = await extractTextFromPDF(file);
+      } else if (extension === 'doc' || extension === 'docx') {
+        text = await extractTextFromWord(file);
+      } else if (extension === 'ppt' || extension === 'pptx') {
+        text = await extractTextFromPowerPoint(file);
+      }
       
       // Check for PII
       if (containsPII(text)) {
@@ -197,8 +250,8 @@ export default function ResourcesQA() {
       await storeDocument(doc);
       await loadDocuments();
     } catch (error) {
-      console.error('Error processing PDF:', error);
-      alert('Error processing PDF. Please try again.');
+      console.error('Error processing file:', error);
+      alert('Error processing file. Please try again or use a different format.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -301,7 +354,7 @@ ${context}`;
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx"
                   onChange={handleFileUpload}
                   className="hidden"
                   id="ref-upload"
@@ -322,7 +375,7 @@ ${context}`;
                   ) : (
                     <>
                       <Upload className="w-4 h-4" />
-                      Add Reference PDF
+                      Add Reference (PDF, Word, PPT)
                     </>
                   )}
                 </label>
@@ -362,9 +415,9 @@ ${context}`;
                 <p>Ask questions about Navy Medical Corps career development.</p>
                 <p className="text-sm mt-2">Examples:</p>
                 <ul className="text-sm mt-1 space-y-1">
-                  <li>"What courses should an O4 complete?"</li>
-                  <li>"How do I apply for JPME?"</li>
+                  <li>"When is the next ILC in San Diego?"</li>
                   <li>"What are the requirements for 67A AQD?"</li>
+                  <li>"How do I apply for JPME Fleet Seminar?"</li>
                 </ul>
               </div>
             )}

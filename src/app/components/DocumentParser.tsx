@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileSearch, CheckCircle, AlertTriangle, Edit2, ChevronDown, ChevronUp, Award, BookOpen, Shield } from 'lucide-react';
+import { FileSearch, CheckCircle, AlertTriangle, Edit2, ChevronDown, ChevronUp, Award, BookOpen, Shield, FileText } from 'lucide-react';
 import type { UploadedDocuments } from './DocumentUpload';
 import { 
   parseODC, 
@@ -32,6 +32,14 @@ export interface ParsedData {
   currentStation: string;
   currentBillet: string;
   psrAnalysis: PSRAnalysisResult | null;
+  // PSR summary fields for VerifyParsedData
+  fitrepAverage: number;
+  fitrepCount: number;
+  earlyPromotes: number;
+  mustPromotes: number;
+  promotables: number;
+  clearanceLevel: 'Secret' | 'Top Secret' | 'None' | '';
+  clearanceDate: string;
 }
 
 interface DocumentParserProps {
@@ -47,7 +55,7 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
   const [parsingComplete, setParsingComplete] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showAQDs, setShowAQDs] = useState(false);
-  const [showPSRDetails, setShowPSRDetails] = useState(false);
+  const [showPSRDetails, setShowPSRDetails] = useState(true); // Default to expanded
 
   useEffect(() => {
     const parseDocuments = async () => {
@@ -57,15 +65,25 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
       const osrText = uploadedDocuments.osr?.status === 'success' ? uploadedDocuments.osr.text : '';
       const psrText = uploadedDocuments.psr?.status === 'success' ? uploadedDocuments.psr.text : '';
 
+      console.log('ODC text length:', odcText.length);
+      console.log('OSR text length:', osrText.length);
+      console.log('PSR text length:', psrText.length);
+
       if (!odcText && !osrText && !psrText) {
         console.log('No documents to parse');
         return;
       }
 
+      // Parse each document
       const odcData = odcText ? parseODC(odcText) : null;
       const osrData = osrText ? parseOSR(osrText) : null;
       const psrAnalysis = psrText ? parsePSR(psrText) : null;
 
+      console.log('ODC parsed:', odcData);
+      console.log('OSR parsed:', osrData);
+      console.log('PSR parsed:', psrAnalysis);
+
+      // Merge ODC and OSR data
       const merged = mergeOfficerData(odcData, osrData);
       const warnings: string[] = [...merged.warnings];
 
@@ -75,8 +93,24 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
       if (merged.boardCertified === null) {
         warnings.push('Board certification status not detected');
       }
+      if (!merged.securityClearance) {
+        warnings.push('Security clearance not detected from blocks 92/93');
+      }
 
       const psrIssues: string[] = psrAnalysis?.issues || [];
+
+      // Calculate PSR summary values
+      const psrSummary = psrAnalysis?.summary;
+
+      // Determine clearance level
+      let clearanceLevel: 'Secret' | 'Top Secret' | 'None' | '' = '';
+      if (merged.securityClearance?.level) {
+        if (merged.securityClearance.level.includes('Top Secret')) {
+          clearanceLevel = 'Top Secret';
+        } else if (merged.securityClearance.level.includes('Secret')) {
+          clearanceLevel = 'Secret';
+        }
+      }
 
       const data: ParsedData = {
         rankHistory: merged.rankHistory,
@@ -97,9 +131,17 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
         currentStation: merged.currentStation,
         currentBillet: merged.currentBillet,
         psrAnalysis,
+        // PSR summary for VerifyParsedData
+        fitrepAverage: psrSummary?.averageIndividual || 0,
+        fitrepCount: psrSummary?.totalFitreps || 0,
+        earlyPromotes: psrSummary?.epCount || 0,
+        mustPromotes: psrSummary?.mpCount || 0,
+        promotables: psrSummary?.pCount || 0,
+        clearanceLevel,
+        clearanceDate: merged.securityClearance?.grantedDate || merged.securityClearance?.investigationDate || '',
       };
 
-      console.log('Parsed data:', data);
+      console.log('Final parsed data:', data);
       setParsedData(data);
       setEditableRanks(data.rankHistory.length > 0 ? [...data.rankHistory] : [{ rank: '', dateOfRank: '' }]);
       setParsingComplete(true);
@@ -164,7 +206,7 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
       <div className="flex flex-col items-center justify-center py-12">
         <FileSearch className="w-12 h-12 text-blue-600 animate-pulse mb-4" />
         <h3 className="text-lg font-semibold text-gray-900">Analyzing Documents...</h3>
-        <p className="text-sm text-gray-600 mt-1">Extracting rank history, AQDs, and career data</p>
+        <p className="text-sm text-gray-600 mt-1">Extracting rank history, AQDs, FITREPs, and career data</p>
       </div>
     );
   }
@@ -179,7 +221,7 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
       </div>
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-5 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Current Rank</div>
           <div className="text-2xl font-bold text-blue-600">{parsedData.currentRank || 'Unknown'}</div>
@@ -191,12 +233,16 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Board Certified</div>
           <div className={`text-2xl font-bold ${parsedData.boardCertified ? 'text-green-600' : parsedData.boardCertified === false ? 'text-red-600' : 'text-gray-400'}`}>
-            {parsedData.boardCertified === true ? 'Yes' : parsedData.boardCertified === false ? 'No' : 'Unknown'}
+            {parsedData.boardCertified === true ? 'Yes (K)' : parsedData.boardCertified === false ? 'No (J)' : 'Unknown'}
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">AQDs Found</div>
           <div className="text-2xl font-bold text-blue-600">{parsedData.aqdEntries.length}</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-sm text-gray-600 mb-1">FITREPs</div>
+          <div className="text-2xl font-bold text-blue-600">{parsedData.fitrepCount}</div>
         </div>
       </div>
 
@@ -296,8 +342,10 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
         ) : (
           <div className="space-y-2">
             {editableRanks.filter(r => r.rank && r.dateOfRank).map((entry, index) => {
-              const [year, month, day] = entry.dateOfRank.split('-');
-              const displayDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+              const isValidDate = entry.dateOfRank && !isNaN(new Date(entry.dateOfRank).getTime());
+              const displayDate = isValidDate 
+                ? new Date(entry.dateOfRank).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                : 'Invalid date';
               const isCurrentRank = entry.rank === parsedData.currentRank;
               
               return (
@@ -308,8 +356,8 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
                   <div className="flex items-center gap-4">
                     <span className="font-semibold text-gray-900 w-16">{entry.rank}</span>
                     <span className="text-gray-600">→</span>
-                    <span className="text-gray-700">
-                      {displayDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    <span className={`text-gray-700 ${!isValidDate ? 'text-red-500' : ''}`}>
+                      {displayDate}
                     </span>
                   </div>
                   {isCurrentRank && (
@@ -322,6 +370,66 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
             })}
             {editableRanks.filter(r => r.rank && r.dateOfRank).length === 0 && (
               <p className="text-sm text-gray-500 italic">No rank history detected. Click "Edit Ranks" to add.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* PSR Analysis Summary */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <button
+          onClick={() => setShowPSRDetails(!showPSRDetails)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+        >
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            FITREP Summary {parsedData.fitrepCount > 0 ? `(${parsedData.fitrepCount} reports)` : '(No data)'}
+          </h3>
+          {showPSRDetails ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </button>
+        {showPSRDetails && (
+          <div className="px-4 pb-4 space-y-4">
+            {parsedData.fitrepCount > 0 ? (
+              <>
+                <div className="grid grid-cols-5 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{parsedData.fitrepCount}</div>
+                    <div className="text-xs text-gray-600">Total FITREPs</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{parsedData.earlyPromotes}</div>
+                    <div className="text-xs text-gray-600">Early Promote</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{parsedData.mustPromotes}</div>
+                    <div className="text-xs text-gray-600">Must Promote</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">{parsedData.promotables}</div>
+                    <div className="text-xs text-gray-600">Promotable</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-600">
+                      {parsedData.fitrepAverage > 0 ? parsedData.fitrepAverage.toFixed(2) : 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-600">Avg Score</div>
+                  </div>
+                </div>
+                {parsedData.psrAnalysis?.summary?.trend && (
+                  <div className={`text-sm px-3 py-2 rounded-md ${
+                    parsedData.psrAnalysis.summary.trend === 'improving' ? 'bg-green-50 text-green-800' :
+                    parsedData.psrAnalysis.summary.trend === 'declining' ? 'bg-red-50 text-red-800' :
+                    'bg-gray-50 text-gray-800'
+                  }`}>
+                    Performance Trend: {parsedData.psrAnalysis.summary.trend.charAt(0).toUpperCase() + parsedData.psrAnalysis.summary.trend.slice(1)}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p>No FITREP data extracted from PSR.</p>
+                <p className="text-xs mt-1">You can enter this information manually in the next step.</p>
+              </div>
             )}
           </div>
         )}
@@ -363,62 +471,35 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
             <Shield className="w-5 h-5 text-blue-600" />
             Security Clearance
           </h3>
-          <div className="flex items-center gap-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-              parsedData.securityClearance.level === 'TOP SECRET' 
-                ? 'bg-purple-100 text-purple-800' 
-                : 'bg-green-100 text-green-800'
-            }`}>
-              {parsedData.securityClearance.level}
-            </span>
-            <span className="text-sm text-gray-600">
-              Investigation Year: {parsedData.securityClearance.investigationYear}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* PSR Analysis Summary */}
-      {parsedData.psrAnalysis && parsedData.psrAnalysis.fitreps.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200">
-          <button
-            onClick={() => setShowPSRDetails(!showPSRDetails)}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
-          >
-            <h3 className="font-semibold text-gray-900">
-              FITREP Analysis ({parsedData.psrAnalysis.summary.totalFitreps} reports)
-            </h3>
-            {showPSRDetails ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-          </button>
-          {showPSRDetails && (
-            <div className="px-4 pb-4 space-y-4">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{parsedData.psrAnalysis.summary.epCount}</div>
-                  <div className="text-xs text-gray-600">Early Promote</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{parsedData.psrAnalysis.summary.mpCount}</div>
-                  <div className="text-xs text-gray-600">Must Promote</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-yellow-600">{parsedData.psrAnalysis.summary.pCount}</div>
-                  <div className="text-xs text-gray-600">Promotable</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-600">
-                    {parsedData.psrAnalysis.summary.averageIndividual.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-gray-600">Avg Score</div>
-                </div>
-              </div>
-              <div className={`text-sm px-3 py-2 rounded-md ${
-                parsedData.psrAnalysis.summary.trend === 'improving' ? 'bg-green-50 text-green-800' :
-                parsedData.psrAnalysis.summary.trend === 'declining' ? 'bg-red-50 text-red-800' :
-                'bg-gray-50 text-gray-800'
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-xs text-gray-500">Eligibility</div>
+              <div className="font-medium">{parsedData.securityClearance.eligibility}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Current Level</div>
+              <div className={`font-medium ${
+                parsedData.securityClearance.level.includes('Top Secret') ? 'text-purple-700' : 'text-green-700'
               }`}>
-                Trend: {parsedData.psrAnalysis.summary.trend.charAt(0).toUpperCase() + parsedData.psrAnalysis.summary.trend.slice(1)}
+                {parsedData.securityClearance.level}
               </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Investigation Date</div>
+              <div className="font-medium">{parsedData.securityClearance.investigationDate || 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Granted Date</div>
+              <div className="font-medium">{parsedData.securityClearance.grantedDate || 'N/A'}</div>
+            </div>
+          </div>
+          {parsedData.securityClearance.expirationDate && (
+            <div className="mt-3 text-sm">
+              <span className="text-gray-600">Expires: </span>
+              <span className="font-medium">{parsedData.securityClearance.expirationDate}</span>
+              {new Date(parsedData.securityClearance.expirationDate) < new Date(new Date().setFullYear(new Date().getFullYear() + 1)) && (
+                <span className="ml-2 text-yellow-600">⚠️ Expiring within 1 year</span>
+              )}
             </div>
           )}
         </div>
@@ -455,25 +536,25 @@ export function DocumentParser({ uploadedDocuments, onParsedDataAccepted, onSkip
           <div className="px-4 pb-4 space-y-3">
             {uploadedDocuments.odc?.status === 'success' && (
               <div className="bg-white rounded p-3 border">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2">ODC Text (first 2000 chars):</h4>
+                <h4 className="font-semibold text-sm text-gray-700 mb-2">ODC Text (first 3000 chars):</h4>
                 <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded max-h-64 overflow-auto">
-                  {uploadedDocuments.odc.text.substring(0, 2000)}
+                  {uploadedDocuments.odc.text.substring(0, 3000)}
                 </pre>
               </div>
             )}
             {uploadedDocuments.osr?.status === 'success' && (
               <div className="bg-white rounded p-3 border">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2">OSR Text (first 2000 chars):</h4>
+                <h4 className="font-semibold text-sm text-gray-700 mb-2">OSR Text (first 3000 chars):</h4>
                 <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded max-h-64 overflow-auto">
-                  {uploadedDocuments.osr.text.substring(0, 2000)}
+                  {uploadedDocuments.osr.text.substring(0, 3000)}
                 </pre>
               </div>
             )}
             {uploadedDocuments.psr?.status === 'success' && (
               <div className="bg-white rounded p-3 border">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2">PSR Text (first 2000 chars):</h4>
+                <h4 className="font-semibold text-sm text-gray-700 mb-2">PSR Text (first 3000 chars):</h4>
                 <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded max-h-64 overflow-auto">
-                  {uploadedDocuments.psr.text.substring(0, 2000)}
+                  {uploadedDocuments.psr.text.substring(0, 3000)}
                 </pre>
               </div>
             )}

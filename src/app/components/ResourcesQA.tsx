@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { MessageCircle, Send, Loader2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  sources?: string[];
 }
 
 export default function ResourcesQA() {
@@ -13,7 +14,25 @@ export default function ResourcesQA() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [courseData, setCourseData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load FY26 course catalog on mount
+  useEffect(() => {
+    async function loadCourses() {
+      try {
+        const response = await fetch('/fy26-courses.json');
+        if (response.ok) {
+          const data = await response.json();
+          setCourseData(data);
+          console.log('Loaded FY26 course catalog:', data);
+        }
+      } catch (e) {
+        console.error('Could not load course catalog:', e);
+      }
+    }
+    loadCourses();
+  }, []);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -30,41 +49,20 @@ export default function ResourcesQA() {
     setIsLoading(true);
 
     try {
-      // Load the FY26 course catalog for context
-      let courseContext = '';
-      try {
-        const courseResponse = await fetch('/fy26-courses.json');
-        if (courseResponse.ok) {
-          const courseData = await courseResponse.json();
-          courseContext = JSON.stringify(courseData, null, 2);
-        }
-      } catch (e) {
-        console.log('Could not load course catalog');
+      // Build context from course catalog
+      let context = '';
+      
+      if (courseData) {
+        context = `FY26 NAVY MEDICAL CORPS COURSE CATALOG:\n${JSON.stringify(courseData, null, 2)}`;
       }
-
-      const systemPrompt = `You are a helpful Navy Medical Corps career advisor assistant. Answer questions about career development, promotion requirements, training courses, AQDs, and professional development.
-
-Be concise and accurate. Focus on practical, actionable advice.
-
-Key knowledge areas:
-- Career Development Boards (CDBs) and how to prepare
-- Promotion requirements and timelines for Medical Corps officers
-- AQD (Additional Qualification Designators) requirements and benefits
-- PME (Professional Military Education) requirements
-- FITREP best practices
-- Leadership courses and when to take them
-
-FY26 COURSE CATALOG DATA:
-${courseContext}
-
-If you don't know something specific, say so and suggest where to find the information (e.g., BUPERS, detailer, specialty leader).`;
 
       const response = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: userMessage,
-          context: systemPrompt,
+          context: context,
+          strictMode: true, // Tell API to only answer from provided context
         }),
       });
 
@@ -73,17 +71,28 @@ If you don't know something specific, say so and suggest where to find the infor
       }
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.answer,
+        sources: data.sources,
+      }]);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'Sorry, I encountered an error. Please try again.' 
+        content: 'Sorry, I encountered an error connecting to the AI service. Please try again.' 
       }]);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const exampleQuestions = [
+    "When is the next ILC course?",
+    "What courses are available for JPME?",
+    "What leadership courses should an O4 take?",
+    "What are the FY26 executive medicine courses?",
+  ];
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
@@ -96,7 +105,9 @@ If you don't know something specific, say so and suggest where to find the infor
           <MessageCircle className="w-6 h-6 text-blue-600" />
           <div className="text-left">
             <h3 className="text-lg font-bold text-gray-900">CDB Reference Q&A</h3>
-            <p className="text-sm text-gray-600">Ask questions about career development, courses, and requirements</p>
+            <p className="text-sm text-gray-600">
+              Ask about FY26 courses, training requirements, and career development
+            </p>
           </div>
         </div>
         {isExpanded ? (
@@ -109,37 +120,55 @@ If you don't know something specific, say so and suggest where to find the infor
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-gray-200">
+          {/* Info banner */}
+          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+            <p className="text-xs text-blue-700 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              Answers are based on the FY26 NAVMED Course Catalog. The AI will indicate when information is not available.
+            </p>
+          </div>
+
           {/* Chat messages */}
           <div className="h-80 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 && (
+            {messages.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>Ask questions about Navy Medical Corps career development.</p>
-                <p className="text-sm mt-2">Examples:</p>
-                <ul className="text-sm mt-1 space-y-1">
-                  <li>"When is the next ILC course?"</li>
-                  <li>"What are the requirements for 67A AQD?"</li>
-                  <li>"How do I prepare for my CDB?"</li>
-                  <li>"What PME should I complete as an O4?"</li>
-                </ul>
-              </div>
-            )}
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] p-3 rounded-lg ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                <p className="mb-4">Ask questions about Navy Medical Corps training and courses.</p>
+                <div className="space-y-2">
+                  {exampleQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(q)}
+                      className="block w-full text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      "{q}"
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
+            ) : (
+              messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] p-3 rounded-lg ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.sources && msg.sources.length > 0 && (
+                      <p className="mt-2 text-xs opacity-75">
+                        Source: {msg.sources.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 p-3 rounded-lg">
@@ -157,7 +186,7 @@ If you don't know something specific, say so and suggest where to find the infor
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question about career development..."
+                placeholder="Ask about courses, training, or requirements..."
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isLoading}
               />

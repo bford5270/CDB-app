@@ -77,8 +77,11 @@ export interface ParsedOfficerData {
   courses: { code: string; name: string; completionDate: string; weeks: number }[];
   aqds: AQDEntry[];
   securityClearance: {
-    level: string;
-    investigationYear: string;
+    eligibility: string;      // What they're eligible for
+    level: string;            // What they actually have
+    investigationDate: string; // Block 92: MMYY when investigation initiated
+    grantedDate: string;       // Block 93: MMYY when clearance granted
+    expirationDate: string;    // Calculated expiration
   } | null;
   currentStation: string;
   currentBillet: string;
@@ -137,6 +140,15 @@ const VALID_AQD_CODES: { [code: string]: string } = {
   'EMT': 'Emergency Medicine Trained',
 };
 
+// Security clearance codes from ODC
+const CLEARANCE_CODES: { [code: string]: string } = {
+  'V': 'Top Secret - SCI Eligible',
+  'T': 'Top Secret',
+  'S': 'Secret',
+  'C': 'Confidential',
+  'N': 'None',
+};
+
 // ============================================================================
 // DATE PARSING UTILITIES
 // ============================================================================
@@ -189,6 +201,49 @@ export function parseYYMMDD(dateStr: string): string | null {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Parse MMYY format to YYYY-MM (for security clearance dates)
+ */
+function parseMMYY(dateStr: string): string | null {
+  const cleaned = dateStr.trim();
+  
+  if (cleaned.length !== 4 || !/^\d{4}$/.test(cleaned)) {
+    return null;
+  }
+  
+  const mm = cleaned.substring(0, 2);
+  const yy = cleaned.substring(2, 4);
+  
+  const monthNum = parseInt(mm);
+  const yearNum = parseInt(yy);
+  
+  if (monthNum < 1 || monthNum > 12) {
+    return null;
+  }
+  
+  const yyyy = yearNum <= 50 ? `20${yy}` : `19${yy}`;
+  
+  return `${yyyy}-${mm}`;
+}
+
+/**
+ * Calculate clearance expiration based on grant date and level
+ * Top Secret: 6 years, Secret: 10 years
+ */
+function calculateClearanceExpiration(grantedDate: string, level: string): string {
+  if (!grantedDate) return '';
+  
+  const [year, month] = grantedDate.split('-').map(Number);
+  
+  // Top Secret (T or V) = 6 years, Secret (S) = 10 years
+  const yearsValid = (level === 'Top Secret' || level === 'Top Secret - SCI Eligible') ? 6 : 10;
+  
+  const expYear = year + yearsValid;
+  const expMonth = month.toString().padStart(2, '0');
+  
+  return `${expYear}-${expMonth}`;
+}
+
 function isValidPromotionDate(dateStr: string): boolean {
   const year = parseInt(dateStr.substring(0, 4));
   return year >= 2000 && year <= 2035;
@@ -222,9 +277,7 @@ function extractAQDs(text: string): AQDEntry[] {
   const foundCodes = new Set<string>();
   
   // Method 1: Look for known AQD codes with year pattern
-  // Format: "67A 17 EXECUTIVE M" or "JS7 23 JPME PHASE"
   for (const [code, defaultTitle] of Object.entries(VALID_AQD_CODES)) {
-    // Pattern: code + space + 2-digit year + space + title text
     const pattern = new RegExp(`\\b${code}\\s+(\\d{2})\\s+([A-Z][A-Z\\s*]{2,})`, 'gi');
     const matches = [...text.matchAll(pattern)];
     
@@ -260,10 +313,8 @@ function extractAQDs(text: string): AQDEntry[] {
   }
   
   // Method 2: Look for AQD codes mentioned anywhere (without year)
-  // This catches cases where the code appears but year is elsewhere
   for (const [code, defaultTitle] of Object.entries(VALID_AQD_CODES)) {
     if (!foundCodes.has(code)) {
-      // Look for the code followed by its typical title keywords
       const titleKeywords = defaultTitle.split(' ')[0].toUpperCase();
       const contextPattern = new RegExp(`\\b${code}\\b[^\\n]{0,20}${titleKeywords}`, 'gi');
       
@@ -280,6 +331,137 @@ function extractAQDs(text: string): AQDEntry[] {
   
   console.log('Extracted AQDs (validated):', aqds);
   return aqds;
+}
+
+// ============================================================================
+// SECURITY CLEARANCE EXTRACTION - Blocks 92 and 93
+// ============================================================================
+
+/**
+ * Extract security clearance from ODC Blocks 92 and 93
+ * 
+ * Block 92 format: [Eligibility Code] [Actual Code] [Investigation Date MMYY]
+ * Block 93 format: [Granted Date MMYY]
+ * 
+ * Codes:
+ * V = Top Secret - SCI Eligible
+ * T = Top Secret
+ * S = Secret
+ * C = Confidential
+ * N = None
+ * 
+ * Top Secret valid for 6 years, Secret valid for 10 years
+ */
+function extractSecurityClearance(text: string): ParsedOfficerData['securityClearance'] {
+  console.log('=== EXTRACTING SECURITY CLEARANCE ===');
+  
+  // Look for Block 92/93 pattern
+  // Format: "V V 0615 1115" where:
+  // - First letter = eligibility
+  // - Second letter = actual clearance
+  // - First 4-digit = investigation date (MMYY)
+  // - Second 4-digit = granted date (MMYY) - this is in Block 93
+  
+  // Pattern 1: Two letters followed by two 4-digit dates
+  const fullPattern = /\b([VTSCN])\s+([VTSCN])\s+(\d{4})\s+(\d{4})\b/i;
+  const fullMatch = text.match(fullPattern);
+  
+  if (fullMatch) {
+    const eligibilityCode = fullMatch[1].toUpperCase();
+    const actualCode = fullMatch[2].toUpperCase();
+    const investigationMMYY = fullMatch[3];
+    const grantedMMYY = fullMatch[4];
+    
+    const eligibility = CLEARANCE_CODES[eligibilityCode] || eligibilityCode;
+    const level = CLEARANCE_CODES[actualCode] || actualCode;
+    const investigationDate = parseMMYY(investigationMMYY) || '';
+    const grantedDate = parseMMYY(grantedMMYY) || '';
+    const expirationDate = calculateClearanceExpiration(grantedDate, level);
+    
+    console.log('Found clearance (full pattern):', {
+      eligibility, level, investigationDate, grantedDate, expirationDate
+    });
+    
+    return {
+      eligibility,
+      level,
+      investigationDate,
+      grantedDate,
+      expirationDate,
+    };
+  }
+  
+  // Pattern 2: Look near "SECURITY" or "92" or "93" labels
+  const securitySection = text.match(/(?:SECURITY|92|93)[^\n]*\n?([^\n]+)/i);
+  if (securitySection) {
+    const sectionText = securitySection[1];
+    
+    // Try to find the pattern within this section
+    const sectionMatch = sectionText.match(/([VTSCN])\s+([VTSCN])\s+(\d{4})(?:\s+(\d{4}))?/i);
+    if (sectionMatch) {
+      const eligibilityCode = sectionMatch[1].toUpperCase();
+      const actualCode = sectionMatch[2].toUpperCase();
+      const investigationMMYY = sectionMatch[3];
+      const grantedMMYY = sectionMatch[4] || '';
+      
+      const eligibility = CLEARANCE_CODES[eligibilityCode] || eligibilityCode;
+      const level = CLEARANCE_CODES[actualCode] || actualCode;
+      const investigationDate = parseMMYY(investigationMMYY) || '';
+      const grantedDate = grantedMMYY ? parseMMYY(grantedMMYY) || '' : '';
+      const expirationDate = calculateClearanceExpiration(grantedDate, level);
+      
+      console.log('Found clearance (section pattern):', {
+        eligibility, level, investigationDate, grantedDate, expirationDate
+      });
+      
+      return {
+        eligibility,
+        level,
+        investigationDate,
+        grantedDate,
+        expirationDate,
+      };
+    }
+  }
+  
+  // Pattern 3: Just look for any two clearance codes followed by dates anywhere
+  const anywherePattern = /([VTSCN])\s+([VTSCN])\s+(\d{4})/gi;
+  const anywhereMatches = [...text.matchAll(anywherePattern)];
+  
+  for (const match of anywhereMatches) {
+    const eligibilityCode = match[1].toUpperCase();
+    const actualCode = match[2].toUpperCase();
+    const dateMMYY = match[3];
+    
+    // Validate it looks like a clearance date (month 01-12)
+    const month = parseInt(dateMMYY.substring(0, 2));
+    if (month >= 1 && month <= 12) {
+      const eligibility = CLEARANCE_CODES[eligibilityCode] || eligibilityCode;
+      const level = CLEARANCE_CODES[actualCode] || actualCode;
+      const investigationDate = parseMMYY(dateMMYY) || '';
+      
+      // Try to find a second date nearby for granted date
+      const afterMatch = text.substring(text.indexOf(match[0]) + match[0].length);
+      const grantedMatch = afterMatch.match(/^\s*(\d{4})\b/);
+      const grantedDate = grantedMatch ? parseMMYY(grantedMatch[1]) || '' : '';
+      const expirationDate = calculateClearanceExpiration(grantedDate, level);
+      
+      console.log('Found clearance (anywhere pattern):', {
+        eligibility, level, investigationDate, grantedDate, expirationDate
+      });
+      
+      return {
+        eligibility,
+        level,
+        investigationDate,
+        grantedDate,
+        expirationDate,
+      };
+    }
+  }
+  
+  console.log('No security clearance found');
+  return null;
 }
 
 // ============================================================================
@@ -348,7 +530,7 @@ export function parseODC(text: string): Partial<ParsedOfficerData> {
   // Extract education
   result.education = extractEducation(text);
   
-  // Extract security clearance
+  // Extract security clearance (Blocks 92 and 93)
   result.securityClearance = extractSecurityClearance(text);
   
   // Extract current duty
@@ -519,54 +701,6 @@ function extractEducation(text: string): ParsedOfficerData['education'] {
   return education;
 }
 
-function extractSecurityClearance(text: string): ParsedOfficerData['securityClearance'] {
-  // Format 1: "V V" pattern for Top Secret
-  const vvMatch = text.match(/\bV\s+V\s*(\d{2})?\b/i);
-  if (vvMatch) {
-    const year = vvMatch[1] || '';
-    return {
-      level: 'Top Secret',
-      investigationYear: year ? `20${year}` : '',
-    };
-  }
-  
-  // Format 2: "S S" pattern for Secret
-  const ssMatch = text.match(/\bS\s+S\s*(\d{2})?\b/i);
-  if (ssMatch) {
-    const year = ssMatch[1] || '';
-    return {
-      level: 'Secret',
-      investigationYear: year ? `20${year}` : '',
-    };
-  }
-  
-  // Format 3: SECURITY field with T or S indicator
-  const clearanceMatch = text.match(/SECURITY[^\n]*\b([TSV])\s+(?:[TSV]\s+)?(\d{2})/i);
-  if (clearanceMatch) {
-    const level = clearanceMatch[1].toUpperCase();
-    const year = clearanceMatch[2];
-    
-    return {
-      level: level === 'V' || level === 'T' ? 'Top Secret' : 'Secret',
-      investigationYear: `20${year}`,
-    };
-  }
-  
-  // Format 4: Standalone pattern
-  const standaloneMatch = text.match(/\b([TSV])\s+([TSV])?\s*(\d{2})\s+\d{4}\b/);
-  if (standaloneMatch) {
-    const level = standaloneMatch[1].toUpperCase();
-    const year = standaloneMatch[3];
-    
-    return {
-      level: level === 'V' || level === 'T' ? 'Top Secret' : 'Secret',
-      investigationYear: `20${year}`,
-    };
-  }
-  
-  return null;
-}
-
 // ============================================================================
 // OSR PARSING
 // ============================================================================
@@ -635,6 +769,7 @@ export function parseOSR(text: string): Partial<ParsedOfficerData> {
   
   result.aqds = extractAQDs(text);
   result.education = extractEducation(text);
+  result.securityClearance = extractSecurityClearance(text);
   
   const stationMatch = text.match(/PRESENT DUTY STATION[^\n]*\n\s*([^\n]+)/i);
   if (stationMatch) {

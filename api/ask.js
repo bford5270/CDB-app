@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-3-haiku-20240307',
         max_tokens: isActionPlan ? 2048 : 1024,
         system: systemPrompt,
         messages: [{ role: 'user', content: question }],
@@ -71,8 +71,12 @@ export default async function handler(req, res) {
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(500).json({ error: 'Claude API error: ' + response.status });
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Anthropic error:', response.status, JSON.stringify(errorData));
+      return res.status(500).json({ 
+        error: 'AI service error', 
+        details: errorData.error?.message || response.status 
+      });
     }
     
     const data = await response.json();
@@ -81,6 +85,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ answer });
     
   } catch (error) {
+    console.error('Function error:', error.message);
     return res.status(500).json({ error: error.message });
   }
 }

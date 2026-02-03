@@ -1,0 +1,21 @@
+cat > public/default-references.json << 'EOF'
+{
+  "documents": [
+    {
+      "id": "default-1",
+      "name": "Medical Corps CDB SOP",
+      "text": "Medical Corps Career Development Board Standard Operating Procedures. The CDB is designed to provide career guidance and mentorship to Medical Corps officers. Officers should prepare by reviewing their ODC, OSR, and PSR. Key discussion topics include: promotion timeline, board certification status, operational experience, leadership positions, education goals, and AQD progression."
+    },
+    {
+      "id": "default-2",
+      "name": "Career Progression Guide",
+      "text": "Navy Medical Corps Career Progression Overview. O1-O3: Focus on clinical excellence, board certification, and initial operational experience. Consider FMF or other warfare qualifications. O4: Department head opportunities, begin JPME, pursue 67A/67B AQDs. O5: XO/CO billets, joint duty, senior leadership courses like SLLC. O6: Command positions, strategic assignments."
+    },
+    {
+      "id": "default-3",
+      "name": "FY26 NAVMED Course Catalog",
+      "text": "FY26 Navy Medicine Leadership Course Catalog. BROC: Online self-paced, 14 days, mandatory within 2 years of commissioning. AROC: On pause. ILC: 10 days for O3-O4, Dam Neck VA (Jan, Mar, Apr, Jun, Aug 2026) and San Diego (Feb, May, Jul, Sep 2026). Register NTMPS 120 days prior. SLC: 10 days for O5-O6, Dam Neck VA (Feb, Apr, Jul, Sep 2026) and San Diego (Jan, Mar, Jun, Aug 2026). JPME I Fleet Seminar: 10 months part-time, apply Apr 1 - May 31 via Naval War College. SWMDOIC: 4 weeks San Diego, Oct 2025, May 2026, Jul 2026. MEDXELLENCE: 3 days, 5 iterations per year, 40 CEU. 67A AQD requires: Masters, O4+, Dept Head tour, IESC. 67B AQD requires: Warfare qual, JPME I, 14 JMESP courses. POC: CAPT Shauna O'Sullivan, shauna.f.osullivan.mil@health.mil"
+    }
+  ]
+}
+EOF

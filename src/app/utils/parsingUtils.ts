@@ -592,7 +592,7 @@ export function parsePSR(text: string): PSRSummary {
   }
   
   // Check for issues
-  // 1. Gaps in reporting dates
+  // 1. Gaps in reporting dates - flag ANY gap (there should be no gaps in FITREP coverage)
   for (let i = 1; i < fitreps.length; i++) {
     const prev = fitreps[i - 1];
     const curr = fitreps[i];
@@ -600,10 +600,11 @@ export function parsePSR(text: string): PSRSummary {
     if (prev.endDate && curr.startDate) {
       const prevEnd = new Date(prev.endDate);
       const currStart = new Date(curr.startDate);
-      const gapDays = (currStart.getTime() - prevEnd.getTime()) / (1000 * 60 * 60 * 24);
+      const gapDays = Math.round((currStart.getTime() - prevEnd.getTime()) / (1000 * 60 * 60 * 24));
       
-      if (gapDays > 30) {
-        issues.push(`Gap of ${Math.round(gapDays)} days between ${prev.endDate} and ${curr.startDate}`);
+      // Flag any gap of 1 day or more (end date should be day before start date of next report)
+      if (gapDays > 1) {
+        issues.push(`⚠️ GAP: ${gapDays} day${gapDays !== 1 ? 's' : ''} between ${prev.endDate} and ${curr.startDate} - FITREPs should have continuous coverage`);
       }
     }
   }

@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import { Anchor, ChevronRight, Library, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
-import { ReferenceDocumentManager } from './components/ReferenceDocumentManager';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
 import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
-  const [showReferenceLibrary, setShowReferenceLibrary] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocuments>({
     odc: null,
     osr: null,
@@ -281,36 +279,14 @@ export default function App() {
           <ResourcesQA />
         </div>
 
-        {/* Reference Library (for updating course catalog, etc.) */}
-        <div className="mt-6 bg-white border border-gray-200 rounded-lg shadow-md">
-          <button
-            onClick={() => setShowReferenceLibrary(!showReferenceLibrary)}
-            className="w-full px-6 py-4 text-left font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-between rounded-lg"
-          >
-            <div className="flex items-center gap-3">
-              <Library className="w-6 h-6 text-blue-600" />
-              <div>
-                <h3 className="text-lg font-bold">Reference Document Library</h3>
-                <p className="text-sm text-gray-600 font-normal">Upload updated career guides, NAVADMINs, and course catalogs</p>
-              </div>
-            </div>
-            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showReferenceLibrary ? 'rotate-90' : ''}`} />
-          </button>
-          {showReferenceLibrary && (
-            <div className="px-6 py-6 border-t border-gray-200">
-              <ReferenceDocumentManager />
-            </div>
-          )}
-        </div>
-
         {/* Disclaimer */}
         <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm text-yellow-800">
             <strong>Disclaimer:</strong> This tool provides general career development guidance
             based on typical Navy Medical Corps progression standards. AI recommendations are generated
-            using the FY26 course catalog and career guidance documents. For official career
-            counseling, consult with your detailer, commanding officer, or BUMED Career Development
-            Division. Always verify course dates and requirements with official sources before registering.
+            using uploaded reference documents. For official career counseling, consult with your 
+            detailer, commanding officer, or BUMED Career Development Division. Always verify course 
+            dates and requirements with official sources before registering.
           </p>
         </div>
       </div>

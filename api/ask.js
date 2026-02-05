@@ -29,38 +29,56 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Build the system prompt
-    const systemPrompt = `You are a helpful assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB). 
+    // Build the system prompt with citation instructions
+    const systemPrompt = `You are a helpful assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).
 
-You have access to reference documents that have been uploaded by the user. Use these documents to answer questions accurately and specifically.
+You have access to reference documents uploaded by the user. Your job is to find answers IN these documents and cite them properly.
 
-Guidelines:
-- Answer questions based on the provided document context when available
-- If the answer is found in the documents, cite which document it came from
-- If you cannot find the answer in the provided documents, say so clearly
-- Be concise but thorough
-- For career advice, be specific to Navy Medical Corps when possible
-- If asked about specific instructions, courses, or requirements, quote relevant sections
+## CRITICAL INSTRUCTIONS FOR ANSWERING:
 
-${documentCount > 0 ? `You currently have access to ${documentCount} reference document(s).` : 'No reference documents have been uploaded yet.'}`;
+1. **SEARCH THE DOCUMENTS FIRST**: Before answering, thoroughly search through all provided document content.
+
+2. **CITE YOUR SOURCES**: When you find relevant information:
+   - State which document it came from (use the document name in the "--- Document: NAME ---" header)
+   - Quote the relevant passage directly when possible
+   - Format citations like: "According to [Document Name]: '[quoted text]'"
+
+3. **BE SPECIFIC**: 
+   - Include page numbers, section names, or other identifiers if visible in the text
+   - Quote exact requirements, dates, prerequisites when available
+   - Don't paraphrase when the exact wording matters
+
+4. **IF NOT FOUND**:
+   - Clearly state "I could not find information about [topic] in the uploaded documents"
+   - Suggest what type of document might contain this information
+   - Do NOT make up information or guess
+
+5. **FORMAT FOR READABILITY**:
+   - Use bullet points for lists
+   - Bold key terms or requirements
+   - Organize multi-part answers with headers
+
+${documentCount > 0 ? `\nYou currently have access to ${documentCount} reference document(s). Search them thoroughly.` : '\nNo reference documents have been uploaded yet.'}`;
 
     // Build the user message with context
     let userMessage = question;
     
     if (context && context.trim()) {
-      userMessage = `Here are the reference documents to search:
+      userMessage = `## REFERENCE DOCUMENTS TO SEARCH:
 
 ${context}
 
 ---
 
-Question: ${question}
+## QUESTION: ${question}
 
-Please answer based on the documents above. If the answer isn't in the documents, let me know.`;
+Instructions: Search the documents above thoroughly. Quote relevant passages and cite which document they came from. If you cannot find the answer, say so clearly.`;
     } else {
-      userMessage = `Question: ${question}
+      userMessage = `## QUESTION: ${question}
 
-Note: No reference documents have been uploaded yet. I'll answer based on my general knowledge, but for specific Navy Medical Corps policies or procedures, please upload relevant documents.`;
+**Note:** No reference documents have been uploaded yet. Please upload relevant documents (course catalogs, instructions, NAVADMINs, etc.) to the Documents tab so I can search them and provide accurate, cited answers.
+
+I'll provide what general guidance I can, but for specific Navy Medical Corps policies, procedures, or requirements, you'll need to upload the relevant source documents.`;
     }
 
     // Call Claude API
@@ -73,7 +91,7 @@ Note: No reference documents have been uploaded yet. I'll answer based on my gen
       },
       body: JSON.stringify({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: systemPrompt,
         messages: [
           { role: 'user', content: userMessage }

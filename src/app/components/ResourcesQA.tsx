@@ -1,69 +1,252 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase, DocumentRecord } from '../utils/supabaseClient';
+import * as pdfjs from 'pdfjs-dist';
+
+// Initialize PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  sources?: string[];
 }
 
-export default function ResourcesQA() {
-  const [isExpanded, setIsExpanded] = useState(false);
+interface ResourcesQAProps {
+  className?: string;
+}
+
+// ============================================================================
+// TEXT EXTRACTION UTILITIES
+// ============================================================================
+
+async function extractTextFromPDF(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    return fullText.trim();
+  } catch (error) {
+    console.error('PDF extraction error:', error);
+    return '';
+  }
+}
+
+async function extractTextFromFile(file: File): Promise<string> {
+  const fileName = file.name.toLowerCase();
+  
+  // PDF files
+  if (fileName.endsWith('.pdf')) {
+    return extractTextFromPDF(file);
+  }
+  
+  // Text files
+  if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
+    return file.text();
+  }
+  
+  // For DOC/DOCX/PPT/PPTX - we'll store them but note extraction is limited
+  // In production, you'd use a server-side converter
+  if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || 
+      fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) {
+    // Return placeholder - full extraction would need server-side processing
+    return `[Document: ${file.name}] - Content stored but text extraction requires server-side processing for Office formats.`;
+  }
+  
+  return '';
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export function ResourcesQA({ className = '' }: ResourcesQAProps) {
+  // State
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
+  
+  const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [courseData, setCourseData] = useState<any>(null);
+  const [isAsking, setIsAsking] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState<'qa' | 'documents'>('qa');
+  const [error, setError] = useState<string | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load FY26 course catalog on mount
+  // ============================================================================
+  // LOAD DOCUMENTS ON MOUNT
+  // ============================================================================
+  
   useEffect(() => {
-    async function loadCourses() {
-      try {
-        const response = await fetch('/fy26-courses.json');
-        if (response.ok) {
-          const data = await response.json();
-          setCourseData(data);
-          console.log('Loaded FY26 course catalog:', data);
-        }
-      } catch (e) {
-        console.error('Could not load course catalog:', e);
-      }
-    }
-    loadCourses();
+    loadDocuments();
   }, []);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  async function loadDocuments() {
+    setIsLoadingDocs(true);
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+      setError('Failed to load documents');
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  }
 
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setIsLoading(true);
+  // ============================================================================
+  // FILE UPLOAD
+  // ============================================================================
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setError(null);
 
     try {
-      // Build context from course catalog
-      let context = '';
-      
-      if (courseData) {
-        context = `FY26 NAVY MEDICAL CORPS COURSE CATALOG:\n${JSON.stringify(courseData, null, 2)}`;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress(`Uploading ${file.name} (${i + 1}/${files.length})...`);
+
+        // 1. Extract text from file
+        setUploadProgress(`Extracting text from ${file.name}...`);
+        const extractedText = await extractTextFromFile(file);
+
+        // 2. Upload file to Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
+
+        setUploadProgress(`Uploading ${file.name} to storage...`);
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+        }
+
+        // 3. Save document record to database
+        setUploadProgress(`Saving ${file.name} to database...`);
+        const { error: dbError } = await supabase
+          .from('documents')
+          .insert({
+            name: file.name,
+            file_path: filePath,
+            file_type: file.type || fileExt,
+            file_size: file.size,
+            extracted_text: extractedText || null
+          });
+
+        if (dbError) {
+          console.error('Database error:', dbError);
+          throw new Error(`Failed to save ${file.name}: ${dbError.message}`);
+        }
       }
 
+      setUploadProgress('Upload complete!');
+      await loadDocuments();
+      
+      // Clear after delay
+      setTimeout(() => setUploadProgress(''), 2000);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  // ============================================================================
+  // DELETE DOCUMENT
+  // ============================================================================
+
+  async function handleDeleteDocument(doc: DocumentRecord) {
+    if (!confirm(`Delete "${doc.name}"?`)) return;
+
+    try {
+      // Delete from storage
+      await supabase.storage.from('documents').remove([doc.file_path]);
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', doc.id);
+      
+      if (error) throw error;
+      
+      await loadDocuments();
+    } catch (err) {
+      console.error('Delete error:', err);
+      setError('Failed to delete document');
+    }
+  }
+
+  // ============================================================================
+  // ASK QUESTION
+  // ============================================================================
+
+  async function handleAskQuestion() {
+    if (!question.trim() || isAsking) return;
+
+    const userMessage = question.trim();
+    setQuestion('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsAsking(true);
+    setError(null);
+
+    try {
+      // Build context from all documents
+      const docsContext = documents
+        .filter(doc => doc.extracted_text)
+        .map(doc => `--- Document: ${doc.name} ---\n${doc.extracted_text}`)
+        .join('\n\n');
+
+      // Call the API
       const response = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: userMessage,
-          context: context,
-          strictMode: true, // Tell API to only answer from provided context
-        }),
+          context: docsContext,
+          documentCount: documents.length
+        })
       });
 
       if (!response.ok) {
@@ -71,136 +254,238 @@ export default function ResourcesQA() {
       }
 
       const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+    } catch (err) {
+      console.error('Ask error:', err);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: data.answer,
-        sources: data.sources,
-      }]);
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error connecting to the AI service. Please try again.' 
+        content: 'Sorry, I encountered an error processing your question. Please try again.' 
       }]);
     } finally {
-      setIsLoading(false);
+      setIsAsking(false);
     }
-  };
+  }
 
-  const exampleQuestions = [
-    "When is the next ILC course?",
-    "What courses are available for JPME?",
-    "What leadership courses should an O4 take?",
-    "What are the FY26 executive medicine courses?",
-  ];
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
-      {/* Header - Always visible */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <MessageCircle className="w-6 h-6 text-blue-600" />
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-gray-900">CDB Reference Q&A</h3>
-            <p className="text-sm text-gray-600">
-              Ask about FY26 courses, training requirements, and career development
-            </p>
-          </div>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 ${className}`}>
+      {/* Header with Tabs */}
+      <div className="border-b border-gray-200">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('qa')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'qa'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            💬 Q&A Assistant
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'documents'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📁 Documents ({documents.length})
+          </button>
         </div>
-        {isExpanded ? (
-          <ChevronUp className="w-5 h-5 text-gray-400" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-gray-400" />
-        )}
-      </button>
+      </div>
 
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="border-t border-gray-200">
-          {/* Info banner */}
-          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
-            <p className="text-xs text-blue-700 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Answers are based on the FY26 NAVMED Course Catalog. The AI will indicate when information is not available.
-            </p>
-          </div>
+      {/* Error Display */}
+      {error && (
+        <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="float-right font-bold">×</button>
+        </div>
+      )}
 
-          {/* Chat messages */}
-          <div className="h-80 overflow-y-auto p-4 space-y-4">
+      {/* Q&A Tab */}
+      {activeTab === 'qa' && (
+        <div className="flex flex-col h-[500px]">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
-                <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="mb-4">Ask questions about Navy Medical Corps training and courses.</p>
-                <div className="space-y-2">
-                  {exampleQuestions.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setInput(q)}
-                      className="block w-full text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      "{q}"
-                    </button>
-                  ))}
-                </div>
+                <div className="text-4xl mb-3">🎓</div>
+                <p className="font-medium">CDB Reference Q&A</p>
+                <p className="text-sm mt-1">
+                  Ask questions about your uploaded documents
+                  {documents.length > 0 && ` (${documents.length} docs loaded)`}
+                </p>
+                {documents.length === 0 && (
+                  <p className="text-xs mt-2 text-amber-600">
+                    No documents uploaded yet. Go to Documents tab to add reference materials.
+                  </p>
+                )}
               </div>
             ) : (
-              messages.map((msg, i) => (
+              messages.map((msg, idx) => (
                 <div
-                  key={i}
+                  key={idx}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] p-3 rounded-lg ${
+                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-800'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    {msg.sources && msg.sources.length > 0 && (
-                      <p className="mt-2 text-xs opacity-75">
-                        Source: {msg.sources.join(', ')}
-                      </p>
-                    )}
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
                   </div>
                 </div>
               ))
             )}
-            {isLoading && (
+            {isAsking && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                <div className="bg-gray-100 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    <span className="text-sm text-gray-600">Thinking...</span>
+                  </div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input form */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+          {/* Input Area */}
+          <div className="border-t border-gray-200 p-4">
             <div className="flex gap-2">
               <input
                 type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about courses, training, or requirements..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isLoading}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAskQuestion()}
+                placeholder="Ask a question about your documents..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                disabled={isAsking}
               />
               <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                onClick={handleAskQuestion}
+                disabled={isAsking || !question.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
               >
-                <Send className="w-5 h-5" />
+                Send
               </button>
             </div>
-          </form>
+            {documents.length > 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                Searching {documents.length} document{documents.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Documents Tab */}
+      {activeTab === 'documents' && (
+        <div className="p-4 space-y-4">
+          {/* Upload Area */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileUpload}
+              accept=".pdf,.txt,.doc,.docx,.ppt,.pptx,.md"
+              multiple
+              className="hidden"
+              disabled={isUploading}
+            />
+            
+            {isUploading ? (
+              <div className="space-y-2">
+                <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-sm text-blue-600">{uploadProgress}</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-4xl mb-2">📤</div>
+                <p className="text-gray-600 font-medium">Upload Reference Documents</p>
+                <p className="text-sm text-gray-500 mb-3">PDF, TXT, DOC, DOCX, PPT, PPTX</p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                >
+                  Select Files
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Documents List */}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-3">
+              Uploaded Documents ({documents.length})
+            </h3>
+            
+            {isLoadingDocs ? (
+              <div className="text-center py-8">
+                <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-sm text-gray-500 mt-2">Loading documents...</p>
+              </div>
+            ) : documents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No documents uploaded yet.</p>
+                <p className="text-sm mt-1">Upload PDFs, docs, or presentations to get started.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <span className="text-2xl">
+                        {doc.file_type?.includes('pdf') ? '📕' :
+                         doc.file_type?.includes('doc') ? '📘' :
+                         doc.file_type?.includes('ppt') ? '📙' :
+                         '📄'}
+                      </span>
+                      <div className="overflow-hidden">
+                        <p className="font-medium text-sm text-gray-900 truncate">{doc.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {(doc.file_size / 1024).toFixed(1)} KB • 
+                          {new Date(doc.created_at).toLocaleDateString()}
+                          {doc.extracted_text ? ' • ✓ Indexed' : ' • ⏳ Not indexed'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteDocument(doc)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Delete document"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+            <p className="font-medium text-blue-900">💡 How it works</p>
+            <ul className="text-blue-800 mt-1 space-y-1 text-xs">
+              <li>• Upload reference documents (manuals, instructions, catalogs)</li>
+              <li>• Text is extracted and indexed for search</li>
+              <li>• Ask questions in the Q&A tab - AI searches all your docs</li>
+              <li>• PDF text extraction works best; Office docs may need manual text</li>
+            </ul>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+export default ResourcesQA;

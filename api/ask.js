@@ -1,144 +1,102 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-// Rate limiting - simple in-memory store
-const rateLimitMap = new Map();
-const RATE_LIMIT = 20; // requests per hour
-const RATE_WINDOW = 60 * 60 * 1000; // 1 hour in ms
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const userLimit = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_WINDOW };
-  
-  if (now > userLimit.resetTime) {
-    userLimit.count = 0;
-    userLimit.resetTime = now + RATE_WINDOW;
-  }
-  
-  if (userLimit.count >= RATE_LIMIT) {
-    return false;
-  }
-  
-  userLimit.count++;
-  rateLimitMap.set(ip, userLimit);
-  return true;
-}
+// api/ask.js - Vercel Serverless Function for CDB Q&A
+// Searches uploaded documents and answers questions using Claude Haiku
 
 export default async function handler(req, res) {
-  // Set CORS headers
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  
-  // Rate limiting
-  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
-  }
-  
+
   try {
-    const { question, context, isActionPlan, strictMode } = req.body;
-    
+    const { question, context, documentCount } = req.body;
+
     if (!question) {
       return res.status(400).json({ error: 'Question is required' });
     }
-    
+
+    // Get API key from environment
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       console.error('ANTHROPIC_API_KEY not configured');
       return res.status(500).json({ error: 'API key not configured' });
     }
+
+    // Build the system prompt
+    const systemPrompt = `You are a helpful assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB). 
+
+You have access to reference documents that have been uploaded by the user. Use these documents to answer questions accurately and specifically.
+
+Guidelines:
+- Answer questions based on the provided document context when available
+- If the answer is found in the documents, cite which document it came from
+- If you cannot find the answer in the provided documents, say so clearly
+- Be concise but thorough
+- For career advice, be specific to Navy Medical Corps when possible
+- If asked about specific instructions, courses, or requirements, quote relevant sections
+
+${documentCount > 0 ? `You currently have access to ${documentCount} reference document(s).` : 'No reference documents have been uploaded yet.'}`;
+
+    // Build the user message with context
+    let userMessage = question;
     
-    const client = new Anthropic({ apiKey });
-    
-    // Build system prompt based on mode
-    let systemPrompt;
-    
-    if (isActionPlan) {
-      // For personalized action plans - more flexible
-      systemPrompt = `You are a Navy Medical Corps career advisor helping officers prepare for Career Development Boards.
+    if (context && context.trim()) {
+      userMessage = `Here are the reference documents to search:
 
-Based on the officer's data provided, create a personalized action plan with specific recommendations.
+${context}
 
-Use the FY26 course catalog data to recommend specific courses with actual dates when available.
+---
 
-Be specific and actionable. Include timelines when possible.`;
-    } else if (strictMode) {
-      // Strict mode - only answer from provided context, cite sources
-      systemPrompt = `You are a Navy Medical Corps reference assistant. You MUST follow these rules strictly:
+Question: ${question}
 
-1. ONLY answer based on the information provided in the context below.
-2. If the answer is not found in the provided context, say "I don't have information about that in my reference documents. Please consult your detailer or official Navy sources."
-3. When you do provide information, cite the specific source (e.g., "According to the FY26 Course Catalog...").
-4. DO NOT make up information, guess, or use general knowledge.
-5. Keep answers concise and factual.
-
-REFERENCE DOCUMENTS:
-${context || 'No reference documents provided.'}
-
-Remember: If the information isn't in the context above, say you don't have it.`;
+Please answer based on the documents above. If the answer isn't in the documents, let me know.`;
     } else {
-      // Default mode - general Q&A
-      systemPrompt = `You are a helpful Navy Medical Corps career advisor. Answer questions about career development, courses, and requirements.
+      userMessage = `Question: ${question}
 
-Reference the provided context when available:
-${context || 'No additional context provided.'}
-
-If you're not certain about something, acknowledge the uncertainty and suggest consulting official sources.`;
+Note: No reference documents have been uploaded yet. I'll answer based on my general knowledge, but for specific Navy Medical Corps policies or procedures, please upload relevant documents.`;
     }
-    
-    console.log('Calling Claude API...');
-    console.log('Question:', question);
-    console.log('Context length:', context?.length || 0);
-    console.log('Strict mode:', strictMode);
-    
-    const message = await client.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: isActionPlan ? 2048 : 1024,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: question,
-        },
-      ],
+
+    // Call Claude API
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userMessage }
+        ]
+      })
     });
-    
-    console.log('Claude response received');
-    
-    const answer = message.content[0].type === 'text' 
-      ? message.content[0].text 
-      : 'Unable to generate response';
-    
-    // Determine sources based on what was referenced
-    const sources = [];
-    if (context?.includes('FY26') || context?.includes('Course Catalog')) {
-      sources.push('FY26 NAVMED Course Catalog');
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error:', response.status, errorText);
+      return res.status(500).json({ error: 'Failed to get AI response' });
     }
-    
+
+    const data = await response.json();
+    const answer = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+
     return res.status(200).json({ 
       answer,
-      sources,
+      documentsSearched: documentCount || 0
     });
-    
+
   } catch (error) {
-    console.error('API Error:', error);
-    console.error('Error details:', error.message);
-    
-    if (error.status === 401) {
-      return res.status(500).json({ error: 'API authentication failed' });
-    }
-    
-    return res.status(500).json({ 
-      error: 'Failed to process request',
-      details: error.message,
-    });
+    console.error('API error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

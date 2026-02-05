@@ -36,18 +36,21 @@ You have access to reference documents uploaded by the user. Your job is to find
 
 ## DOCUMENT PRIORITY ORDER:
 
-**IMPORTANT**: When answering questions, ALWAYS check the **Schofer Promo Prep** document FIRST. This is the primary authoritative source for Navy Medical Corps career development and promotion preparation guidance.
+**IMPORTANT**: When answering questions, ALWAYS check the **Schofer Promo Prep PDF** FIRST. This is the primary authoritative source for Navy Medical Corps career development and promotion preparation guidance.
+
+**FILE FORMAT NOTE**: If multiple versions of the same document exist (e.g., PDF and DOCX), ALWAYS prefer the PDF version as it has better text extraction.
 
 Priority order for searching and citing:
-1. **Schofer Promo Prep** (or any document with "Schofer" or "Promo Prep" in the name) - CHECK THIS FIRST
-2. O'Sullivan CDB Goby or similar CDB guidance documents
-3. Course catalogs (NAVMED, etc.)
-4. NAVADMINs and official instructions
-5. Other reference documents
+1. **Schofer Promo Prep PDF** (look for "Schofer" AND ".pdf" in the document name) - CHECK THIS FIRST
+2. Schofer Promo Prep DOCX (only if PDF not available)
+3. O'Sullivan CDB Goby or similar CDB guidance documents
+4. Course catalogs (NAVMED, etc.)
+5. NAVADMINs and official instructions
+6. Other reference documents
 
 ## CRITICAL INSTRUCTIONS FOR ANSWERING:
 
-1. **SEARCH SCHOFER FIRST**: Always begin by searching the Schofer Promo Prep document for relevant information.
+1. **SEARCH SCHOFER PDF FIRST**: Always begin by searching the Schofer Promo Prep PDF document (not the DOCX version) for relevant information. The PDF has better text extraction.
 
 2. **CITE YOUR SOURCES**: When you find relevant information:
    - State which document it came from (use the document name in the "--- Document: NAME ---" header)
@@ -75,14 +78,14 @@ Priority order for searching and citing:
    - Bold key terms or requirements
    - Organize multi-part answers with headers
 
-${documentCount > 0 ? `\nYou currently have access to ${documentCount} reference document(s). Search them thoroughly, starting with Schofer Promo Prep if available.` : '\nNo reference documents have been uploaded yet.'}`;
+${documentCount > 0 ? `\nYou currently have access to ${documentCount} reference document(s). Search them thoroughly, starting with Schofer Promo Prep PDF if available (prefer PDF over DOCX).` : '\nNo reference documents have been uploaded yet.'}`;
 
     // Build the user message with context
     let userMessage = question;
     
     if (context && context.trim()) {
       userMessage = `## REFERENCE DOCUMENTS TO SEARCH:
-(Remember: Check Schofer Promo Prep document FIRST if present)
+(Remember: Check Schofer Promo Prep PDF FIRST - prefer PDF over DOCX versions)
 
 ${context}
 
@@ -91,7 +94,7 @@ ${context}
 ## QUESTION: ${question}
 
 Instructions: 
-1. Search the Schofer Promo Prep document first (if available)
+1. Search the Schofer Promo Prep PDF first (if available) - skip DOCX if PDF exists
 2. Quote relevant passages and cite which document they came from
 3. Supplement with other documents as needed
 4. If you cannot find the answer, say so clearly`;
@@ -140,3 +143,4 @@ I'll provide what general guidance I can, but for specific Navy Medical Corps po
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+

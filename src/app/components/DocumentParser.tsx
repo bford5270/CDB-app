@@ -710,4 +710,4 @@ const DocumentParser: React.FC<DocumentParserProps> = ({ onDataParsed, className
   );
 };
 
-export default DocumentParser;
+export { DocumentParser };

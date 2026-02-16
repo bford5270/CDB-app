@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
+import { UploadedDocuments } from './DocumentUpload';
 import {
   parseODC,
   parseOSR,
@@ -27,6 +28,9 @@ interface ParsedDocument {
 }
 
 interface DocumentParserProps {
+  uploadedDocuments?: UploadedDocuments;
+  onParsedDataAccepted?: (data: any) => void;
+  onSkip?: () => void;
   onDataParsed?: (data: OfficerData) => void;
   className?: string;
 }
@@ -354,14 +358,96 @@ const OfficerDataDisplay: React.FC<{ data: OfficerData }> = ({ data }) => {
 // MAIN DOCUMENT PARSER COMPONENT
 // ============================================================================
 
-const DocumentParser: React.FC<DocumentParserProps> = ({ onDataParsed, className = '' }) => {
+const DocumentParser: React.FC<DocumentParserProps> = ({
+  uploadedDocuments,
+  onParsedDataAccepted,
+  onSkip,
+  onDataParsed,
+  className = ''
+}) => {
   const [documents, setDocuments] = useState<ParsedDocument[]>([]);
   const [mergedData, setMergedData] = useState<OfficerData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'parsed' | 'raw'>('parsed');
   const [isDragActive, setIsDragActive] = useState(false);
+  const [hasProcessedUploads, setHasProcessedUploads] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Process pre-uploaded documents from DocumentUpload component
+  useEffect(() => {
+    if (!uploadedDocuments || hasProcessedUploads) return;
+
+    const processUploadedDocs = async () => {
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        const newDocuments: ParsedDocument[] = [];
+
+        // Process each uploaded document type
+        for (const [docType, uploadedDoc] of Object.entries(uploadedDocuments)) {
+          if (!uploadedDoc || uploadedDoc.status !== 'success' || !uploadedDoc.text) {
+            continue;
+          }
+
+          const type = docType.toUpperCase() as 'ODC' | 'OSR' | 'PSR';
+          let parsedData: OfficerData | null = null;
+
+          switch (type) {
+            case 'ODC':
+              parsedData = parseODC(uploadedDoc.text);
+              break;
+            case 'OSR':
+              parsedData = parseOSR(uploadedDoc.text);
+              break;
+            case 'PSR':
+              parsedData = {
+                promotionHistory: [],
+                aqds: [],
+                courses: [],
+                education: [],
+                psrSummary: parsePSR(uploadedDoc.text)
+              };
+              break;
+          }
+
+          newDocuments.push({
+            id: `${Date.now()}-${docType}`,
+            name: uploadedDoc.file.name,
+            type,
+            rawText: uploadedDoc.text,
+            parsedData,
+            uploadedAt: new Date()
+          });
+        }
+
+        if (newDocuments.length > 0) {
+          setDocuments(newDocuments);
+
+          // Merge all parsed data
+          const allParsedData = newDocuments
+            .filter(doc => doc.parsedData)
+            .map(doc => doc.parsedData as OfficerData);
+
+          if (allParsedData.length > 0) {
+            const merged = mergeOfficerData(...allParsedData);
+            setMergedData(merged);
+            onDataParsed?.(merged);
+          }
+
+          setHasProcessedUploads(true);
+        }
+      } catch (err) {
+        console.error('Error processing uploaded documents:', err);
+        setError(err instanceof Error ? err.message : 'Failed to process documents');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    processUploadedDocs();
+  }, [uploadedDocuments, hasProcessedUploads, onDataParsed]);
 
   // Detect document type from text content
   const detectDocumentType = (text: string, filename: string): 'ODC' | 'OSR' | 'PSR' | 'UNKNOWN' => {
@@ -684,6 +770,71 @@ const DocumentParser: React.FC<DocumentParserProps> = ({ onDataParsed, className
               </pre>
             </DataCard>
           ))}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      {mergedData && onParsedDataAccepted && (
+        <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+            >
+              Skip Parsing
+            </button>
+          )}
+          <button
+            onClick={() => {
+              // Convert OfficerData to expected format
+              const rankHistory = mergedData.promotionHistory.map(p => ({
+                rank: p.rank,
+                date: p.dateOfRank
+              }));
+
+              const psrData = mergedData.psrSummary;
+              const aqds = mergedData.aqds.map(a => a.code);
+
+              const warnings: string[] = [];
+              const psrIssues: string[] = [];
+
+              // Extract PSR warnings/issues
+              if (psrData?.warnings) {
+                psrIssues.push(...psrData.warnings);
+              }
+
+              const data = {
+                rankHistory,
+                boardCertified: mergedData.boardCertified ?? null,
+                hasUndergrad: mergedData.education.some(e =>
+                  e.level?.toLowerCase().includes('bachelor') ||
+                  e.level?.toLowerCase().includes('undergrad')
+                ),
+                hasMedicalSchool: mergedData.education.some(e =>
+                  e.level?.toLowerCase().includes('medical') ||
+                  e.level?.toLowerCase().includes('md') ||
+                  e.level?.toLowerCase().includes('doctor of medicine')
+                ),
+                aqds,
+                warnings,
+                psrIssues,
+                clearanceLevel: mergedData.securityClearance?.levelDescription as any || '',
+                clearanceDate: mergedData.securityClearance?.investigationDate || '',
+                certificationCode: mergedData.boardCertified === true ? 'K' as const :
+                                   mergedData.boardCertified === false ? 'J' as const : null,
+                fitrepAverage: psrData?.avgIndAvg || 0,
+                fitrepCount: psrData?.fitreps?.length || 0,
+                earlyPromotes: psrData?.promoRecCounts?.EP || 0,
+                mustPromotes: psrData?.promoRecCounts?.MP || 0,
+                promotables: psrData?.promoRecCounts?.P || 0,
+              };
+
+              onParsedDataAccepted(data);
+            }}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors ml-auto"
+          >
+            Accept Parsed Data →
+          </button>
         </div>
       )}
     </div>

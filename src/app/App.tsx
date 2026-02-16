@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
@@ -11,6 +11,11 @@ import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
+
+  // Scroll to top on initial load
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [documents, setDocuments] = useState<UploadedDocuments>({
     odc: null,
     osr: null,

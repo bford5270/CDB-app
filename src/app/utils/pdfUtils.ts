@@ -4,12 +4,11 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+// Import worker as URL using Vite's special syntax
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Set up the worker - use the bundled worker from pdfjs-dist
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// Set up the worker using the imported URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 /**
  * Extract text content from a PDF file

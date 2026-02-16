@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-import { 
-  parseODC, 
-  parseOSR, 
+import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
+import {
+  parseODC,
+  parseOSR,
   parsePSR,
   mergeOfficerData,
   formatDateForDisplay,
@@ -12,11 +12,6 @@ import {
   PSRSummary,
   FitrepEntry
 } from '../utils/parsingUtils';
-
-// Initialize PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -404,23 +399,8 @@ const DocumentParser: React.FC<DocumentParserProps> = ({ onDataParsed, className
     return 'UNKNOWN';
   };
 
-  // Extract text from PDF
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n';
-    }
-    
-    return fullText;
-  };
+  // Extract text from PDF using the utility function
+  const extractTextFromPDF = extractPDFText;
 
   // Process uploaded files
   const processFiles = async (files: FileList | File[]) => {
@@ -433,17 +413,17 @@ const DocumentParser: React.FC<DocumentParserProps> = ({ onDataParsed, className
       
       for (const file of fileArray) {
         // Check file type
-        const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const isPDFFile = isPDF(file);
         const isText = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
-        
-        if (!isPDF && !isText) {
+
+        if (!isPDFFile && !isText) {
           console.warn(`Unsupported file type: ${file.type} (${file.name})`);
           continue;
         }
-        
+
         let text = '';
-        
-        if (isPDF) {
+
+        if (isPDFFile) {
           text = await extractTextFromPDF(file);
         } else {
           text = await file.text();

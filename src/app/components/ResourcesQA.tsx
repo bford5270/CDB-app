@@ -2,12 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, DocumentRecord } from '../utils/supabaseClient';
-import * as pdfjs from 'pdfjs-dist';
-
-// Initialize PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-}
+import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
 
 // ============================================================================
 // TYPES
@@ -26,49 +21,32 @@ interface ResourcesQAProps {
 // TEXT EXTRACTION UTILITIES
 // ============================================================================
 
-async function extractTextFromPDF(file: File): Promise<string> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n\n';
-    }
-    
-    return fullText.trim();
-  } catch (error) {
-    console.error('PDF extraction error:', error);
-    return '';
-  }
-}
-
 async function extractTextFromFile(file: File): Promise<string> {
   const fileName = file.name.toLowerCase();
-  
+
   // PDF files
-  if (fileName.endsWith('.pdf')) {
-    return extractTextFromPDF(file);
+  if (isPDF(file)) {
+    try {
+      return await extractPDFText(file);
+    } catch (error) {
+      console.error('PDF extraction error:', error);
+      return '';
+    }
   }
-  
+
   // Text files
   if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
     return file.text();
   }
-  
+
   // For DOC/DOCX/PPT/PPTX - we'll store them but note extraction is limited
   // In production, you'd use a server-side converter
-  if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || 
+  if (fileName.endsWith('.doc') || fileName.endsWith('.docx') ||
       fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) {
     // Return placeholder - full extraction would need server-side processing
     return `[Document: ${file.name}] - Content stored but text extraction requires server-side processing for Office formats.`;
   }
-  
+
   return '';
 }
 

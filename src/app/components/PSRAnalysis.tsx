@@ -1,6 +1,6 @@
 import { FileText, TrendingUp, AlertTriangle, CheckCircle, BarChart3, TrendingDown, Minus } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { parsePSR, type PSRAnalysisResult } from '../utils/parsingUtils';
+import { parsePSR, type PSRSummary } from '../utils/parsingUtils';
 import type { UploadedDocument } from './DocumentUpload';
 
 interface PSRAnalysisProps {
@@ -36,7 +36,7 @@ export function PSRAnalysis({ psrFile, onAnalysisComplete }: PSRAnalysisProps) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [psrData, setPsrData] = useState<PSRData | null>(null);
-  const [rawAnalysis, setRawAnalysis] = useState<PSRAnalysisResult | null>(null);
+  const [rawAnalysis, setRawAnalysis] = useState<PSRSummary | null>(null);
 
   useEffect(() => {
     if (psrFile?.status === 'success' && psrFile.text && !analyzing && !analyzed) {
@@ -62,31 +62,28 @@ export function PSRAnalysis({ psrFile, onAnalysisComplete }: PSRAnalysisProps) {
           to: f.endDate,
           score: f.individualAverage,
           payGrade: f.payGrade,
-          station: f.station,
-          reportingSenior: f.reportingSenior.name,
-          promotionRec: f.promotionRec.ep > 0 ? 'EP' : 
-                        f.promotionRec.mp > 0 ? 'MP' : 
-                        f.promotionRec.p > 0 ? 'P' : 
-                        f.promotionRec.pr > 0 ? 'PR' : 'N/A',
+          station: f.station || '',
+          reportingSenior: f.reportingSenior?.name || 'Unknown',
+          promotionRec: f.promotionRec || 'N/A',
         }));
 
-      const avgScore = analysis.summary.averageIndividual;
-      
+      const avgScore = analysis.averageIndividual;
+
       const data: PSRData = {
-        fitnessReportCount: analysis.summary.totalFitreps,
+        fitnessReportCount: analysis.totalFitreps,
         averageScore: avgScore,
-        promotionRecommendation: 
-          analysis.summary.epCount > analysis.summary.mpCount ? 'Early Promote' :
-          analysis.summary.mpCount > analysis.summary.pCount ? 'Must Promote' :
+        promotionRecommendation:
+          analysis.epCount > analysis.mpCount ? 'Early Promote' :
+          analysis.mpCount > analysis.pCount ? 'Must Promote' :
           'Promotable',
         reportingPeriods,
         trends: {
-          improving: analysis.summary.trend === 'improving',
-          stable: analysis.summary.trend === 'stable',
-          declining: analysis.summary.trend === 'declining',
+          improving: analysis.trend === 'improving',
+          stable: analysis.trend === 'stable',
+          declining: analysis.trend === 'declining',
         },
-        hasEarlyPromote: analysis.summary.epCount > 0,
-        hasMustPromote: analysis.summary.mpCount > 0,
+        hasEarlyPromote: analysis.epCount > 0,
+        hasMustPromote: analysis.mpCount > 0,
         analysis: generateAnalysis(analysis),
         issues: analysis.issues,
       };
@@ -101,21 +98,20 @@ export function PSRAnalysis({ psrFile, onAnalysisComplete }: PSRAnalysisProps) {
     }
   };
 
-  const generateAnalysis = (analysis: PSRAnalysisResult): string => {
-    const { summary } = analysis;
+  const generateAnalysis = (analysis: PSRSummary): string => {
     let text = '';
 
-    if (summary.epCount > 0) {
-      text = `Strong record with ${summary.epCount} Early Promote recommendation(s). `;
-    } else if (summary.mpCount > 0) {
-      text = `Solid record with ${summary.mpCount} Must Promote recommendation(s). `;
+    if (analysis.epCount > 0) {
+      text = `Strong record with ${analysis.epCount} Early Promote recommendation(s). `;
+    } else if (analysis.mpCount > 0) {
+      text = `Solid record with ${analysis.mpCount} Must Promote recommendation(s). `;
     } else {
       text = 'Record shows consistent Promotable recommendations. ';
     }
 
-    if (summary.trend === 'improving') {
+    if (analysis.trend === 'improving') {
       text += 'Positive trend: Performance is improving over time. ';
-    } else if (summary.trend === 'declining') {
+    } else if (analysis.trend === 'declining') {
       text += '⚠️ Caution: Recent reports show declining performance. ';
     }
 
@@ -229,10 +225,66 @@ export function PSRAnalysis({ psrFile, onAnalysisComplete }: PSRAnalysisProps) {
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Early/Must Promote</div>
           <div className="text-2xl font-bold text-blue-600">
-            {rawAnalysis ? `${rawAnalysis.summary.epCount}/${rawAnalysis.summary.mpCount}` : '0/0'}
+            {rawAnalysis ? `${rawAnalysis.epCount}/${rawAnalysis.mpCount}` : '0/0'}
           </div>
         </div>
       </div>
+
+      {/* RS Average Comparison */}
+      {rawAnalysis && rawAnalysis.belowRSAveragePercentage !== undefined && (
+        <div className={`border rounded-lg p-4 ${
+          rawAnalysis.belowRSAveragePercentage > 50
+            ? 'bg-red-50 border-red-200'
+            : rawAnalysis.belowRSAveragePercentage > 30
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-start gap-3">
+            <BarChart3 className={`w-6 h-6 flex-shrink-0 mt-0.5 ${
+              rawAnalysis.belowRSAveragePercentage > 50
+                ? 'text-red-600'
+                : rawAnalysis.belowRSAveragePercentage > 30
+                ? 'text-yellow-600'
+                : 'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <h3 className={`font-semibold mb-1 ${
+                rawAnalysis.belowRSAveragePercentage > 50
+                  ? 'text-red-900'
+                  : rawAnalysis.belowRSAveragePercentage > 30
+                  ? 'text-yellow-900'
+                  : 'text-green-900'
+              }`}>
+                Reporting Senior Average Comparison
+              </h3>
+              <p className={`text-sm ${
+                rawAnalysis.belowRSAveragePercentage > 50
+                  ? 'text-red-800'
+                  : rawAnalysis.belowRSAveragePercentage > 30
+                  ? 'text-yellow-800'
+                  : 'text-green-800'
+              }`}>
+                You scored <span className="font-bold">below your Reporting Senior's average</span> in{' '}
+                <span className="font-bold">{rawAnalysis.belowRSAverageCount}</span> of your graded FITREPs{' '}
+                (<span className="font-bold">{rawAnalysis.belowRSAveragePercentage}%</span>).
+                {rawAnalysis.belowRSAveragePercentage > 50 ? (
+                  <span className="block mt-2 font-medium">
+                    ⚠️ This indicates you are frequently ranked below the RS's typical officer. Seek mentorship and focus on high-impact performance areas.
+                  </span>
+                ) : rawAnalysis.belowRSAveragePercentage > 30 ? (
+                  <span className="block mt-2">
+                    Consider identifying patterns and working to consistently exceed RS expectations.
+                  </span>
+                ) : (
+                  <span className="block mt-2 font-medium">
+                    ✓ Excellent - You consistently perform at or above your Reporting Senior's expectations.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Issues/Warnings */}
       {psrData.issues.length > 0 && (

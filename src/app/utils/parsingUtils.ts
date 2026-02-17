@@ -66,6 +66,8 @@ export interface PSRSummary {
   trend: 'improving' | 'stable' | 'declining' | 'insufficient_data';
   issues: string[];
   fitreps: FitrepEntry[];
+  belowRSAverageCount: number;     // How many times individual avg < RS avg
+  belowRSAveragePercentage: number; // Percentage of times below RS avg
 }
 
 export interface OfficerData {
@@ -206,15 +208,23 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
   const history: PromotionHistoryEntry[] = [];
   const lines = text.split('\n');
   
-  // Pattern 1: Look for line with multiple 6-digit numbers (dates)
-  // Example: "090124 090118 052112 S4 LCDR"
+  // Pattern 1: Look for line with DOR (Date of Rank) information
+  // Example formats:
+  // "DOR: 100124 090118 052112" or "100124 090118 052112 S4 LCDR"
+  // Try to extract ranks from the same line if possible
   for (const line of lines) {
+    // Look for lines that might contain DOR information
+    const upperLine = line.toUpperCase();
+    if (!upperLine.includes('DOR') && !/\b\d{6}\s+\d{6}/.test(line)) {
+      continue; // Skip lines without multiple dates or DOR keyword
+    }
+
     // Find sequences of 6 digits that look like dates
     const dateMatches = line.match(/\b(\d{6})\b/g);
-    
+
     if (dateMatches && dateMatches.length >= 2) {
       const validDates: string[] = [];
-      
+
       for (const match of dateMatches) {
         const parsed = parseMMDDYY(match);
         if (parsed) {
@@ -225,25 +235,55 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
           }
         }
       }
-      
+
       if (validDates.length >= 2) {
         // Sort chronologically (oldest first)
         validDates.sort((a, b) => a.localeCompare(b));
-        
+
         // Remove duplicates
         const uniqueDates = [...new Set(validDates)];
-        
-        // Map to rank progression (LT -> LCDR -> CDR -> CAPT)
-        // Medical Corps typically commission as LT (O3)
-        const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
-        
-        for (let i = 0; i < uniqueDates.length && i < medicalRanks.length; i++) {
-          history.push({
-            rank: medicalRanks[i],
-            dateOfRank: uniqueDates[i]
-          });
+
+        // Try to find rank labels on the same line or nearby lines
+        // Look for patterns like "CDR", "LCDR", "CAPT" etc.
+        const ranksOnLine: string[] = [];
+        for (const rank of RANK_PROGRESSION) {
+          if (new RegExp(`\\b${rank}\\b`, 'i').test(line)) {
+            ranksOnLine.push(rank);
+          }
         }
-        
+
+        // If we found rank labels, try to associate them with dates
+        if (ranksOnLine.length > 0) {
+          // Use the highest rank found on the line as a reference point
+          const highestRankIndex = Math.max(...ranksOnLine.map(r => RANK_PROGRESSION.indexOf(r)));
+          const highestRank = RANK_PROGRESSION[highestRankIndex];
+
+          // Work backwards from the highest rank
+          // Most recent date = highest rank
+          for (let i = 0; i < uniqueDates.length; i++) {
+            const dateIndex = uniqueDates.length - 1 - i;
+            const rankIndex = highestRankIndex - i;
+
+            if (rankIndex >= 0 && rankIndex < RANK_PROGRESSION.length) {
+              history.push({
+                rank: RANK_PROGRESSION[rankIndex],
+                dateOfRank: uniqueDates[dateIndex]
+              });
+            }
+          }
+        } else {
+          // Fallback: Map to typical Medical Corps rank progression
+          // Medical Corps typically commission as LT (O3)
+          const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
+
+          for (let i = 0; i < uniqueDates.length && i < medicalRanks.length; i++) {
+            history.push({
+              rank: medicalRanks[i],
+              dateOfRank: uniqueDates[i]
+            });
+          }
+        }
+
         if (history.length > 0) {
           return history;
         }
@@ -251,22 +291,53 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
     }
   }
   
-  // Pattern 2: Look for individual rank lines with dates
-  const rankPatterns = [
-    /\b(ENS|LTJG|LT|LCDR|CDR|CAPT)\b.*?(\d{6})\b/gi,
-    /\bDOR\s+(\d{6})/gi
+  // Pattern 2: Look for explicit rank + date combinations
+  // Formats like: "LCDR 090118", "CDR: 100124", "Promoted to CDR on 010124"
+  const rankDatePatterns = [
+    // Rank followed by date: "LCDR 090118" or "LCDR: 090118"
+    /\b(ENS|LTJG|LT|LCDR|CDR|CAPT|RDML|RADM)\s*:?\s*(\d{6})\b/gi,
+    // Date followed by rank: "090118 LCDR" or "090118 - LCDR"
+    /\b(\d{6})\s*[-:]?\s*(ENS|LTJG|LT|LCDR|CDR|CAPT|RDML|RADM)\b/gi,
+    // DOR with rank: "DOR CDR 100124" or "DOR: 100124 CDR"
+    /\bDOR\s+(ENS|LTJG|LT|LCDR|CDR|CAPT|RDML|RADM)?\s*:?\s*(\d{6})/gi,
   ];
-  
-  for (const pattern of rankPatterns) {
+
+  for (const pattern of rankDatePatterns) {
     let match;
     while ((match = pattern.exec(text)) !== null) {
-      const rank = match[1]?.toUpperCase();
-      const dateStr = match[2] || match[1];
+      let rank: string | undefined;
+      let dateStr: string | undefined;
+
+      // Check if first capture group is a rank or date
+      if (/^\d{6}$/.test(match[1])) {
+        // First group is date, second is rank
+        dateStr = match[1];
+        rank = match[2]?.toUpperCase();
+      } else {
+        // First group is rank, second is date
+        rank = match[1]?.toUpperCase();
+        dateStr = match[2];
+      }
+
       const parsed = parseMMDDYY(dateStr);
-      
+
       if (parsed && rank && RANK_PROGRESSION.includes(rank)) {
         history.push({ rank, dateOfRank: parsed });
       }
+    }
+  }
+
+  // Pattern 3: Look for promotion records with context
+  // "Promoted to CDR", "Advanced to CAPT", etc.
+  const promotionPattern = /(?:promoted?|advanced?)\s+(?:to\s+)?(\b(?:ENS|LTJG|LT|LCDR|CDR|CAPT|RDML|RADM)\b).*?(\d{6})/gi;
+  let promoMatch;
+  while ((promoMatch = promotionPattern.exec(text)) !== null) {
+    const rank = promoMatch[1]?.toUpperCase();
+    const dateStr = promoMatch[2];
+    const parsed = parseMMDDYY(dateStr);
+
+    if (parsed && rank && RANK_PROGRESSION.includes(rank)) {
+      history.push({ rank, dateOfRank: parsed });
     }
   }
   
@@ -279,18 +350,36 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
 }
 
 /**
- * Determine current rank from promotion history
+ * Determine current rank from promotion history based on today's date
+ *
+ * IMPORTANT: This function correctly handles future promotion dates.
+ * For example, if an ODC was printed on Sep 15, 2024 showing rank as LCDR,
+ * but contains a CDR promotion date of Oct 1, 2024, this function will:
+ * - Return LCDR if today is before Oct 1, 2024
+ * - Return CDR if today is on or after Oct 1, 2024
+ *
+ * This ensures the rank reflects the officer's CURRENT rank as of today,
+ * not the rank shown on the document when it was printed.
  */
 export function determineCurrentRank(history: PromotionHistoryEntry[]): string | undefined {
   if (!history || history.length === 0) return undefined;
-  
+
   const today = new Date().toISOString().split('T')[0];
-  
-  // Find most recent rank where DOR <= today
+
+  // Find most recent rank where DOR (Date of Rank) is on or before today
   const validRanks = history
     .filter(entry => entry.dateOfRank <= today)
     .sort((a, b) => b.dateOfRank.localeCompare(a.dateOfRank)); // Most recent first
-  
+
+  if (validRanks.length > 0 && process.env.NODE_ENV === 'development') {
+    console.log('Current rank determination:', {
+      today,
+      allPromotions: history,
+      validPromotions: validRanks,
+      selectedRank: validRanks[0]?.rank
+    });
+  }
+
   return validRanks[0]?.rank;
 }
 
@@ -596,33 +685,61 @@ export function parsePSR(text: string): PSRSummary {
   for (let i = 1; i < fitreps.length; i++) {
     const prev = fitreps[i - 1];
     const curr = fitreps[i];
-    
+
     if (prev.endDate && curr.startDate) {
       const prevEnd = new Date(prev.endDate);
       const currStart = new Date(curr.startDate);
       const gapDays = Math.round((currStart.getTime() - prevEnd.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       // Flag any gap of 1 day or more (end date should be day before start date of next report)
       if (gapDays > 1) {
-        issues.push(`⚠️ GAP: ${gapDays} day${gapDays !== 1 ? 's' : ''} between ${prev.endDate} and ${curr.startDate} - FITREPs should have continuous coverage`);
+        issues.push(`🔴 GAP: ${gapDays} day${gapDays !== 1 ? 's' : ''} between ${prev.endDate} and ${curr.startDate} - FITREPs should have continuous coverage`);
       }
     }
   }
-  
+
   // 2. Leftward movement in promotion recommendations
+  // IMPORTANT: Only flag leftward movement within SAME rank AND SAME reporting senior
+  // Leftward movement is ACCEPTABLE when advancing ranks or changing RS
   const promoOrder = ['SP', 'PR', 'P', 'MP', 'EP'];
+
   for (let i = 1; i < gradedFitreps.length; i++) {
-    const prevRec = gradedFitreps[i - 1].promotionRec;
-    const currRec = gradedFitreps[i].promotionRec;
-    
+    const prev = gradedFitreps[i - 1];
+    const curr = gradedFitreps[i];
+
+    const prevRec = prev.promotionRec;
+    const currRec = curr.promotionRec;
+
     const prevIdx = promoOrder.indexOf(prevRec);
     const currIdx = promoOrder.indexOf(currRec);
-    
+
+    // Check if this is leftward movement
     if (prevIdx > 0 && currIdx >= 0 && currIdx < prevIdx) {
-      issues.push(`Leftward movement: ${prevRec} to ${currRec} (${gradedFitreps[i].endDate})`);
+      const sameRank = prev.payGrade === curr.payGrade;
+      const sameRS = prev.reportingSenior?.name === curr.reportingSenior?.name;
+
+      if (sameRank && sameRS) {
+        // PROBLEMATIC: Leftward movement within same rank and same RS
+        issues.push(`🔴 LEFTWARD: ${prevRec} → ${currRec} under same RS (${curr.reportingSenior?.name || 'Unknown'}) at ${curr.payGrade} (${curr.endDate})`);
+      } else if (!sameRank) {
+        // ACCEPTABLE: Leftward movement when advancing rank
+        issues.push(`ℹ️ Note: ${prevRec} → ${currRec} on rank advancement (${prev.payGrade} → ${curr.payGrade}) - This is acceptable`);
+      } else if (!sameRS) {
+        // ACCEPTABLE: Leftward movement when changing RS
+        issues.push(`ℹ️ Note: ${prevRec} → ${currRec} on RS change (${prev.reportingSenior?.name || 'Unknown'} → ${curr.reportingSenior?.name || 'Unknown'}) - This is acceptable`);
+      }
     }
   }
-  
+
+  // Calculate how many times officer was below RS average
+  const fitrepsWithRSAverage = gradedFitreps.filter(f => f.rsAverage && f.rsAverage > 0);
+  const belowRSAverageCount = fitrepsWithRSAverage.filter(f =>
+    f.individualAverage < f.rsAverage
+  ).length;
+  const belowRSAveragePercentage = fitrepsWithRSAverage.length > 0
+    ? Math.round((belowRSAverageCount / fitrepsWithRSAverage.length) * 100)
+    : 0;
+
   return {
     totalFitreps: fitreps.length,
     gradedFitreps: gradedFitreps.length,
@@ -634,7 +751,9 @@ export function parsePSR(text: string): PSRSummary {
     spCount,
     trend,
     issues,
-    fitreps
+    fitreps,
+    belowRSAverageCount,
+    belowRSAveragePercentage
   };
 }
 
@@ -870,4 +989,146 @@ export function getRankFromOGrade(oGrade: string): string {
 export function getOGradeFromRank(rank: string): string {
   const index = RANK_PROGRESSION.indexOf(rank.toUpperCase());
   return index >= 0 ? O_GRADE_PROGRESSION[index] : '';
+}
+
+// ============================================================================
+// PROMOTION BOARD TIMELINE UTILITIES
+// ============================================================================
+
+/**
+ * Promotion board schedule data
+ * Maps fiscal year to in-zone DOR windows and board dates
+ */
+const PROMOTION_BOARD_SCHEDULE = [
+  {
+    fy: 26,
+    inZoneStart: '2019-10-01',
+    inZoneEnd: '2020-09-30',
+    boards: {
+      O4: { convenes: '2025-05', fitrepDeadline: '2025-01' },
+      O5: { convenes: '2025-05', fitrepDeadline: '2024-10' },
+      O6: { convenes: '2025-02', fitrepDeadline: '2024-04' }
+    }
+  },
+  {
+    fy: 27,
+    inZoneStart: '2020-10-01',
+    inZoneEnd: '2021-09-30',
+    boards: {
+      O4: { convenes: '2026-05', fitrepDeadline: '2026-01' },
+      O5: { convenes: '2026-05', fitrepDeadline: '2025-10' },
+      O6: { convenes: '2026-02', fitrepDeadline: '2025-04' }
+    }
+  },
+  {
+    fy: 28,
+    inZoneStart: '2021-10-01',
+    inZoneEnd: '2022-09-30',
+    boards: {
+      O4: { convenes: '2027-05', fitrepDeadline: '2027-01' },
+      O5: { convenes: '2027-05', fitrepDeadline: '2026-10' },
+      O6: { convenes: '2027-02', fitrepDeadline: '2026-04' }
+    }
+  },
+  {
+    fy: 29,
+    inZoneStart: '2022-10-01',
+    inZoneEnd: '2023-09-30',
+    boards: {
+      O4: { convenes: '2028-05', fitrepDeadline: '2028-01' },
+      O5: { convenes: '2028-05', fitrepDeadline: '2027-10' },
+      O6: { convenes: '2028-02', fitrepDeadline: '2027-04' }
+    }
+  },
+  {
+    fy: 30,
+    inZoneStart: '2023-10-01',
+    inZoneEnd: '2024-09-30',
+    boards: {
+      O4: { convenes: '2029-05', fitrepDeadline: '2029-01' },
+      O5: { convenes: '2029-05', fitrepDeadline: '2028-10' },
+      O6: { convenes: '2029-02', fitrepDeadline: '2028-04' }
+    }
+  },
+  {
+    fy: 31,
+    inZoneStart: '2024-10-01',
+    inZoneEnd: '2025-09-30',
+    boards: {
+      O4: { convenes: '2030-05', fitrepDeadline: '2030-01' },
+      O5: { convenes: '2030-05', fitrepDeadline: '2029-10' },
+      O6: { convenes: '2030-02', fitrepDeadline: '2029-04' }
+    }
+  }
+];
+
+export interface PromotionTimeline {
+  currentRank: string;
+  currentPayGrade: string;
+  dateOfRank: string;
+  inZoneFY: number | null;
+  nextRank: string | null;
+  nextPayGrade: string | null;
+  boardConvenes: string | null;
+  fitrepDeadline: string | null;
+  daysUntilBoard: number | null;
+  daysUntilFitrepDeadline: number | null;
+  isInZone: boolean;
+}
+
+/**
+ * Calculate promotion timeline for an officer based on current rank and DOR
+ */
+export function calculatePromotionTimeline(
+  currentRank: string,
+  dateOfRank: string
+): PromotionTimeline {
+  const payGrade = getOGradeFromRank(currentRank);
+  const rankIndex = RANK_PROGRESSION.indexOf(currentRank.toUpperCase());
+  const nextRank = rankIndex >= 0 && rankIndex < RANK_PROGRESSION.length - 1
+    ? RANK_PROGRESSION[rankIndex + 1]
+    : null;
+  const nextPayGrade = nextRank ? getOGradeFromRank(nextRank) : null;
+
+  // Find the FY where officer is in-zone based on DOR
+  let inZoneFY: number | null = null;
+  let boardInfo: { convenes: string; fitrepDeadline: string } | null = null;
+
+  for (const schedule of PROMOTION_BOARD_SCHEDULE) {
+    if (dateOfRank >= schedule.inZoneStart && dateOfRank <= schedule.inZoneEnd) {
+      inZoneFY = schedule.fy;
+      // Get board info for next rank
+      if (nextPayGrade && nextPayGrade in schedule.boards) {
+        boardInfo = schedule.boards[nextPayGrade as keyof typeof schedule.boards];
+      }
+      break;
+    }
+  }
+
+  // Calculate days until board and FITREP deadline
+  const today = new Date();
+  let daysUntilBoard: number | null = null;
+  let daysUntilFitrepDeadline: number | null = null;
+
+  if (boardInfo) {
+    const boardDate = new Date(boardInfo.convenes + '-01');
+    const fitrepDate = new Date(boardInfo.fitrepDeadline + '-01');
+
+    daysUntilBoard = Math.ceil((boardDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    daysUntilFitrepDeadline = Math.ceil((fitrepDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  return {
+    currentRank,
+    currentPayGrade: payGrade,
+    dateOfRank,
+    inZoneFY,
+    nextRank,
+    nextPayGrade,
+    boardConvenes: boardInfo?.convenes || null,
+    fitrepDeadline: boardInfo?.fitrepDeadline || null,
+    daysUntilBoard,
+    daysUntilFitrepDeadline,
+    isInZone: inZoneFY !== null
+  };
 }

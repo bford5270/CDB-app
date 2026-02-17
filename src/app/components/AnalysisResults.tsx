@@ -167,7 +167,7 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         category: 'Leadership',
         severity: 'critical',
         description: 'No command tour for CDR-level officer',
-        recommendation: 'Command at sea or major medical department head is highly valued for CAPT selection. Consider actively seeking department head positions at major medical centers or command opportunities.',
+        recommendation: 'Command at sea or major medical department head is highly valued for CAPT selection. Per MC CDB career progression guidance, officers competitive for promotion will have accrued operational and clinical experience necessary to serve in billets commensurate with the next rank. Consider seeking: Division/Department Head at major MTF, SMO/Medical Director positions, or DIO/GME Director roles.',
         icon: Target,
       });
       score -= 15;
@@ -176,7 +176,7 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         category: 'Leadership',
         severity: 'important',
         description: 'No department head or command experience approaching CDR board',
-        recommendation: 'Seek department head positions at medical treatment facilities. Leadership experience managing people and resources is increasingly important for CDR and above.',
+        recommendation: 'Consider pursuing department head positions at medical treatment facilities. The MC career path deliberately develops clinical, operational, and leadership skillsets. Leadership roles managing people and resources demonstrate readiness for increased responsibility at the CDR level.',
         icon: Target,
       });
       score -= 10;
@@ -188,20 +188,20 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
       });
     }
 
-    // Special Qualifications
+    // Special Qualifications & Service Schools
     if (officerData.specialQualifications.length === 0) {
       gaps.push({
         category: 'Professional Development',
         severity: 'recommended',
-        description: 'Limited special qualifications documented',
-        recommendation: 'Pursue relevant certifications: Board certification in specialty, ATLS, ACLS, PALS, Dive Medical Officer, Flight Surgeon, etc. Certifications demonstrate continued professional development.',
+        description: 'Limited special qualifications or service schools documented',
+        recommendation: 'Consider completing relevant service schools and certifications. Per CDB guidance, ensure your record reflects how awesome you are - document all training completed. Key service schools for Medical Corps: Combat Casualty Care (C4), AMDOC, MedXcellence, FMSO Training, Tropical Medicine. Clinical certifications: ATLS, ACLS, PALS, Dive Medical Officer, Flight Surgeon. All completions should be added to your OSR via askmncc@navy.mil.',
         icon: BookOpen,
       });
       score -= 5;
     } else if (officerData.specialQualifications.length >= 3) {
       strengths.push({
         category: 'Professional Development',
-        description: 'Multiple special qualifications demonstrate commitment to excellence',
+        description: 'Multiple special qualifications demonstrate commitment to excellence and professional growth',
         icon: BookOpen,
       });
     }
@@ -212,10 +212,21 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         category: 'Career Progression',
         severity: 'important',
         description: `Extended time in grade (${Math.floor(timeInGrade / 12)} years) - slower than typical progression`,
-        recommendation: 'Review past fitness reports for areas of improvement. Ensure visibility with senior leadership. Consider seeking mentorship from senior Medical Corps officers who have successfully navigated promotion boards.',
+        recommendation: 'Review past fitness reports for areas of improvement. Ensure visibility with senior leadership. Consider seeking mentorship from senior Medical Corps officers who have successfully navigated promotion boards. Per CDB slides: typical promotion flow points are 5 FYs after promotion to last rank.',
         icon: TrendingUp,
       });
       score -= 10;
+    }
+
+    // Record Review Recommendation - Based on CDB slides page 10
+    if (boardEligibility === 'in-zone' || boardEligibility === 'above-zone') {
+      gaps.push({
+        category: 'Record Review',
+        severity: 'important',
+        description: 'Approaching promotion board - time to review your record',
+        recommendation: 'CDB guidance emphasizes: "Ensure your record reflects how awesome you are." Review your OSR, PSR, and ODC now. Check for: (1) No gaps in PSR - especially last 5 years of FITREPs, (2) All service schools documented, (3) Awards updated (NAM or higher), (4) Education degrees listed, (5) AQDs current, (6) Security clearance up to date, (7) Official photo on file in current rank. Review annually to have time to fix issues. If corrections needed, submit via askmncc@navy.mil or via Letter to the Board (10 days before board convenes).',
+        icon: AlertCircle,
+      });
     }
 
     return { gaps, strengths, overallScore: Math.max(0, score) };

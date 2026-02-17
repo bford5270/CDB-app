@@ -814,11 +814,15 @@ function parsePSRLine(payGrade: string, restOfLine: string, fullLine: string): F
   const allMatches = fullLine.match(/\b\d{6}\b/g);
   const validDates: string[] = [];
 
+  console.log(`PSR DATE - Line: ${fullLine.substring(0, 120)}...`);
+  console.log(`PSR DATE - Matches:`, allMatches);
+
   if (allMatches) {
     for (const match of allMatches) {
       const parsed = parseMMDDYY(match);
       if (parsed) {
         const year = parseInt(parsed.substring(0, 4), 10);
+        console.log(`  ${match} → ${parsed} (year: ${year}, valid: ${year >= 2000 && year <= 2030})`);
         // Only accept dates in reasonable range (2000-2030) to filter out non-date numbers
         if (year >= 2000 && year <= 2030) {
           validDates.push(parsed);
@@ -833,6 +837,8 @@ function parsePSRLine(payGrade: string, restOfLine: string, fullLine: string): F
     validDates.sort();
     fitrep.startDate = validDates[0];
     fitrep.endDate = validDates[1];
+
+    console.log(`PSR DATE - Result: ${validDates[0]} to ${validDates[1]}`);
 
     // Calculate months
     const start = new Date(validDates[0]);

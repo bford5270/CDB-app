@@ -180,16 +180,26 @@ export function parseYYMM(dateStr: string): string | null {
 
 /**
  * Format ISO date for display
+ * IMPORTANT: Parse date components directly to avoid timezone issues
  */
 export function formatDateForDisplay(isoDate: string): string {
   if (!isoDate) return 'Unknown';
-  
+
   try {
-    const date = new Date(isoDate + (isoDate.length === 7 ? '-01' : ''));
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
+    // Parse YYYY-MM-DD or YYYY-MM format
+    const parts = isoDate.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parts[2] ? parseInt(parts[2], 10) : 1;
+
+    // Create date using local time (not UTC) to avoid timezone offset issues
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
       month: 'short',
-      day: isoDate.length > 7 ? 'numeric' : undefined
+      day: isoDate.length > 7 ? 'numeric' : undefined,
+      timeZone: 'UTC' // Force UTC to prevent timezone conversion
     });
   } catch {
     return isoDate;

@@ -807,26 +807,42 @@ function parsePSRLine(payGrade: string, restOfLine: string, fullLine: string): F
     traits: [],
     promotionRecCounts: { sp: 0, pr: 0, p: 0, mp: 0, ep: 0 }
   };
-  
-  // Try to extract dates (MMDDYY format, 6 digits)
-  const dateMatches = fullLine.match(/\b(\d{6})\b/g);
-  if (dateMatches && dateMatches.length >= 2) {
-    const startDate = parseMMDDYY(dateMatches[0]);
-    const endDate = parseMMDDYY(dateMatches[1]);
-    
-    if (startDate) fitrep.startDate = startDate;
-    if (endDate) fitrep.endDate = endDate;
-    
-    // Calculate months
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      fitrep.months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+
+  // Extract dates more carefully
+  // PSR format has dates early in the line, usually as "STATION DUTY MMDDYY MOS ... MMDDYY"
+  // Find all 6-digit sequences that parse as valid dates
+  const allMatches = fullLine.match(/\b\d{6}\b/g);
+  const validDates: string[] = [];
+
+  if (allMatches) {
+    for (const match of allMatches) {
+      const parsed = parseMMDDYY(match);
+      if (parsed) {
+        const year = parseInt(parsed.substring(0, 4), 10);
+        // Only accept dates in reasonable range (2000-2030) to filter out non-date numbers
+        if (year >= 2000 && year <= 2030) {
+          validDates.push(parsed);
+        }
+      }
     }
   }
-  
-  // Extract station (first word after grade)
-  const stationMatch = restOfLine.match(/^([A-Z\-]+\s*[A-Z\-]*)/i);
+
+  // Take first two valid dates as start/end
+  if (validDates.length >= 2) {
+    // Sort chronologically to ensure start < end
+    validDates.sort();
+    fitrep.startDate = validDates[0];
+    fitrep.endDate = validDates[1];
+
+    // Calculate months
+    const start = new Date(validDates[0]);
+    const end = new Date(validDates[1]);
+    fitrep.months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+  }
+
+  // Extract station - more robust pattern to get first 1-3 words after pay grade
+  // Handles cases like "NAVHOSP CAMPE" or "USU BETHESDA" or "T-AH 19 MTF"
+  const stationMatch = restOfLine.match(/^([A-Z0-9\-]+(?:\s+[A-Z0-9\-]+){0,2})/i);
   if (stationMatch) {
     fitrep.station = stationMatch[1].trim();
   }

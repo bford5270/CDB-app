@@ -208,56 +208,65 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
   const history: PromotionHistoryEntry[] = [];
   const lines = text.split('\n');
   
-  // Pattern 1: Look for line with DOR (Date of Rank) information
+  // Pattern 1: Look for line with explicit DOR (Date of Rank) keyword
   // Example formats:
-  // "DOR: 100124 090118 052112" or "100124 090118 052112 S4 LCDR"
-  // Try to extract ranks from the same line if possible
-  for (const line of lines) {
-    // Look for lines that might contain DOR information
+  // "DOR: 100124 090118 052112" or "090124 090118 052112 S4 LCDR" (on line after "DOR" label)
+  // IMPORTANT: In ODC format, "DOR" label is often on one line and dates are on the next line
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const upperLine = line.toUpperCase();
-    if (!upperLine.includes('DOR') && !/\b\d{6}\s+\d{6}/.test(line)) {
-      continue; // Skip lines without multiple dates or DOR keyword
+
+    if (!upperLine.includes('DOR')) {
+      continue; // Skip lines without DOR keyword
     }
 
-    // Find sequences of 6 digits that look like dates
-    const dateMatches = line.match(/\b(\d{6})\b/g);
+    // Check both current line and next line for dates
+    let dateLines = [line];
+    if (i + 1 < lines.length) {
+      dateLines.push(lines[i + 1]);
+    }
 
-    if (dateMatches && dateMatches.length >= 2) {
-      const validDates: string[] = [];
+    // Try to find dates in current line first, then next line
+    for (const dateLine of dateLines) {
+      const dateMatches = dateLine.match(/\b(\d{6})\b/g);
 
-      for (const match of dateMatches) {
-        const parsed = parseMMDDYY(match);
-        if (parsed) {
-          const year = parseInt(parsed.substring(0, 4), 10);
-          // Filter to reasonable years (1980-2040)
-          if (year >= 1980 && year <= 2040) {
-            validDates.push(parsed);
+      if (dateMatches && dateMatches.length >= 2) {
+        const validDates: string[] = [];
+
+        for (const match of dateMatches) {
+          const parsed = parseMMDDYY(match);
+          if (parsed) {
+            const year = parseInt(parsed.substring(0, 4), 10);
+            // Filter to reasonable years (1980-2040)
+            if (year >= 1980 && year <= 2040) {
+              validDates.push(parsed);
+            }
           }
         }
-      }
 
-      if (validDates.length >= 2) {
-        // Sort chronologically (oldest first)
-        validDates.sort((a, b) => a.localeCompare(b));
+        if (validDates.length >= 2) {
+          // Sort chronologically (oldest first)
+          validDates.sort((a, b) => a.localeCompare(b));
 
-        // Remove duplicates
-        const uniqueDates = [...new Set(validDates)];
+          // Remove duplicates
+          const uniqueDates = [...new Set(validDates)];
 
-        // For DOR lines with 2-4 dates, use Medical Corps rank progression
-        // Rank labels on DOR lines (like "S4 LCDR") often just show current rank at time of printing
-        // and shouldn't be used to determine the progression
-        // Medical Corps typically commission as LT (O3) and progress: LT → LCDR → CDR → CAPT
-        const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
+          // For DOR lines with 2-4 dates, use Medical Corps rank progression
+          // Rank labels on DOR lines (like "S4 LCDR") often just show current rank at time of printing
+          // and shouldn't be used to determine the progression
+          // Medical Corps typically commission as LT (O3) and progress: LT → LCDR → CDR → CAPT
+          const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
 
-        for (let i = 0; i < uniqueDates.length && i < medicalRanks.length; i++) {
-          history.push({
-            rank: medicalRanks[i],
-            dateOfRank: uniqueDates[i]
-          });
-        }
+          for (let j = 0; j < uniqueDates.length && j < medicalRanks.length; j++) {
+            history.push({
+              rank: medicalRanks[j],
+              dateOfRank: uniqueDates[j]
+            });
+          }
 
-        if (history.length > 0) {
-          return history;
+          if (history.length > 0) {
+            return history;
+          }
         }
       }
     }

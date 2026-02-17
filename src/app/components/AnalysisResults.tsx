@@ -67,20 +67,38 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
       });
     }
 
+    // Board Certification - Based on MC CDB slides
+    if (officerData.boardCertified === false && currentRank >= 'LCDR') {
+      gaps.push({
+        category: 'Board Certification',
+        severity: 'critical',
+        description: 'Not board certified in specialty',
+        recommendation: 'Board certification is vital for O-5 selection according to MC CDB career progression guidance. Consider prioritizing completion of specialty board certification requirements. This demonstrates clinical expertise and is highly valued by promotion boards.',
+        icon: Award,
+      });
+      score -= 20;
+    } else if (officerData.boardCertified === true) {
+      strengths.push({
+        category: 'Board Certification',
+        description: 'Board certified - demonstrates clinical excellence and is vital for O-5 promotion',
+        icon: Award,
+      });
+    }
+
     // Post-Graduate Education
     if (!officerData.postGradEducation) {
       gaps.push({
-        category: 'Education',
-        severity: 'important',
-        description: 'No post-graduate education beyond medical degree',
-        recommendation: 'Consider pursuing graduate education through Navy programs: MPH via Uniformed Services University (USU), MBA through Naval Postgraduate School (NPS), or specialty residency through Navy GME programs. Advanced education is increasingly important for senior Medical Corps leadership positions.',
+        category: 'Advanced Education',
+        severity: 'recommended',
+        description: 'No advanced degree beyond medical training',
+        recommendation: 'Consider pursuing graduate education through Navy programs: MPH via Uniformed Services University (USU), MBA through Naval Postgraduate School (NPS), or MHA programs. Advanced leadership/business degrees are increasingly valued for senior Medical Corps positions, particularly for Executive OMO and Flag billets.',
         icon: BookOpen,
       });
-      score -= 15;
+      score -= 10;
     } else {
       strengths.push({
-        category: 'Education',
-        description: 'Post-graduate education enhances medical expertise and leadership credentials',
+        category: 'Advanced Education',
+        description: 'Advanced degree enhances leadership credentials and is valued for senior positions',
         icon: BookOpen,
       });
     }
@@ -104,13 +122,34 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
       });
     }
 
+    // OMO Tours - Based on MC CDB slides career progression guidance
+    if (currentRank === 'LCDR' && boardEligibility === 'in-zone') {
+      gaps.push({
+        category: 'Operational Medical Officer (OMO) Tour',
+        severity: 'important',
+        description: 'No documented OMO tour approaching CDR board',
+        recommendation: 'Consider completing at least one OMO tour before the CDR board. According to MC CDB career progression guidance, OMO tours (such as small deck SMO, CVN staff, USMC Battalion Surgeon, or Fleet Surgeon assignments) are highly valued for developing operational competency. These tours typically occur around the 6-12 year mark and demonstrate your ability to support operational Navy Medicine.',
+        icon: Anchor,
+      });
+      score -= 10;
+    } else if (currentRank === 'CDR' && boardEligibility === 'in-zone') {
+      gaps.push({
+        category: 'Senior/Executive OMO Tour',
+        severity: 'important',
+        description: 'Consider senior operational experience for CAPT board',
+        recommendation: 'For competitive CAPT selection, consider completing a Senior or Executive OMO tour. Examples include: CVN/LHA/LHD SMO, Group UMO, CATF Surgeon, Regimental Surgeon, or Senior GHE billets. These positions (typically around 12-18 years) demonstrate your capability to serve in increasingly responsible operational leadership roles.',
+        icon: Anchor,
+      });
+      score -= 10;
+    }
+
     // Deployments
     if (officerData.deployments === 0 && (rankData?.timeInService || 0) > 60) {
       gaps.push({
         category: 'Operational Experience',
         severity: 'important',
         description: 'No deployment experience',
-        recommendation: 'Seek operational assignments including ship duty, expeditionary medicine, or forward-deployed hospitals. Deployment experience is highly valued and demonstrates commitment to operational Navy.',
+        recommendation: 'Consider pursuing operational assignments including ship duty, expeditionary medicine, or forward-deployed hospitals. Deployment experience is highly valued and demonstrates commitment to operational Navy Medicine.',
         icon: Anchor,
       });
       score -= 10;

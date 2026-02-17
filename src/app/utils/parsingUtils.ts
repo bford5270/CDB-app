@@ -590,23 +590,54 @@ export function extractDesignator(text: string): string | undefined {
 export function parsePSR(text: string): PSRSummary {
   const fitreps: FitrepEntry[] = [];
   const issues: string[] = [];
-  
+
   const lines = text.split('\n');
-  
+
   // Pattern to match PSR lines
   // PG | STATION | DUTY | DATES | MOS | RS NAME | RS PG | RS TITLE | TRAITS | AVERAGES | PROMO REC | PRT | TYPE
   // Example: "O3 NAVHOSP CAMPE PGY 1 061212 8 IVERSON 06 co 0 0 4 2 0 3.33 307 X p"
-  
-  for (const line of lines) {
+  //
+  // NOTE: PDF extraction often splits each FITREP across 2 lines, so we need to combine them
+
+  // First, combine multi-line FITREP entries
+  const combinedLines: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Check if this line starts with a pay grade
+    const startsWithGrade = /^O?\d\s+/.test(line);
+
+    if (startsWithGrade) {
+      // This is the start of a FITREP - check if next line is a continuation
+      let combined = line;
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        const nextStartsWithGrade = /^O?\d\s+/.test(nextLine);
+
+        // If next line doesn't start with a grade, it's a continuation
+        if (!nextStartsWithGrade && nextLine.length > 0) {
+          combined += ' ' + nextLine;
+          i++; // Skip the next line since we've combined it
+        }
+      }
+      combinedLines.push(combined);
+    } else if (line.length > 0) {
+      // Standalone line that doesn't start with grade - might be header, keep it
+      combinedLines.push(line);
+    }
+  }
+
+  // Now parse the combined lines
+  for (const line of combinedLines) {
     const trimmed = line.trim();
-    
+
     // Look for lines starting with O-grade (O1-O6, O01-O06)
     const gradeMatch = trimmed.match(/^O?(\d)\s+/i);
     if (!gradeMatch) continue;
-    
+
     const payGrade = `O${gradeMatch[1]}`;
     const restOfLine = trimmed.substring(gradeMatch[0].length);
-    
+
     try {
       const fitrep = parsePSRLine(payGrade, restOfLine, trimmed);
       if (fitrep) {

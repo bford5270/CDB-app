@@ -243,45 +243,17 @@ export function extractPromotionHistoryFromODC(text: string): PromotionHistoryEn
         // Remove duplicates
         const uniqueDates = [...new Set(validDates)];
 
-        // Try to find rank labels on the same line or nearby lines
-        // Look for patterns like "CDR", "LCDR", "CAPT" etc.
-        const ranksOnLine: string[] = [];
-        for (const rank of RANK_PROGRESSION) {
-          if (new RegExp(`\\b${rank}\\b`, 'i').test(line)) {
-            ranksOnLine.push(rank);
-          }
-        }
+        // For DOR lines with 2-4 dates, use Medical Corps rank progression
+        // Rank labels on DOR lines (like "S4 LCDR") often just show current rank at time of printing
+        // and shouldn't be used to determine the progression
+        // Medical Corps typically commission as LT (O3) and progress: LT → LCDR → CDR → CAPT
+        const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
 
-        // If we found rank labels, try to associate them with dates
-        if (ranksOnLine.length > 0) {
-          // Use the highest rank found on the line as a reference point
-          const highestRankIndex = Math.max(...ranksOnLine.map(r => RANK_PROGRESSION.indexOf(r)));
-          const highestRank = RANK_PROGRESSION[highestRankIndex];
-
-          // Work backwards from the highest rank
-          // Most recent date = highest rank
-          for (let i = 0; i < uniqueDates.length; i++) {
-            const dateIndex = uniqueDates.length - 1 - i;
-            const rankIndex = highestRankIndex - i;
-
-            if (rankIndex >= 0 && rankIndex < RANK_PROGRESSION.length) {
-              history.push({
-                rank: RANK_PROGRESSION[rankIndex],
-                dateOfRank: uniqueDates[dateIndex]
-              });
-            }
-          }
-        } else {
-          // Fallback: Map to typical Medical Corps rank progression
-          // Medical Corps typically commission as LT (O3)
-          const medicalRanks = ['LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM'];
-
-          for (let i = 0; i < uniqueDates.length && i < medicalRanks.length; i++) {
-            history.push({
-              rank: medicalRanks[i],
-              dateOfRank: uniqueDates[i]
-            });
-          }
+        for (let i = 0; i < uniqueDates.length && i < medicalRanks.length; i++) {
+          history.push({
+            rank: medicalRanks[i],
+            dateOfRank: uniqueDates[i]
+          });
         }
 
         if (history.length > 0) {

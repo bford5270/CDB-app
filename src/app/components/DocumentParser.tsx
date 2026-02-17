@@ -799,8 +799,8 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
               const psrIssues: string[] = [];
 
               // Extract PSR warnings/issues
-              if (psrData?.warnings) {
-                psrIssues.push(...psrData.warnings);
+              if (psrData?.issues) {
+                psrIssues.push(...psrData.issues);
               }
 
               const data = {
@@ -822,11 +822,11 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                 clearanceDate: mergedData.securityClearance?.investigationDate || '',
                 certificationCode: mergedData.boardCertified === true ? 'K' as const :
                                    mergedData.boardCertified === false ? 'J' as const : null,
-                fitrepAverage: psrData?.avgIndAvg || 0,
-                fitrepCount: psrData?.fitreps?.length || 0,
-                earlyPromotes: psrData?.promoRecCounts?.EP || 0,
-                mustPromotes: psrData?.promoRecCounts?.MP || 0,
-                promotables: psrData?.promoRecCounts?.P || 0,
+                fitrepAverage: psrData?.averageIndividual || 0,
+                fitrepCount: psrData?.totalFitreps || 0,
+                earlyPromotes: psrData?.epCount || 0,
+                mustPromotes: psrData?.mpCount || 0,
+                promotables: psrData?.pCount || 0,
               };
 
               onParsedDataAccepted(data);

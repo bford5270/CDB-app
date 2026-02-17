@@ -49,12 +49,17 @@ export default function App() {
     promotables?: number;
   }) => {
     // Determine current rank from rank history
+    // Only consider promotions where the date of rank is on or before today
     let currentRank = '';
     if (data.rankHistory.length > 0) {
-      const sortedRanks = [...data.rankHistory].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      currentRank = sortedRanks[0].rank;
+      const today = new Date().toISOString().split('T')[0];
+      const validRanks = data.rankHistory
+        .filter(entry => entry.date <= today)
+        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
+
+      if (validRanks.length > 0) {
+        currentRank = validRanks[0].rank;
+      }
     }
 
     // Convert parsed data to unified format

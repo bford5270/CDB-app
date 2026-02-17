@@ -623,15 +623,16 @@ export function parsePSR(text: string): PSRSummary {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Check if this line starts with a pay grade
-    const startsWithGrade = /^O?\d\s+/.test(line);
+    // Check if this line starts with a pay grade (O1-O6, 01-06, etc.)
+    // IMPORTANT: Use [0-9]{1,2} to match both single digit (O4) and double digit (01, 03)
+    const startsWithGrade = /^O?[0-9]{1,2}\s+/.test(line);
 
     if (startsWithGrade) {
       // This is the start of a FITREP - check if next line is a continuation
       let combined = line;
       if (i + 1 < lines.length) {
         const nextLine = lines[i + 1].trim();
-        const nextStartsWithGrade = /^O?\d\s+/.test(nextLine);
+        const nextStartsWithGrade = /^O?[0-9]{1,2}\s+/.test(nextLine);
 
         // If next line doesn't start with a grade, it's a continuation
         if (!nextStartsWithGrade && nextLine.length > 0) {
@@ -652,8 +653,9 @@ export function parsePSR(text: string): PSRSummary {
   for (const line of combinedLines) {
     const trimmed = line.trim();
 
-    // Look for lines starting with O-grade (O1-O6, O01-O06)
-    const gradeMatch = trimmed.match(/^O?(\d)\s+/i);
+    // Look for lines starting with O-grade (O1-O6, O01-O06, 01-06, etc.)
+    // IMPORTANT: Capture 1-2 digits to match both "O4" and "01"/"03"
+    const gradeMatch = trimmed.match(/^O?([0-9]{1,2})\s+/i);
     if (!gradeMatch) continue;
 
     const payGrade = `O${gradeMatch[1]}`;

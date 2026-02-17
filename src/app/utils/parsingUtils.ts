@@ -658,7 +658,9 @@ export function parsePSR(text: string): PSRSummary {
     const gradeMatch = trimmed.match(/^O?([0-9]{1,2})\s+/i);
     if (!gradeMatch) continue;
 
-    const payGrade = `O${gradeMatch[1]}`;
+    // Normalize pay grade: remove leading zeros (01 → O1, not O01)
+    const gradeNum = parseInt(gradeMatch[1], 10);
+    const payGrade = `O${gradeNum}`;
     const restOfLine = trimmed.substring(gradeMatch[0].length);
 
     console.log(`PSR: Found ${payGrade} entry, parsing...`);
@@ -715,9 +717,15 @@ export function parsePSR(text: string): PSRSummary {
   
   // Check for issues
   // 1. Gaps in reporting dates - flag ANY gap (there should be no gaps in FITREP coverage)
+  // IMPORTANT: Skip gap detection for concurrent FITREPs (CC type) - they overlap by design
   for (let i = 1; i < fitreps.length; i++) {
     const prev = fitreps[i - 1];
     const curr = fitreps[i];
+
+    // Skip if either FITREP is concurrent (CC) - these overlap with regular FITREPs
+    if (prev.reportType === 'CC' || curr.reportType === 'CC') {
+      continue;
+    }
 
     if (prev.endDate && curr.startDate) {
       const prevEnd = new Date(prev.endDate);

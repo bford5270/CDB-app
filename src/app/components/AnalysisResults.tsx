@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle, TrendingUp, Award, BookOpen, Anchor, Users, Target, Clock } from 'lucide-react';
 import type { OfficerData } from './OfficerDataForm';
+import { PromotionTimeline } from './PromotionTimeline';
 
 interface AnalysisResultsProps {
   officerData: OfficerData;
@@ -73,7 +74,7 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         severity: 'important',
         description: 'No post-graduate education beyond medical degree',
         recommendation: 'Consider pursuing graduate education through Navy programs: MPH via Uniformed Services University (USU), MBA through Naval Postgraduate School (NPS), or specialty residency through Navy GME programs. Advanced education is increasingly important for senior Medical Corps leadership positions.',
-        icon: GraduationCap,
+        icon: BookOpen,
       });
       score -= 15;
     } else {
@@ -91,7 +92,7 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         category: 'Joint Experience',
         severity: severity,
         description: 'No joint duty assignment completed',
-        recommendation: 'Seek joint duty assignment with Joint Staff, COCOM, or inter-service medical facilities. Complete JPME Phase I (available through Joint Forces Staff College distance learning) to demonstrate joint qualification. JPME is increasingly required for O-5 and above positions.',
+        recommendation: 'Consider seeking joint duty assignment with Joint Staff, COCOM, or inter-service medical facilities. JPME Phase I (available through Joint Forces Staff College distance learning) demonstrates joint qualification and is increasingly valued for O-5 and above positions.',
         icon: Users,
       });
       score -= severity === 'critical' ? 15 : 10;
@@ -127,7 +128,7 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         category: 'Leadership',
         severity: 'critical',
         description: 'No command tour for CDR-level officer',
-        recommendation: 'Command at sea or major medical department head is critical for CAPT selection. Actively seek department head positions at major medical centers or command opportunities.',
+        recommendation: 'Command at sea or major medical department head is highly valued for CAPT selection. Consider actively seeking department head positions at major medical centers or command opportunities.',
         icon: Target,
       });
       score -= 15;
@@ -243,6 +244,14 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
           Based on Navy Medical Corps career progression standards
         </p>
       </div>
+
+      {/* Promotion Timeline */}
+      {officerData.rankHistoryData?.currentRank && officerData.rankHistoryData?.dateOfRank && (
+        <PromotionTimeline
+          currentRank={officerData.rankHistoryData.currentRank}
+          dateOfRank={officerData.rankHistoryData.dateOfRank}
+        />
+      )}
 
       {/* Overall Score */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">

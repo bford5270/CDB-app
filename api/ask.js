@@ -106,7 +106,7 @@ ${context}
 ## QUESTION: ${question}
 
 ## YOUR TASK:
-1. Search Schofer Promo Prep PDF FIRST (prefer .pdf over .docx)
+1. Search Medical Corps CDB Slide Presentation FIRST, then Schofer Promo Prep PDF (prefer .pdf over .docx)
 2. Find SPECIFIC information: exact requirements, course names, dates, procedures, examples
 3. QUOTE the relevant text and CITE the document name
 4. Be DETAILED and PRACTICAL - include all relevant specifics

@@ -800,6 +800,8 @@ export function parsePSR(text: string): PSRSummary {
 
 /**
  * Parse a single PSR line
+ * Expected format: PAYGRADE DESIG RS STARTDATE ENDDATE MONTHS STATION... [R/C] PROMONAME RANK DUEDATE FINALPROMO
+ * Example: O4 PHYS 2 020117 100117 8 NAVHOSP GUAM P CAPT 032718 EP
  */
 function parsePSRLine(payGrade: string, restOfLine: string, fullLine: string): FitrepEntry | null {
   const fitrep: Partial<FitrepEntry> = {
@@ -808,49 +810,77 @@ function parsePSRLine(payGrade: string, restOfLine: string, fullLine: string): F
     promotionRecCounts: { sp: 0, pr: 0, p: 0, mp: 0, ep: 0 }
   };
 
-  // Extract dates more carefully
-  // PSR format has dates early in the line, usually as "STATION DUTY MMDDYY MOS ... MMDDYY"
-  // Find all 6-digit sequences that parse as valid dates
-  const allMatches = fullLine.match(/\b\d{6}\b/g);
-  const validDates: string[] = [];
+  // Split the line into tokens
+  const tokens = restOfLine.trim().split(/\s+/);
+  console.log(`PSR PARSE - PayGrade: ${payGrade}, Tokens:`, tokens.slice(0, 15));
 
-  console.log(`PSR DATE - Line: ${fullLine.substring(0, 120)}...`);
-  console.log(`PSR DATE - Matches:`, allMatches);
+  if (tokens.length < 6) {
+    console.log(`PSR PARSE - Skipping: too few tokens (${tokens.length})`);
+    return null;
+  }
 
-  if (allMatches) {
-    for (const match of allMatches) {
-      const parsed = parseMMDDYY(match);
-      if (parsed) {
-        const year = parseInt(parsed.substring(0, 4), 10);
-        console.log(`  ${match} → ${parsed} (year: ${year}, valid: ${year >= 2000 && year <= 2030})`);
-        // Only accept dates in reasonable range (2000-2030) to filter out non-date numbers
-        if (year >= 2000 && year <= 2030) {
-          validDates.push(parsed);
-        }
-      }
+  // Token positions (after pay grade):
+  // 0: Designator (PHYS, SURG, etc.)
+  // 1: RS code (single digit, e.g., "2")
+  // 2: Start date (MMDDYY, e.g., "020117")
+  // 3: End date (MMDDYY, e.g., "100117")
+  // 4: Months (single/double digit, e.g., "8")
+  // 5+: Station name (variable length, e.g., "NAVHOSP GUAM" or "T-AH 19 MTF")
+
+  const startDateStr = tokens[2];
+  const endDateStr = tokens[3];
+
+  // Parse dates
+  if (startDateStr && /^\d{6}$/.test(startDateStr)) {
+    const parsed = parseMMDDYY(startDateStr);
+    if (parsed) {
+      fitrep.startDate = parsed;
+      console.log(`PSR PARSE - Start date: ${startDateStr} → ${parsed}`);
     }
   }
 
-  // Take first two valid dates as start/end
-  if (validDates.length >= 2) {
-    // Sort chronologically to ensure start < end
-    validDates.sort();
-    fitrep.startDate = validDates[0];
-    fitrep.endDate = validDates[1];
-
-    console.log(`PSR DATE - Result: ${validDates[0]} to ${validDates[1]}`);
-
-    // Calculate months
-    const start = new Date(validDates[0]);
-    const end = new Date(validDates[1]);
-    fitrep.months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+  if (endDateStr && /^\d{6}$/.test(endDateStr)) {
+    const parsed = parseMMDDYY(endDateStr);
+    if (parsed) {
+      fitrep.endDate = parsed;
+      console.log(`PSR PARSE - End date: ${endDateStr} → ${parsed}`);
+    }
   }
 
-  // Extract station - more robust pattern to get first 1-3 words after pay grade
-  // Handles cases like "NAVHOSP CAMPE" or "USU BETHESDA" or "T-AH 19 MTF"
-  const stationMatch = restOfLine.match(/^([A-Z0-9\-]+(?:\s+[A-Z0-9\-]+){0,2})/i);
-  if (stationMatch) {
-    fitrep.station = stationMatch[1].trim();
+  // Parse months
+  if (tokens[4] && /^\d{1,2}$/.test(tokens[4])) {
+    fitrep.months = parseInt(tokens[4], 10);
+  }
+
+  // Extract station name - starts at token 5, continues until we hit:
+  // - A single letter (R for regular, C for concurrent, or promotion rec like P, MP, EP)
+  // - A rank (CAPT, CDR, LCDR, etc.)
+  // - Another 6-digit date
+  const stationTokens: string[] = [];
+  for (let i = 5; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    // Stop if we hit a promotion recommendation (single letter or two letters like MP, EP, SP, PR)
+    if (/^(R|C|P|MP|EP|SP|PR)$/i.test(token)) {
+      break;
+    }
+
+    // Stop if we hit a rank
+    if (/^(CAPT|CDR|LCDR|LT|LTJG|ENS)$/i.test(token)) {
+      break;
+    }
+
+    // Stop if we hit another date
+    if (/^\d{6}$/.test(token)) {
+      break;
+    }
+
+    stationTokens.push(token);
+  }
+
+  if (stationTokens.length > 0) {
+    fitrep.station = stationTokens.join(' ');
+    console.log(`PSR PARSE - Station: ${fitrep.station}`);
   }
   
   // Extract individual average (decimal number like 3.33, 4.17, etc.)

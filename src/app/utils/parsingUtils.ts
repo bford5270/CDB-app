@@ -647,6 +647,8 @@ export function parsePSR(text: string): PSRSummary {
   }
 
   // Now parse the combined lines
+  console.log(`PSR: Processing ${combinedLines.length} combined lines`);
+
   for (const line of combinedLines) {
     const trimmed = line.trim();
 
@@ -657,16 +659,23 @@ export function parsePSR(text: string): PSRSummary {
     const payGrade = `O${gradeMatch[1]}`;
     const restOfLine = trimmed.substring(gradeMatch[0].length);
 
+    console.log(`PSR: Found ${payGrade} entry, parsing...`);
+
     try {
       const fitrep = parsePSRLine(payGrade, restOfLine, trimmed);
       if (fitrep) {
         fitreps.push(fitrep);
+        console.log(`PSR: Successfully parsed ${payGrade} FITREP`);
+      } else {
+        console.log(`PSR: parsePSRLine returned null for ${payGrade}`);
       }
     } catch (e) {
       // Skip unparseable lines
-      console.log('Could not parse PSR line:', trimmed);
+      console.log('Could not parse PSR line:', trimmed.substring(0, 100));
     }
   }
+
+  console.log(`PSR: Total FITREPs extracted: ${fitreps.length}`);
   
   // Calculate summary statistics
   const gradedFitreps = fitreps.filter(f => 

@@ -18,6 +18,45 @@ interface ResourcesQAProps {
 }
 
 // ============================================================================
+// YEAR DETECTION UTILITIES
+// ============================================================================
+
+/**
+ * Extract a document year from the filename or file path.
+ * Recognizes patterns like: FY26, FY2026, 2025-catalog, fy25, etc.
+ * Falls back to the upload date year if nothing is found.
+ */
+function extractDocumentYear(doc: DocumentRecord): number {
+  const text = `${doc.name} ${doc.file_path}`.toUpperCase();
+
+  // FY26, FY25, FY2026, FY2025
+  const fyTwoDigit = text.match(/FY(\d{2})\b/);
+  if (fyTwoDigit) return 2000 + parseInt(fyTwoDigit[1]);
+
+  const fyFourDigit = text.match(/FY(20\d{2})\b/);
+  if (fyFourDigit) return parseInt(fyFourDigit[1]);
+
+  // Standalone 4-digit year: 2024, 2025, 2026, 2027
+  const fullYear = text.match(/\b(202[4-9]|203\d)\b/);
+  if (fullYear) return parseInt(fullYear[1]);
+
+  // Fall back to upload date
+  return new Date(doc.created_at).getFullYear();
+}
+
+/**
+ * Sort documents so the most recent year is first.
+ * Within the same year, most recently uploaded is first.
+ */
+function sortDocumentsByRecency(docs: DocumentRecord[]): DocumentRecord[] {
+  return [...docs].sort((a, b) => {
+    const yearDiff = extractDocumentYear(b) - extractDocumentYear(a);
+    if (yearDiff !== 0) return yearDiff;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+// ============================================================================
 // TEXT EXTRACTION UTILITIES
 // ============================================================================
 
@@ -90,12 +129,21 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
         .from('documents')
         .select('*')
         .order('created_at', { ascending: false });
-      
-      if (error) throw error;
+
+      if (error) {
+        // Give actionable guidance for the most common Supabase configuration issues
+        if (error.code === '42P01') {
+          throw new Error('The "documents" table does not exist in Supabase. Run the setup SQL in your Supabase dashboard.');
+        }
+        if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
+          throw new Error('Supabase Row Level Security is blocking access. Add an anon read policy on the "documents" table.');
+        }
+        throw error;
+      }
       setDocuments(data || []);
     } catch (err) {
       console.error('Error loading documents:', err);
-      setError('Failed to load documents');
+      setError(err instanceof Error ? err.message : 'Failed to load documents from Supabase');
     } finally {
       setIsLoadingDocs(false);
     }
@@ -133,6 +181,9 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
+          if (uploadError.message?.includes('bucket') || uploadError.statusCode === 404) {
+            throw new Error(`Storage bucket "documents" not found. Create it in your Supabase dashboard under Storage.`);
+          }
           throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
         }
 
@@ -210,10 +261,16 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
     setError(null);
 
     try {
-      // Build context from all documents
-      const docsContext = documents
+      // Sort most-recent-year first so the AI sees (and preferentially cites) newer docs
+      const sortedDocs = sortDocumentsByRecency(documents);
+
+      const docsContext = sortedDocs
         .filter(doc => doc.extracted_text)
-        .map(doc => `--- Document: ${doc.name} ---\n${doc.extracted_text}`)
+        .map(doc => {
+          const year = extractDocumentYear(doc);
+          const uploadedDate = new Date(doc.created_at).toLocaleDateString();
+          return `--- Document: ${doc.name} [Year: ${year}] (Uploaded: ${uploadedDate}) ---\n${doc.extracted_text}`;
+        })
         .join('\n\n');
 
       // Call the API
@@ -416,36 +473,42 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
               </div>
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                  >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <span className="text-2xl">
-                        {doc.file_type?.includes('pdf') ? '📕' :
-                         doc.file_type?.includes('doc') ? '📘' :
-                         doc.file_type?.includes('ppt') ? '📙' :
-                         '📄'}
-                      </span>
-                      <div className="overflow-hidden">
-                        <p className="font-medium text-sm text-gray-900 truncate">{doc.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {(doc.file_size / 1024).toFixed(1)} KB • 
-                          {new Date(doc.created_at).toLocaleDateString()}
-                          {doc.extracted_text ? ' • ✓ Indexed' : ' • ⏳ Not indexed'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteDocument(doc)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Delete document"
+                {sortDocumentsByRecency(documents).map((doc) => {
+                  const year = extractDocumentYear(doc);
+                  return (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
                     >
-                      🗑️
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span className="text-2xl">
+                          {doc.file_type?.includes('pdf') ? '📕' :
+                           doc.file_type?.includes('doc') ? '📘' :
+                           doc.file_type?.includes('ppt') ? '📙' :
+                           '📄'}
+                        </span>
+                        <div className="overflow-hidden">
+                          <p className="font-medium text-sm text-gray-900 truncate">{doc.name}</p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-blue-600">FY{String(year).slice(-2)}</span>
+                            {' • '}
+                            {(doc.file_size / 1024).toFixed(1)} KB
+                            {' • '}
+                            {new Date(doc.created_at).toLocaleDateString()}
+                            {doc.extracted_text ? ' • ✓ Indexed' : ' • ⏳ Not indexed'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteDocument(doc)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        title="Delete document"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -8,6 +8,9 @@
   "functions": {
     "api/ask.js": {
       "maxDuration": 30
+    },
+    "api/parse-psr.js": {
+      "maxDuration": 30
     }
   }
 }

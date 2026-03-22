@@ -15,6 +15,54 @@ import {
 } from '../utils/parsingUtils';
 
 // ============================================================================
+// AI-POWERED PSR PARSER
+// Calls /api/parse-psr (Claude) instead of brittle regex.
+// Falls back to regex parsePSR() if the API is unavailable.
+// ============================================================================
+
+async function parsePSRWithAI(text: string): Promise<PSRSummary> {
+  try {
+    const response = await fetch('/api/parse-psr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      console.warn('parse-psr API returned', response.status, '— falling back to regex parser');
+      return parsePSR(text);
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.warn('parse-psr API error:', data.error, '— falling back to regex parser');
+      return parsePSR(text);
+    }
+
+    // Ensure required fields have safe defaults
+    return {
+      totalFitreps: data.totalFitreps ?? 0,
+      gradedFitreps: data.gradedFitreps ?? 0,
+      averageIndividual: data.averageIndividual ?? 0,
+      epCount: data.epCount ?? 0,
+      mpCount: data.mpCount ?? 0,
+      pCount: data.pCount ?? 0,
+      prCount: data.prCount ?? 0,
+      spCount: data.spCount ?? 0,
+      trend: data.trend ?? 'insufficient_data',
+      issues: data.issues ?? [],
+      fitreps: data.fitreps ?? [],
+      belowRSAverageCount: data.belowRSAverageCount ?? 0,
+      belowRSAveragePercentage: data.belowRSAveragePercentage ?? 0,
+    };
+  } catch (err) {
+    console.warn('parsePSRWithAI fetch failed — falling back to regex parser:', err);
+    return parsePSR(text);
+  }
+}
+
+// ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
@@ -407,7 +455,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                 aqds: [],
                 courses: [],
                 education: [],
-                psrSummary: parsePSR(uploadedDoc.text)
+                psrSummary: await parsePSRWithAI(uploadedDoc.text)
               };
               break;
           }
@@ -526,12 +574,12 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
             parsedData = parseOSR(text);
             break;
           case 'PSR':
-            parsedData = { 
-              promotionHistory: [], 
-              aqds: [], 
-              courses: [], 
+            parsedData = {
+              promotionHistory: [],
+              aqds: [],
+              courses: [],
               education: [],
-              psrSummary: parsePSR(text)
+              psrSummary: await parsePSRWithAI(text)
             };
             break;
           default:

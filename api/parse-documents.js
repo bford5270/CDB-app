@@ -174,7 +174,11 @@ If a field cannot be determined, use null (strings), 0 (numbers), [] (arrays), o
     if (!response.ok) {
       const errText = await response.text();
       console.error('Claude API error:', response.status, errText);
-      return res.status(500).json({ error: 'AI parsing failed', detail: response.status });
+      let detail = `Claude API returned ${response.status}`;
+      if (response.status === 401) detail = 'Invalid or missing API key (401)';
+      if (response.status === 429) detail = 'Rate limit or credit limit reached (429)';
+      if (response.status === 400) detail = 'Bad request to Claude API (400)';
+      return res.status(500).json({ error: detail });
     }
 
     const data = await response.json();

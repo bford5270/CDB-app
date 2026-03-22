@@ -173,10 +173,10 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
     setDocsAnalyzed(analyzed);
 
     try {
-      const response = await fetch('/api/parse-documents', {
+      const response = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: 'parse-documents', ...body }),
       });
 
       if (!response.ok) {

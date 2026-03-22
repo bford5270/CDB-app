@@ -16,17 +16,103 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { question, context, documentCount } = req.body;
+    const { action, question, context, documentCount, odc, osr, psr } = req.body;
 
-    if (!question) {
-      return res.status(400).json({ error: 'Question is required' });
-    }
-
-    // Get API key from environment
+    // Get API key from environment (shared by both modes)
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       console.error('ANTHROPIC_API_KEY not configured');
       return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    // =========================================================================
+    // DOCUMENT PARSING MODE
+    // Called by DocumentParser with action: 'parse-documents'
+    // =========================================================================
+    if (action === 'parse-documents') {
+      if (!odc && !osr && !psr) {
+        return res.status(400).json({ error: 'At least one document is required' });
+      }
+
+      const docSections = [];
+      if (odc) docSections.push(`=== OFFICER DATA CARD (ODC) ===\n${odc.substring(0, 8000)}`);
+      if (osr) docSections.push(`=== OFFICER SUMMARY RECORD (OSR) ===\n${osr.substring(0, 6000)}`);
+      if (psr) docSections.push(`=== PERFORMANCE SUMMARY REPORT (PSR) ===\n${psr.substring(0, 10000)}`);
+      const docContext = docSections.join('\n\n');
+
+      const parseSystemPrompt = `You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.
+You will receive raw text extracted from Navy personnel documents (ODC, OSR, PSR). The text is often garbled from PDF extraction. Cross-reference all documents when available.
+RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.
+
+FROM ODC: name, rank (ENS/LTJG/LT/LCDR/CDR/CAPT), designator (4-digit, e.g. 2300), yearGroup, rankHistory (DOR dates in MMDDYY→YYYY-MM-DD, Medical Corps progression: LT→LCDR→CDR→CAPT), AQDs (2-3 char codes), board certification (K=certified/J=not, last char of specialty code like 16Q0K), security clearance (SS/VV/TT codes, MMYY date).
+FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.
+FROM PSR: each FITREP has pay grade, dates, station, reporting senior, 5 trait scores, individual average, RS average, RS count, promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).
+
+PSR RULES TO APPLY:
+- trend: compare recent 3 vs oldest 3 promo recs (EP>MP>P>PR>SP). "improving"/"declining"/"stable"/"insufficient_data"
+- psrIssues: flag leftward movement (EP→MP, MP→P, P→PR between consecutive graded reports), date gaps >3 months, 2+ consecutive P or below
+- belowRSAverageCount/Percentage: count fitreps where individualAverage < rsAverage
+
+Return this exact JSON structure:
+{
+  "name": string|null, "rank": string|null, "designator": string|null, "yearGroup": string|null,
+  "rankHistory": [{"rank": string, "date": "YYYY-MM-DD"}],
+  "boardCertified": boolean|null, "certificationCode": "J"|"K"|null,
+  "clearanceLevel": "Secret"|"Top Secret"|"None"|"", "clearanceDate": string,
+  "aqds": [string],
+  "hasUndergrad": boolean, "hasMedicalSchool": boolean,
+  "fitrepAverage": number, "fitrepCount": number,
+  "earlyPromotes": number, "mustPromotes": number, "promotables": number, "progressings": number,
+  "psrTrend": "improving"|"stable"|"declining"|"insufficient_data",
+  "psrIssues": [string],
+  "belowRSAverageCount": number, "belowRSAveragePercentage": number,
+  "fitreps": [{"payGrade": string, "station": string, "startDate": string, "endDate": string, "individualAverage": number, "rsAverage": number, "promotionRec": string, "reportType": string}],
+  "warnings": [string],
+  "confidence": {"rankHistory": "high"|"medium"|"low", "aqds": "high"|"medium"|"low", "psrData": "high"|"medium"|"low", "overall": "high"|"medium"|"low"}
+}`;
+
+      const parseResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 6000,
+          system: parseSystemPrompt,
+          messages: [{ role: 'user', content: `Parse these Navy officer documents:\n\n${docContext}` }]
+        })
+      });
+
+      if (!parseResponse.ok) {
+        const errText = await parseResponse.text();
+        console.error('Claude parse error:', parseResponse.status, errText);
+        let detail = `Claude API error ${parseResponse.status}`;
+        if (parseResponse.status === 401) detail = 'Invalid API key (401)';
+        if (parseResponse.status === 429) detail = 'Rate limit reached (429)';
+        return res.status(500).json({ error: detail });
+      }
+
+      const parseData = await parseResponse.json();
+      const rawText = parseData.content?.[0]?.text || '';
+      const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+
+      try {
+        const parsed = JSON.parse(jsonText);
+        return res.status(200).json(parsed);
+      } catch (e) {
+        console.error('JSON parse error:', e, rawText.substring(0, 300));
+        return res.status(422).json({ error: 'AI returned invalid JSON' });
+      }
+    }
+
+    // =========================================================================
+    // Q&A MODE (default)
+    // =========================================================================
+    if (!question) {
+      return res.status(400).json({ error: 'Question is required' });
     }
 
     // Build the system prompt with citation instructions

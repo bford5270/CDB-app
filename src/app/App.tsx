@@ -194,7 +194,8 @@ export default function App() {
               <div className="mt-8 flex justify-end">
                 <button
                   onClick={() => {
-                    if (documents.odc?.status === 'success' || documents.osr?.status === 'success') {
+                    // Show AI parser for any uploaded document
+                    if (canProceedFromUpload) {
                       setShowParser(true);
                     } else {
                       setStep(2);

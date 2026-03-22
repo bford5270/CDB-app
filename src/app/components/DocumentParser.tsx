@@ -1,892 +1,626 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
-import { UploadedDocuments } from './DocumentUpload';
+import React, { useState, useEffect } from 'react';
 import {
-  parseODC,
-  parseOSR,
-  parsePSR,
-  mergeOfficerData,
-  formatDateForDisplay,
-  OfficerData,
-  PSRSummary,
-  FitrepEntry
-} from '../utils/parsingUtils';
+  CheckCircle, AlertTriangle, TrendingUp, TrendingDown, Minus,
+  FileText, Award, Shield, Loader2, ChevronRight, SkipForward,
+  User, BarChart3, BookOpen
+} from 'lucide-react';
+import type { UploadedDocuments } from './DocumentUpload';
 
 // ============================================================================
-// AI-POWERED PSR PARSER
-// Calls /api/parse-psr (Claude) instead of brittle regex.
-// Falls back to regex parsePSR() if the API is unavailable.
+// TYPES
 // ============================================================================
 
-async function parsePSRWithAI(text: string): Promise<PSRSummary> {
-  try {
-    const response = await fetch('/api/parse-psr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
+export interface ExtractedOfficerData {
+  name: string | null;
+  rank: string | null;
+  designator: string | null;
+  yearGroup: string | null;
 
-    if (!response.ok) {
-      console.warn('parse-psr API returned', response.status, '— falling back to regex parser');
-      return parsePSR(text);
-    }
+  rankHistory: Array<{ rank: string; date: string }>;
 
-    const data = await response.json();
+  boardCertified: boolean | null;
+  certificationCode: 'J' | 'K' | null;
 
-    if (data.error) {
-      console.warn('parse-psr API error:', data.error, '— falling back to regex parser');
-      return parsePSR(text);
-    }
+  clearanceLevel: 'Secret' | 'Top Secret' | 'None' | '';
+  clearanceDate: string;
 
-    // Ensure required fields have safe defaults
-    return {
-      totalFitreps: data.totalFitreps ?? 0,
-      gradedFitreps: data.gradedFitreps ?? 0,
-      averageIndividual: data.averageIndividual ?? 0,
-      epCount: data.epCount ?? 0,
-      mpCount: data.mpCount ?? 0,
-      pCount: data.pCount ?? 0,
-      prCount: data.prCount ?? 0,
-      spCount: data.spCount ?? 0,
-      trend: data.trend ?? 'insufficient_data',
-      issues: data.issues ?? [],
-      fitreps: data.fitreps ?? [],
-      belowRSAverageCount: data.belowRSAverageCount ?? 0,
-      belowRSAveragePercentage: data.belowRSAveragePercentage ?? 0,
-    };
-  } catch (err) {
-    console.warn('parsePSRWithAI fetch failed — falling back to regex parser:', err);
-    return parsePSR(text);
-  }
-}
+  aqds: string[];
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+  hasUndergrad: boolean;
+  hasMedicalSchool: boolean;
 
-interface ParsedDocument {
-  id: string;
-  name: string;
-  type: 'ODC' | 'OSR' | 'PSR' | 'UNKNOWN';
-  rawText: string;
-  parsedData: OfficerData | null;
-  uploadedAt: Date;
+  fitrepAverage: number;
+  fitrepCount: number;
+  earlyPromotes: number;
+  mustPromotes: number;
+  promotables: number;
+  progressings: number;
+
+  psrTrend: 'improving' | 'stable' | 'declining' | 'insufficient_data';
+  psrIssues: string[];
+  belowRSAverageCount: number;
+  belowRSAveragePercentage: number;
+
+  fitreps: Array<{
+    payGrade: string;
+    station: string;
+    startDate: string;
+    endDate: string;
+    individualAverage: number;
+    rsAverage: number;
+    promotionRec: string;
+    reportType: string;
+  }>;
+
+  warnings: string[];
+  confidence: {
+    rankHistory: 'high' | 'medium' | 'low';
+    aqds: 'high' | 'medium' | 'low';
+    psrData: 'high' | 'medium' | 'low';
+    overall: 'high' | 'medium' | 'low';
+  };
 }
 
 interface DocumentParserProps {
-  uploadedDocuments?: UploadedDocuments;
-  onParsedDataAccepted?: (data: any) => void;
+  uploadedDocuments: UploadedDocuments;
+  onParsedDataAccepted: (data: {
+    rankHistory: Array<{ rank: string; date: string }>;
+    boardCertified: boolean | null;
+    hasUndergrad: boolean;
+    hasMedicalSchool: boolean;
+    aqds: string[];
+    warnings: string[];
+    psrIssues: string[];
+    clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
+    clearanceDate?: string;
+    certificationCode?: 'J' | 'K' | null;
+    fitrepAverage?: number;
+    fitrepCount?: number;
+    earlyPromotes?: number;
+    mustPromotes?: number;
+    promotables?: number;
+  }) => void;
   onSkip?: () => void;
-  onDataParsed?: (data: OfficerData) => void;
+  // Legacy props kept for compatibility
+  onDataParsed?: (data: any) => void;
   className?: string;
 }
 
 // ============================================================================
-// HELPER COMPONENTS
+// HELPERS
 // ============================================================================
 
-const StatusBadge: React.FC<{ status: 'success' | 'warning' | 'error' | 'info'; children: React.ReactNode }> = ({ status, children }) => {
-  const colors = {
-    success: 'bg-green-100 text-green-800 border-green-200',
-    warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    error: 'bg-red-100 text-red-800 border-red-200',
-    info: 'bg-blue-100 text-blue-800 border-blue-200'
-  };
-  
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors[status]}`}>
-      {children}
-    </span>
-  );
-};
+function confidenceBadge(level: 'high' | 'medium' | 'low') {
+  if (level === 'high') return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">High confidence</span>;
+  if (level === 'medium') return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Review recommended</span>;
+  return <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Low confidence</span>;
+}
 
-const DataCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-  <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
-    <div className="px-4 py-3 border-b border-gray-200">
-      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-    </div>
-    <div className="p-4">
-      {children}
-    </div>
-  </div>
-);
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend === 'improving') return <TrendingUp className="w-4 h-4 text-green-600 inline mr-1" />;
+  if (trend === 'declining') return <TrendingDown className="w-4 h-4 text-red-600 inline mr-1" />;
+  if (trend === 'stable') return <Minus className="w-4 h-4 text-blue-600 inline mr-1" />;
+  return <Minus className="w-4 h-4 text-gray-400 inline mr-1" />;
+}
 
-// ============================================================================
-// FITREP TABLE COMPONENT
-// ============================================================================
+function trendLabel(trend: string) {
+  return trend === 'improving' ? 'Improving'
+    : trend === 'declining' ? 'Declining'
+    : trend === 'stable' ? 'Stable'
+    : 'Insufficient data';
+}
 
-const FitrepTable: React.FC<{ fitreps: FitrepEntry[] }> = ({ fitreps }) => {
-  if (!fitreps || fitreps.length === 0) {
-    return <p className="text-gray-500 text-sm">No FITREP data available</p>;
+function trendColor(trend: string) {
+  return trend === 'improving' ? 'text-green-700'
+    : trend === 'declining' ? 'text-red-700'
+    : 'text-blue-700';
+}
+
+function formatDate(iso: string) {
+  if (!iso) return '—';
+  try {
+    const [y, m, d] = iso.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(m) - 1]} ${d ? d + ', ' : ''}${y}`;
+  } catch {
+    return iso;
   }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200 text-xs">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-2 py-2 text-left font-medium text-gray-500">Grade</th>
-            <th className="px-2 py-2 text-left font-medium text-gray-500">Station</th>
-            <th className="px-2 py-2 text-left font-medium text-gray-500">Period</th>
-            <th className="px-2 py-2 text-center font-medium text-gray-500">Ind Avg</th>
-            <th className="px-2 py-2 text-center font-medium text-gray-500">Promo Rec</th>
-            <th className="px-2 py-2 text-center font-medium text-gray-500">Type</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {fitreps.map((fitrep, index) => (
-            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-              <td className="px-2 py-2 whitespace-nowrap font-medium">{fitrep.payGrade}</td>
-              <td className="px-2 py-2 whitespace-nowrap">{fitrep.station || '-'}</td>
-              <td className="px-2 py-2 whitespace-nowrap">
-                {fitrep.startDate && fitrep.endDate 
-                  ? `${formatDateForDisplay(fitrep.startDate)} - ${formatDateForDisplay(fitrep.endDate)}`
-                  : fitrep.endDate 
-                    ? formatDateForDisplay(fitrep.endDate)
-                    : '-'
-                }
-              </td>
-              <td className="px-2 py-2 text-center">
-                {fitrep.individualAverage > 0 ? (
-                  <span className={`font-medium ${
-                    fitrep.individualAverage >= 4.0 ? 'text-green-600' :
-                    fitrep.individualAverage >= 3.5 ? 'text-blue-600' :
-                    fitrep.individualAverage >= 3.0 ? 'text-yellow-600' :
-                    'text-red-600'
-                  }`}>
-                    {fitrep.individualAverage.toFixed(2)}
-                  </span>
-                ) : '-'}
-              </td>
-              <td className="px-2 py-2 text-center">
-                {fitrep.promotionRec ? (
-                  <StatusBadge status={
-                    fitrep.promotionRec === 'EP' ? 'success' :
-                    fitrep.promotionRec === 'MP' ? 'info' :
-                    fitrep.promotionRec === 'P' ? 'warning' :
-                    fitrep.promotionRec === 'NOB' ? 'info' :
-                    'error'
-                  }>
-                    {fitrep.promotionRec}
-                  </StatusBadge>
-                ) : '-'}
-              </td>
-              <td className="px-2 py-2 text-center text-gray-500">{fitrep.reportType || '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+}
 
 // ============================================================================
-// PSR SUMMARY COMPONENT
-// ============================================================================
-
-const PSRSummaryDisplay: React.FC<{ summary: PSRSummary }> = ({ summary }) => {
-  return (
-    <div className="space-y-4">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-900">{summary.totalFitreps}</div>
-          <div className="text-xs text-gray-500">Total FITREPs</div>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-600">{summary.averageIndividual.toFixed(2)}</div>
-          <div className="text-xs text-gray-500">Avg Individual</div>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-600">{summary.epCount}</div>
-          <div className="text-xs text-gray-500">Early Promote</div>
-        </div>
-        <div className="bg-blue-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-600">{summary.mpCount}</div>
-          <div className="text-xs text-gray-500">Must Promote</div>
-        </div>
-      </div>
-
-      {/* Promotion Rec Breakdown */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-gray-600">Promotion Recs:</span>
-        <StatusBadge status="success">EP: {summary.epCount}</StatusBadge>
-        <StatusBadge status="info">MP: {summary.mpCount}</StatusBadge>
-        <StatusBadge status="warning">P: {summary.pCount}</StatusBadge>
-        {summary.prCount > 0 && <StatusBadge status="error">PR: {summary.prCount}</StatusBadge>}
-        {summary.spCount > 0 && <StatusBadge status="error">SP: {summary.spCount}</StatusBadge>}
-      </div>
-
-      {/* Trend Indicator */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Trend:</span>
-        <StatusBadge status={
-          summary.trend === 'improving' ? 'success' :
-          summary.trend === 'stable' ? 'info' :
-          summary.trend === 'declining' ? 'error' :
-          'warning'
-        }>
-          {summary.trend === 'improving' ? '📈 Improving' :
-           summary.trend === 'stable' ? '➡️ Stable' :
-           summary.trend === 'declining' ? '📉 Declining' :
-           '❓ Insufficient Data'}
-        </StatusBadge>
-      </div>
-
-      {/* Issues */}
-      {summary.issues.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-sm font-medium text-red-600 mb-2">⚠️ Potential Issues</h4>
-          <ul className="space-y-1">
-            {summary.issues.map((issue, index) => (
-              <li key={index} className="text-xs text-red-700 bg-red-50 rounded px-2 py-1">
-                {issue}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* FITREP Table */}
-      <div className="mt-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">FITREP History</h4>
-        <FitrepTable fitreps={summary.fitreps} />
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// OFFICER DATA DISPLAY COMPONENT
-// ============================================================================
-
-const OfficerDataDisplay: React.FC<{ data: OfficerData }> = ({ data }) => {
-  return (
-    <div className="space-y-4">
-      {/* Basic Info */}
-      <DataCard title="Officer Information">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {data.name && (
-            <div>
-              <label className="text-xs text-gray-500">Name</label>
-              <p className="font-medium">{data.name}</p>
-            </div>
-          )}
-          {data.rank && (
-            <div>
-              <label className="text-xs text-gray-500">Current Rank</label>
-              <p className="font-medium">{data.rank}</p>
-            </div>
-          )}
-          {data.designator && (
-            <div>
-              <label className="text-xs text-gray-500">Designator</label>
-              <p className="font-medium">{data.designator}</p>
-            </div>
-          )}
-          {data.yearGroup && (
-            <div>
-              <label className="text-xs text-gray-500">Year Group</label>
-              <p className="font-medium">YG-{data.yearGroup}</p>
-            </div>
-          )}
-          {/* Board Certification - K=Certified, J=Not Certified */}
-          <div>
-            <label className="text-xs text-gray-500">Board Certification</label>
-            <p className="font-medium">
-              {data.boardCertified === true ? (
-                <StatusBadge status="success">✓ Board Certified (K)</StatusBadge>
-              ) : data.boardCertified === false ? (
-                <StatusBadge status="warning">Not Board Certified (J)</StatusBadge>
-              ) : (
-                <span className="text-gray-400">Unknown</span>
-              )}
-            </p>
-          </div>
-        </div>
-      </DataCard>
-
-      {/* Promotion History */}
-      {data.promotionHistory.length > 0 && (
-        <DataCard title="Promotion History">
-          <div className="space-y-2">
-            {data.promotionHistory.map((entry, index) => (
-              <div key={index} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-0">
-                <span className="font-medium">{entry.rank}</span>
-                <span className="text-sm text-gray-600">{formatDateForDisplay(entry.dateOfRank)}</span>
-              </div>
-            ))}
-          </div>
-        </DataCard>
-      )}
-
-      {/* Security Clearance */}
-      {data.securityClearance && (
-        <DataCard title="Security Clearance">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-500">Eligibility</label>
-              <p className="font-medium">
-                <StatusBadge status={
-                  data.securityClearance.eligibility === 'V' ? 'success' :
-                  data.securityClearance.eligibility === 'T' ? 'success' :
-                  data.securityClearance.eligibility === 'S' ? 'info' :
-                  'warning'
-                }>
-                  {data.securityClearance.eligibilityDescription}
-                </StatusBadge>
-              </p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Access Level</label>
-              <p className="font-medium">
-                <StatusBadge status={
-                  data.securityClearance.level === 'V' ? 'success' :
-                  data.securityClearance.level === 'T' ? 'success' :
-                  data.securityClearance.level === 'S' ? 'info' :
-                  'warning'
-                }>
-                  {data.securityClearance.levelDescription}
-                </StatusBadge>
-              </p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Investigation Date</label>
-              <p className="font-medium">{formatDateForDisplay(data.securityClearance.investigationDate)}</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Expiration Date</label>
-              <p className="font-medium">
-                {(() => {
-                  const expDate = new Date(data.securityClearance.expirationDate + '-01');
-                  const now = new Date();
-                  const monthsUntilExp = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30);
-                  
-                  return (
-                    <span className={monthsUntilExp < 12 ? 'text-red-600' : monthsUntilExp < 24 ? 'text-yellow-600' : ''}>
-                      {formatDateForDisplay(data.securityClearance.expirationDate)}
-                      {monthsUntilExp < 12 && ' ⚠️ Expiring Soon'}
-                    </span>
-                  );
-                })()}
-              </p>
-            </div>
-          </div>
-        </DataCard>
-      )}
-
-      {/* AQDs */}
-      {data.aqds.length > 0 && (
-        <DataCard title="Additional Qualification Designations (AQDs)">
-          <div className="flex flex-wrap gap-2">
-            {data.aqds.map((aqd, index) => (
-              <div key={index} className="bg-gray-100 rounded-lg px-3 py-2">
-                <span className="font-mono font-bold text-blue-600">{aqd.code}</span>
-                <span className="text-gray-600 text-sm ml-2">{aqd.title}</span>
-                <span className="text-gray-400 text-xs ml-1">({aqd.year})</span>
-              </div>
-            ))}
-          </div>
-        </DataCard>
-      )}
-
-      {/* PSR Summary */}
-      {data.psrSummary && (
-        <DataCard title="Performance Summary Record (PSR)">
-          <PSRSummaryDisplay summary={data.psrSummary} />
-        </DataCard>
-      )}
-    </div>
-  );
-};
-
-// ============================================================================
-// MAIN DOCUMENT PARSER COMPONENT
+// MAIN COMPONENT
 // ============================================================================
 
 const DocumentParser: React.FC<DocumentParserProps> = ({
   uploadedDocuments,
   onParsedDataAccepted,
   onSkip,
-  onDataParsed,
-  className = ''
 }) => {
-  const [documents, setDocuments] = useState<ParsedDocument[]>([]);
-  const [mergedData, setMergedData] = useState<OfficerData | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'parsed' | 'raw'>('parsed');
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [hasProcessedUploads, setHasProcessedUploads] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<'parsing' | 'done' | 'error'>('parsing');
+  const [extracted, setExtracted] = useState<ExtractedOfficerData | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [docsAnalyzed, setDocsAnalyzed] = useState<string[]>([]);
 
-  // Process pre-uploaded documents from DocumentUpload component
+  // ============================================================================
+  // AUTO-PARSE ON MOUNT
+  // ============================================================================
+
   useEffect(() => {
-    if (!uploadedDocuments || hasProcessedUploads) return;
+    parseAllDocuments();
+  }, []);
 
-    const processUploadedDocs = async () => {
-      setIsProcessing(true);
-      setError(null);
+  async function parseAllDocuments() {
+    setStatus('parsing');
 
-      try {
-        const newDocuments: ParsedDocument[] = [];
+    const analyzed: string[] = [];
+    const body: { odc?: string; osr?: string; psr?: string } = {};
 
-        // Process each uploaded document type
-        for (const [docType, uploadedDoc] of Object.entries(uploadedDocuments)) {
-          if (!uploadedDoc || uploadedDoc.status !== 'success' || !uploadedDoc.text) {
-            continue;
-          }
-
-          const type = docType.toUpperCase() as 'ODC' | 'OSR' | 'PSR';
-          let parsedData: OfficerData | null = null;
-
-          switch (type) {
-            case 'ODC':
-              parsedData = parseODC(uploadedDoc.text);
-              break;
-            case 'OSR':
-              parsedData = parseOSR(uploadedDoc.text);
-              break;
-            case 'PSR':
-              parsedData = {
-                promotionHistory: [],
-                aqds: [],
-                courses: [],
-                education: [],
-                psrSummary: await parsePSRWithAI(uploadedDoc.text)
-              };
-              break;
-          }
-
-          newDocuments.push({
-            id: `${Date.now()}-${docType}`,
-            name: uploadedDoc.file.name,
-            type,
-            rawText: uploadedDoc.text,
-            parsedData,
-            uploadedAt: new Date()
-          });
-        }
-
-        if (newDocuments.length > 0) {
-          setDocuments(newDocuments);
-
-          // Merge all parsed data
-          const allParsedData = newDocuments
-            .filter(doc => doc.parsedData)
-            .map(doc => doc.parsedData as OfficerData);
-
-          if (allParsedData.length > 0) {
-            const merged = mergeOfficerData(...allParsedData);
-            setMergedData(merged);
-            onDataParsed?.(merged);
-          }
-
-          setHasProcessedUploads(true);
-        }
-      } catch (err) {
-        console.error('Error processing uploaded documents:', err);
-        setError(err instanceof Error ? err.message : 'Failed to process documents');
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    processUploadedDocs();
-  }, [uploadedDocuments, hasProcessedUploads, onDataParsed]);
-
-  // Detect document type from text content
-  const detectDocumentType = (text: string, filename: string): 'ODC' | 'OSR' | 'PSR' | 'UNKNOWN' => {
-    const upperText = text.toUpperCase();
-    const upperFilename = filename.toUpperCase();
-    
-    // Check filename first
-    if (upperFilename.includes('PSR') || upperFilename.includes('PERFORMANCE SUMMARY')) {
-      return 'PSR';
+    if (uploadedDocuments.odc?.status === 'success' && uploadedDocuments.odc.text) {
+      body.odc = uploadedDocuments.odc.text;
+      analyzed.push('ODC');
     }
-    if (upperFilename.includes('ODC') || upperFilename.includes('OFFICER DATA')) {
-      return 'ODC';
+    if (uploadedDocuments.osr?.status === 'success' && uploadedDocuments.osr.text) {
+      body.osr = uploadedDocuments.osr.text;
+      analyzed.push('OSR');
     }
-    if (upperFilename.includes('OSR') || upperFilename.includes('OFFICER SERVICE')) {
-      return 'OSR';
+    if (uploadedDocuments.psr?.status === 'success' && uploadedDocuments.psr.text) {
+      body.psr = uploadedDocuments.psr.text;
+      analyzed.push('PSR');
     }
-    
-    // Check content
-    if (upperText.includes('PERFORMANCE SUMMARY') || upperText.includes('FITREP') || 
-        /\bO[1-6]\s+[A-Z]{3,}/m.test(upperText)) {
-      return 'PSR';
-    }
-    if (upperText.includes('OFFICER DATA CARD') || upperText.includes('ODC')) {
-      return 'ODC';
-    }
-    if (upperText.includes('OFFICER SERVICE RECORD') || upperText.includes('OSR')) {
-      return 'OSR';
-    }
-    
-    // Default to ODC if it looks like officer data
-    if (/\b(LCDR|CDR|CAPT|LT|ENS)\b/.test(upperText) && /\d{6}/.test(text)) {
-      return 'ODC';
-    }
-    
-    return 'UNKNOWN';
-  };
 
-  // Extract text from PDF using the utility function
-  const extractTextFromPDF = extractPDFText;
+    setDocsAnalyzed(analyzed);
 
-  // Process uploaded files
-  const processFiles = async (files: FileList | File[]) => {
-    setIsProcessing(true);
-    setError(null);
-    
     try {
-      const newDocuments: ParsedDocument[] = [];
-      const fileArray = Array.from(files);
-      
-      for (const file of fileArray) {
-        // Check file type
-        const isPDFFile = isPDF(file);
-        const isText = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
+      const response = await fetch('/api/parse-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-        if (!isPDFFile && !isText) {
-          console.warn(`Unsupported file type: ${file.type} (${file.name})`);
-          continue;
-        }
-
-        let text = '';
-
-        if (isPDFFile) {
-          text = await extractTextFromPDF(file);
-        } else {
-          text = await file.text();
-        }
-        
-        const docType = detectDocumentType(text, file.name);
-        let parsedData: OfficerData | null = null;
-        
-        switch (docType) {
-          case 'ODC':
-            parsedData = parseODC(text);
-            break;
-          case 'OSR':
-            parsedData = parseOSR(text);
-            break;
-          case 'PSR':
-            parsedData = {
-              promotionHistory: [],
-              aqds: [],
-              courses: [],
-              education: [],
-              psrSummary: await parsePSRWithAI(text)
-            };
-            break;
-          default:
-            // Try to parse as ODC anyway
-            parsedData = parseODC(text);
-        }
-        
-        newDocuments.push({
-          id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          name: file.name,
-          type: docType,
-          rawText: text,
-          parsedData,
-          uploadedAt: new Date()
-        });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
       }
-      
-      setDocuments(prev => [...prev, ...newDocuments]);
-      
-      // Merge all parsed data
-      const allParsedData = [...documents, ...newDocuments]
-        .filter(doc => doc.parsedData)
-        .map(doc => doc.parsedData as OfficerData);
-      
-      if (allParsedData.length > 0) {
-        const merged = mergeOfficerData(...allParsedData);
-        setMergedData(merged);
-        onDataParsed?.(merged);
-      }
+
+      const data: ExtractedOfficerData = await response.json();
+      setExtracted(data);
+      setStatus('done');
     } catch (err) {
-      console.error('Error processing files:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process files');
-    } finally {
-      setIsProcessing(false);
+      console.error('parse-documents failed:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
+      setStatus('error');
     }
-  };
+  }
 
-  // Handle file input change
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFiles(e.target.files);
-    }
-  };
-
-  // Handle drag events
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
-    }
-  };
-
-  // Click to open file dialog
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Remove a document
-  const removeDocument = (id: string) => {
-    setDocuments(prev => {
-      const updated = prev.filter(doc => doc.id !== id);
-      
-      // Recalculate merged data
-      const allParsedData = updated
-        .filter(doc => doc.parsedData)
-        .map(doc => doc.parsedData as OfficerData);
-      
-      if (allParsedData.length > 0) {
-        const merged = mergeOfficerData(...allParsedData);
-        setMergedData(merged);
-        onDataParsed?.(merged);
-      } else {
-        setMergedData(null);
-      }
-      
-      return updated;
+  function handleAccept() {
+    if (!extracted) return;
+    onParsedDataAccepted({
+      rankHistory: extracted.rankHistory,
+      boardCertified: extracted.boardCertified,
+      hasUndergrad: extracted.hasUndergrad,
+      hasMedicalSchool: extracted.hasMedicalSchool,
+      aqds: extracted.aqds,
+      warnings: extracted.warnings,
+      psrIssues: extracted.psrIssues,
+      clearanceLevel: extracted.clearanceLevel,
+      clearanceDate: extracted.clearanceDate,
+      certificationCode: extracted.certificationCode,
+      fitrepAverage: extracted.fitrepAverage,
+      fitrepCount: extracted.fitrepCount,
+      earlyPromotes: extracted.earlyPromotes,
+      mustPromotes: extracted.mustPromotes,
+      promotables: extracted.promotables,
     });
-  };
+  }
 
-  // Clear all documents
-  const clearAll = () => {
-    setDocuments([]);
-    setMergedData(null);
-    setError(null);
-  };
+  // ============================================================================
+  // LOADING SCREEN
+  // ============================================================================
 
-  return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        onChange={handleFileChange}
-        accept=".pdf,.txt,application/pdf,text/plain"
-        multiple
-        className="hidden"
-      />
-
-      {/* Upload Area */}
-      <div
-        onClick={handleClick}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}`}
-      >
-        <div className="space-y-2">
-          <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <p className="text-gray-600">
-            {isDragActive ? 'Drop files here...' : 'Drag & drop ODC, OSR, or PSR files here'}
+  if (status === 'parsing') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-6">
+        <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Analyzing Your Records</h2>
+          <p className="text-gray-500 mt-2 max-w-md">
+            AI is reading your documents and extracting rank history, AQDs, FITREP data,
+            and checking for PSR issues. This takes about 15–20 seconds.
           </p>
-          <p className="text-sm text-gray-500">or click to select files (PDF or TXT)</p>
+        </div>
+        <div className="flex gap-2 mt-2">
+          {['ODC', 'OSR', 'PSR'].map(type => {
+            const isPresent = docsAnalyzed.includes(type);
+            return (
+              <span
+                key={type}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isPresent ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {type}
+              </span>
+            );
+          })}
         </div>
       </div>
+    );
+  }
 
-      {/* Processing Indicator */}
-      {isProcessing && (
-        <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
-          <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <span className="text-blue-600">Processing documents...</span>
-        </div>
-      )}
+  // ============================================================================
+  // ERROR SCREEN
+  // ============================================================================
 
-      {/* Error Display */}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Uploaded Documents List */}
-      {documents.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700">Uploaded Documents ({documents.length})</h3>
+  if (status === 'error') {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-red-900 mb-2">AI Parsing Failed</h2>
+          <p className="text-red-700 text-sm mb-4">{errorMessage}</p>
+          <div className="flex gap-3 justify-center">
             <button
-              onClick={clearAll}
-              className="text-sm text-red-600 hover:text-red-800"
+              onClick={parseAllDocuments}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
             >
-              Clear All
+              Try Again
             </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {documents.map(doc => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1"
+            {onSkip && (
+              <button
+                onClick={onSkip}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
               >
-                <StatusBadge status={
-                  doc.type === 'ODC' ? 'info' :
-                  doc.type === 'OSR' ? 'success' :
-                  doc.type === 'PSR' ? 'warning' :
-                  'error'
-                }>
-                  {doc.type}
-                </StatusBadge>
-                <span className="text-sm text-gray-700">{doc.name}</span>
-                <button
-                  onClick={() => removeDocument(doc.id)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+                Skip — Enter Manually
+              </button>
+            )}
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Tab Navigation */}
-      {mergedData && (
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('parsed')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'parsed'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Parsed Data
-            </button>
-            <button
-              onClick={() => setActiveTab('raw')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'raw'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Raw Text
-            </button>
-          </nav>
+  // ============================================================================
+  // SUMMARY SCREEN
+  // ============================================================================
+
+  if (!extracted) return null;
+
+  const hasPSR = docsAnalyzed.includes('PSR');
+  const hasIssues = extracted.psrIssues.length > 0;
+  const hasWarnings = extracted.warnings.length > 0;
+
+  return (
+    <div className="space-y-6">
+
+      {/* Header */}
+      <div className="text-center">
+        <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+          <CheckCircle className="w-4 h-4" />
+          AI Extraction Complete — {docsAnalyzed.join(', ')} analyzed
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Extracted Record Summary</h2>
+        <p className="text-gray-500 mt-1">
+          Review what was found. You'll be able to edit every field on the next screen.
+        </p>
+      </div>
+
+      {/* Overall confidence */}
+      {extracted.confidence && (
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-sm text-gray-600">Overall extraction confidence:</span>
+          {confidenceBadge(extracted.confidence.overall)}
         </div>
       )}
 
-      {/* Content Display */}
-      {mergedData && activeTab === 'parsed' && (
-        <OfficerDataDisplay data={mergedData} />
-      )}
-
-      {documents.length > 0 && activeTab === 'raw' && (
-        <div className="space-y-4">
-          {documents.map(doc => (
-            <DataCard key={doc.id} title={`${doc.name} (${doc.type})`}>
-              <pre className="text-xs font-mono whitespace-pre-wrap bg-gray-50 p-3 rounded max-h-96 overflow-auto">
-                {doc.rawText}
-              </pre>
-            </DataCard>
-          ))}
+      {/* PSR Issues — shown prominently if present */}
+      {hasIssues && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="font-semibold text-red-900 flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            PSR Issues Detected
+          </h3>
+          <ul className="space-y-1">
+            {extracted.psrIssues.map((issue, i) => (
+              <li key={i} className="text-sm text-red-800">• {issue}</li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* Action Buttons */}
-      {mergedData && onParsedDataAccepted && (
-        <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-            >
-              Skip Parsing
-            </button>
+      {/* Extraction warnings */}
+      {hasWarnings && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h3 className="font-semibold text-yellow-900 flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            Extraction Notes
+          </h3>
+          <ul className="space-y-1">
+            {extracted.warnings.map((w, i) => (
+              <li key={i} className="text-sm text-yellow-800">• {w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Two-column summary grid */}
+      <div className="grid md:grid-cols-2 gap-4">
+
+        {/* Officer Identity */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+            <User className="w-5 h-5 text-blue-600" />
+            Officer Identity
+            {extracted.confidence && <span className="ml-auto">{confidenceBadge(extracted.confidence.rankHistory)}</span>}
+          </h3>
+          <dl className="space-y-2 text-sm">
+            {extracted.name && (
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Name</dt>
+                <dd className="font-medium text-gray-900">{extracted.name}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Current Rank</dt>
+              <dd className="font-medium text-gray-900">{extracted.rank || '—'}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Designator</dt>
+              <dd className="font-medium text-gray-900">{extracted.designator || 'Not detected'}</dd>
+            </div>
+            {extracted.yearGroup && (
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Year Group</dt>
+                <dd className="font-medium text-gray-900">YG-{extracted.yearGroup}</dd>
+              </div>
+            )}
+          </dl>
+
+          {/* Rank timeline */}
+          {extracted.rankHistory.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Promotion Timeline</p>
+              <div className="flex flex-wrap gap-2 items-center">
+                {extracted.rankHistory.map((rh, i) => (
+                  <React.Fragment key={i}>
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-blue-700">{rh.rank}</div>
+                      <div className="text-xs text-gray-500">{formatDate(rh.date)}</div>
+                    </div>
+                    {i < extracted.rankHistory.length - 1 && (
+                      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
           )}
-          <button
-            onClick={() => {
-              // Convert OfficerData to expected format
-              const rankHistory = mergedData.promotionHistory.map(p => ({
-                rank: p.rank,
-                date: p.dateOfRank
-              }));
-
-              const psrData = mergedData.psrSummary;
-              const aqds = mergedData.aqds.map(a => a.code);
-
-              const warnings: string[] = [];
-              const psrIssues: string[] = [];
-
-              // Extract PSR warnings/issues
-              if (psrData?.issues) {
-                psrIssues.push(...psrData.issues);
-              }
-
-              const data = {
-                rankHistory,
-                boardCertified: mergedData.boardCertified ?? null,
-                hasUndergrad: mergedData.education.some(e =>
-                  e.level?.toLowerCase().includes('bachelor') ||
-                  e.level?.toLowerCase().includes('undergrad')
-                ),
-                hasMedicalSchool: mergedData.education.some(e =>
-                  e.level?.toLowerCase().includes('medical') ||
-                  e.level?.toLowerCase().includes('md') ||
-                  e.level?.toLowerCase().includes('doctor of medicine')
-                ),
-                aqds,
-                warnings,
-                psrIssues,
-                clearanceLevel: mergedData.securityClearance?.levelDescription as any || '',
-                clearanceDate: mergedData.securityClearance?.investigationDate || '',
-                certificationCode: mergedData.boardCertified === true ? 'K' as const :
-                                   mergedData.boardCertified === false ? 'J' as const : null,
-                fitrepAverage: psrData?.averageIndividual || 0,
-                fitrepCount: psrData?.totalFitreps || 0,
-                earlyPromotes: psrData?.epCount || 0,
-                mustPromotes: psrData?.mpCount || 0,
-                promotables: psrData?.pCount || 0,
-              };
-
-              onParsedDataAccepted(data);
-            }}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors ml-auto"
-          >
-            Accept Parsed Data →
-          </button>
         </div>
+
+        {/* Certifications & Clearance */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+            <Shield className="w-5 h-5 text-blue-600" />
+            Certification & Clearance
+          </h3>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Board Certification</dt>
+              <dd>
+                {extracted.boardCertified === true && (
+                  <span className="text-green-700 font-medium">✓ Certified (J Code)</span>
+                )}
+                {extracted.boardCertified === false && (
+                  <span className="text-yellow-700 font-medium">Not Certified (K Code)</span>
+                )}
+                {extracted.boardCertified === null && (
+                  <span className="text-gray-400">Not detected</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Clearance Level</dt>
+              <dd className="font-medium text-gray-900">{extracted.clearanceLevel || 'Not detected'}</dd>
+            </div>
+            {extracted.clearanceDate && (
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Investigation Date</dt>
+                <dd className="font-medium text-gray-900">{extracted.clearanceDate}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Education</dt>
+              <dd className="font-medium text-gray-900">
+                {extracted.hasMedicalSchool ? 'MD/DO' : extracted.hasUndergrad ? 'Undergrad' : 'Not detected'}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* AQDs */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+            <Award className="w-5 h-5 text-blue-600" />
+            AQDs Detected
+            {extracted.confidence && <span className="ml-auto">{confidenceBadge(extracted.confidence.aqds)}</span>}
+          </h3>
+          {extracted.aqds.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {extracted.aqds.map(aqd => (
+                <span key={aqd} className="px-2 py-1 bg-blue-50 text-blue-800 rounded text-sm font-mono font-bold">
+                  {aqd}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No AQDs detected in documents.</p>
+          )}
+        </div>
+
+        {/* FITREP Summary */}
+        {hasPSR && (
+          <div className="bg-white border border-gray-200 rounded-lg p-5">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              FITREP Summary
+              {extracted.confidence && <span className="ml-auto">{confidenceBadge(extracted.confidence.psrData)}</span>}
+            </h3>
+
+            {extracted.fitrepCount > 0 ? (
+              <>
+                {/* Stats row */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-gray-50 rounded p-3 text-center">
+                    <div className="text-2xl font-bold text-gray-900">{extracted.fitrepCount}</div>
+                    <div className="text-xs text-gray-500">Total FITREPs</div>
+                  </div>
+                  <div className={`rounded p-3 text-center ${
+                    extracted.fitrepAverage >= 4.5 ? 'bg-green-50' :
+                    extracted.fitrepAverage >= 4.0 ? 'bg-yellow-50' : 'bg-red-50'
+                  }`}>
+                    <div className={`text-2xl font-bold ${
+                      extracted.fitrepAverage >= 4.5 ? 'text-green-700' :
+                      extracted.fitrepAverage >= 4.0 ? 'text-yellow-700' : 'text-red-700'
+                    }`}>
+                      {extracted.fitrepAverage > 0 ? extracted.fitrepAverage.toFixed(2) : '—'}
+                    </div>
+                    <div className="text-xs text-gray-500">Trait Average</div>
+                  </div>
+                </div>
+
+                {/* Promotion rec breakdown */}
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {extracted.earlyPromotes > 0 && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-bold">
+                      EP: {extracted.earlyPromotes}
+                    </span>
+                  )}
+                  {extracted.mustPromotes > 0 && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold">
+                      MP: {extracted.mustPromotes}
+                    </span>
+                  )}
+                  {extracted.promotables > 0 && (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-bold">
+                      P: {extracted.promotables}
+                    </span>
+                  )}
+                  {extracted.progressings > 0 && (
+                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-bold">
+                      PR: {extracted.progressings}
+                    </span>
+                  )}
+                </div>
+
+                {/* Trend */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">Trend:</span>
+                  <span className={`font-medium ${trendColor(extracted.psrTrend)}`}>
+                    <TrendIcon trend={extracted.psrTrend} />
+                    {trendLabel(extracted.psrTrend)}
+                  </span>
+                </div>
+
+                {/* Below RS average */}
+                {extracted.belowRSAverageCount > 0 && (
+                  <div className={`mt-3 text-xs rounded p-2 ${
+                    extracted.belowRSAveragePercentage > 50 ? 'bg-red-50 text-red-700' :
+                    extracted.belowRSAveragePercentage > 30 ? 'bg-yellow-50 text-yellow-700' :
+                    'bg-gray-50 text-gray-600'
+                  }`}>
+                    Below RS average in {extracted.belowRSAverageCount} of {extracted.fitrepCount} FITREPs
+                    ({extracted.belowRSAveragePercentage}%)
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">No FITREP data found in PSR.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* FITREP timeline table (collapsible) — shown if we have detailed data */}
+      {extracted.fitreps.length > 0 && (
+        <details className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <summary className="px-5 py-4 font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            FITREP History ({extracted.fitreps.length} reports)
+            <span className="text-xs text-gray-400 ml-auto">click to expand</span>
+          </summary>
+          <div className="overflow-x-auto px-5 pb-4">
+            <table className="min-w-full text-xs divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-2 text-left text-gray-500">Grade</th>
+                  <th className="px-2 py-2 text-left text-gray-500">Period</th>
+                  <th className="px-2 py-2 text-left text-gray-500">Station</th>
+                  <th className="px-2 py-2 text-center text-gray-500">Avg</th>
+                  <th className="px-2 py-2 text-center text-gray-500">Rec</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {extracted.fitreps.map((f, i) => (
+                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-2 py-2 font-medium">{f.payGrade}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      {f.startDate ? formatDate(f.startDate) : '?'} — {f.endDate ? formatDate(f.endDate) : '?'}
+                    </td>
+                    <td className="px-2 py-2">{f.station || '—'}</td>
+                    <td className="px-2 py-2 text-center font-medium">
+                      {f.individualAverage > 0 ? (
+                        <span className={
+                          f.individualAverage >= 4.5 ? 'text-green-700' :
+                          f.individualAverage >= 4.0 ? 'text-blue-700' : 'text-yellow-700'
+                        }>
+                          {f.individualAverage.toFixed(2)}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                        f.promotionRec === 'EP' ? 'bg-green-100 text-green-800' :
+                        f.promotionRec === 'MP' ? 'bg-blue-100 text-blue-800' :
+                        f.promotionRec === 'P'  ? 'bg-yellow-100 text-yellow-800' :
+                        f.promotionRec === 'PR' ? 'bg-orange-100 text-orange-800' :
+                        f.promotionRec === 'SP' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {f.promotionRec || '—'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
+
+      {/* Action buttons */}
+      <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:text-gray-700 text-sm"
+          >
+            <SkipForward className="w-4 h-4" />
+            Skip — Enter Manually
+          </button>
+        )}
+        <button
+          onClick={handleAccept}
+          className="ml-auto flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+        >
+          Looks good — Continue to Verify
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
     </div>
   );
 };
 
 export { DocumentParser };
+export default DocumentParser;

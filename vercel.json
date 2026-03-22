@@ -11,6 +11,9 @@
     },
     "api/parse-psr.js": {
       "maxDuration": 30
+    },
+    "api/parse-documents.js": {
+      "maxDuration": 45
     }
   }
 }

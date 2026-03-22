@@ -1,8 +1,9 @@
-// api/ask.js - Vercel Serverless Function for CDB Q&A
-// Searches uploaded documents and answers questions using Claude Haiku
+// api/ask.js - Vercel Serverless Function
+// Handles two modes:
+//   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR
+//   2. (default) Q&A against uploaded reference documents
 
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,63 +16,84 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const { action, question, context, documentCount, odc, osr, psr } = req.body;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error('ANTHROPIC_API_KEY not configured');
+    return res.status(500).json({ error: 'API key not configured' });
+  }
 
-    // Get API key from environment (shared by both modes)
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      console.error('ANTHROPIC_API_KEY not configured');
-      return res.status(500).json({ error: 'API key not configured' });
-    }
+  try {
+    const body = req.body || {};
+    const { action } = body;
 
     // =========================================================================
-    // DOCUMENT PARSING MODE
-    // Called by DocumentParser with action: 'parse-documents'
+    // MODE 1: DOCUMENT PARSING
     // =========================================================================
     if (action === 'parse-documents') {
+      const { odc, osr, psr } = body;
+
       if (!odc && !osr && !psr) {
         return res.status(400).json({ error: 'At least one document is required' });
       }
 
-      const docSections = [];
-      if (odc) docSections.push(`=== OFFICER DATA CARD (ODC) ===\n${odc.substring(0, 8000)}`);
-      if (osr) docSections.push(`=== OFFICER SUMMARY RECORD (OSR) ===\n${osr.substring(0, 6000)}`);
-      if (psr) docSections.push(`=== PERFORMANCE SUMMARY REPORT (PSR) ===\n${psr.substring(0, 10000)}`);
-      const docContext = docSections.join('\n\n');
+      const sections = [];
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + odc.substring(0, 8000));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + osr.substring(0, 6000));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + psr.substring(0, 10000));
+      const docContext = sections.join('\n\n');
 
-      const parseSystemPrompt = `You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.
-You will receive raw text extracted from Navy personnel documents (ODC, OSR, PSR). The text is often garbled from PDF extraction. Cross-reference all documents when available.
-RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.
+      const parseSystemPrompt = [
+        'You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.',
+        'You receive raw text from PDF-extracted Navy documents (ODC, OSR, PSR). Text is often garbled. Cross-reference all available documents.',
+        'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
+        '',
+        'FROM ODC: name, rank (ENS/LTJG/LT/LCDR/CDR/CAPT), designator (4-digit e.g. 2300), yearGroup,',
+        'rankHistory (DOR dates in MMDDYY format converted to YYYY-MM-DD, MC progression LT->LCDR->CDR->CAPT),',
+        'AQDs (2-3 char codes like FMF/SW/AW/SS/62D/JS7/67A), board certification (K=certified J=not, last char of code like 16Q0K),',
+        'security clearance (SS/VV/TT codes, investigation date in MMYY format).',
+        '',
+        'FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.',
+        '',
+        'FROM PSR: each FITREP has pay grade, from/to dates, station, reporting senior, 5 trait scores (1-5),',
+        'individual average, RS cumulative average, RS count, promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
+        '',
+        'PSR ANALYSIS RULES:',
+        'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
+        'psrIssues: flag leftward movement (EP to MP, MP to P, P to PR in consecutive graded reports),',
+        'date gaps over 3 months between consecutive FITREPs, 2 or more consecutive P or below.',
+        'belowRSAverageCount: count fitreps where individualAverage is less than rsAverage.',
+        '',
+        'Return this JSON (use null for unknown strings, 0 for unknown numbers, [] for unknown arrays, false for unknown booleans):',
+        '{',
+        '  "name": null,',
+        '  "rank": null,',
+        '  "designator": null,',
+        '  "yearGroup": null,',
+        '  "rankHistory": [{"rank": "LT", "date": "YYYY-MM-DD"}],',
+        '  "boardCertified": null,',
+        '  "certificationCode": null,',
+        '  "clearanceLevel": "",',
+        '  "clearanceDate": "",',
+        '  "aqds": [],',
+        '  "hasUndergrad": false,',
+        '  "hasMedicalSchool": false,',
+        '  "fitrepAverage": 0,',
+        '  "fitrepCount": 0,',
+        '  "earlyPromotes": 0,',
+        '  "mustPromotes": 0,',
+        '  "promotables": 0,',
+        '  "progressings": 0,',
+        '  "psrTrend": "insufficient_data",',
+        '  "psrIssues": [],',
+        '  "belowRSAverageCount": 0,',
+        '  "belowRSAveragePercentage": 0,',
+        '  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],',
+        '  "warnings": [],',
+        '  "confidence": {"rankHistory":"medium","aqds":"medium","psrData":"medium","overall":"medium"}',
+        '}'
+      ].join('\n');
 
-FROM ODC: name, rank (ENS/LTJG/LT/LCDR/CDR/CAPT), designator (4-digit, e.g. 2300), yearGroup, rankHistory (DOR dates in MMDDYY→YYYY-MM-DD, Medical Corps progression: LT→LCDR→CDR→CAPT), AQDs (2-3 char codes), board certification (K=certified/J=not, last char of specialty code like 16Q0K), security clearance (SS/VV/TT codes, MMYY date).
-FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.
-FROM PSR: each FITREP has pay grade, dates, station, reporting senior, 5 trait scores, individual average, RS average, RS count, promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).
-
-PSR RULES TO APPLY:
-- trend: compare recent 3 vs oldest 3 promo recs (EP>MP>P>PR>SP). "improving"/"declining"/"stable"/"insufficient_data"
-- psrIssues: flag leftward movement (EP→MP, MP→P, P→PR between consecutive graded reports), date gaps >3 months, 2+ consecutive P or below
-- belowRSAverageCount/Percentage: count fitreps where individualAverage < rsAverage
-
-Return this exact JSON structure:
-{
-  "name": string|null, "rank": string|null, "designator": string|null, "yearGroup": string|null,
-  "rankHistory": [{"rank": string, "date": "YYYY-MM-DD"}],
-  "boardCertified": boolean|null, "certificationCode": "J"|"K"|null,
-  "clearanceLevel": "Secret"|"Top Secret"|"None"|"", "clearanceDate": string,
-  "aqds": [string],
-  "hasUndergrad": boolean, "hasMedicalSchool": boolean,
-  "fitrepAverage": number, "fitrepCount": number,
-  "earlyPromotes": number, "mustPromotes": number, "promotables": number, "progressings": number,
-  "psrTrend": "improving"|"stable"|"declining"|"insufficient_data",
-  "psrIssues": [string],
-  "belowRSAverageCount": number, "belowRSAveragePercentage": number,
-  "fitreps": [{"payGrade": string, "station": string, "startDate": string, "endDate": string, "individualAverage": number, "rsAverage": number, "promotionRec": string, "reportType": string}],
-  "warnings": [string],
-  "confidence": {"rankHistory": "high"|"medium"|"low", "aqds": "high"|"medium"|"low", "psrData": "high"|"medium"|"low", "overall": "high"|"medium"|"low"}
-}`;
-
-      const parseResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      const parseRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,21 +104,21 @@ Return this exact JSON structure:
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 6000,
           system: parseSystemPrompt,
-          messages: [{ role: 'user', content: `Parse these Navy officer documents:\n\n${docContext}` }]
+          messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]
         })
       });
 
-      if (!parseResponse.ok) {
-        const errText = await parseResponse.text();
-        console.error('Claude parse error:', parseResponse.status, errText);
-        let detail = `Claude API error ${parseResponse.status}`;
-        if (parseResponse.status === 401) detail = 'Invalid API key (401)';
-        if (parseResponse.status === 429) detail = 'Rate limit reached (429)';
-        return res.status(500).json({ error: detail });
+      if (!parseRes.ok) {
+        const errText = await parseRes.text();
+        console.error('Claude parse error:', parseRes.status, errText);
+        let msg = 'Claude API error ' + parseRes.status;
+        if (parseRes.status === 401) msg = 'Invalid API key (401)';
+        if (parseRes.status === 429) msg = 'Rate limit reached (429)';
+        return res.status(500).json({ error: msg });
       }
 
-      const parseData = await parseResponse.json();
-      const rawText = parseData.content?.[0]?.text || '';
+      const parseData = await parseRes.json();
+      const rawText = (parseData.content && parseData.content[0] && parseData.content[0].text) || '';
       const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
 
       try {
@@ -109,125 +131,56 @@ Return this exact JSON structure:
     }
 
     // =========================================================================
-    // Q&A MODE (default)
+    // MODE 2: Q&A
     // =========================================================================
+    const { question, context, documentCount } = body;
+
     if (!question) {
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    // Build the system prompt with citation instructions
-    const systemPrompt = `You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).
+    const systemPrompt = 'You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).\n\n'
+      + 'Your ONLY job is to extract and present information from the uploaded reference documents. You are NOT a general advisor.\n\n'
+      + '## ABSOLUTE REQUIREMENTS:\n\n'
+      + 'NEVER GIVE GENERIC ADVICE. Always answer from the documents with specific citations.\n\n'
+      + 'Format citations as: "According to [Document Name] [Year]: \'[quoted text]\'\"\n\n'
+      + '## YEAR-AWARE CITATION RULES:\n\n'
+      + 'Documents are labeled with their year (e.g., [Year: 2026]). '
+      + 'Always prefer the most recent year catalog for course recommendations. '
+      + 'If citing an older catalog, flag it: "This was in the FY25 catalog - verify it is still offered."\n\n'
+      + '## DOCUMENT SEARCH PRIORITY:\n'
+      + '1. Medical Corps CDB Slide Presentation (most current guidance)\n'
+      + '2. Schofer Promo Prep PDF (comprehensive prep guide)\n'
+      + '3. CDB guidance documents\n'
+      + '4. Course catalogs - USE MOST RECENT YEAR\n'
+      + '5. NAVADMINs and official instructions\n\n'
+      + '## RESPONSE STYLE:\n'
+      + '- Concrete specifics (course codes, dates, procedures), not principles\n'
+      + '- Quote exact language from docs when it matters\n'
+      + '- Include all relevant details from the source\n'
+      + '- Use "consider" / "you may want to" rather than "you must" unless the doc explicitly requires it\n\n'
+      + (documentCount > 0
+        ? 'You have access to ' + documentCount + ' document(s), ordered most-recent-year first. Prefer the newest year when making recommendations.'
+        : 'No documents uploaded yet. Cannot answer without source materials.');
 
-Your ONLY job is to extract and present information from the uploaded reference documents. You are NOT a general advisor - you are a document search and citation tool.
-
-## ABSOLUTE REQUIREMENTS:
-
-**NEVER GIVE GENERIC ADVICE.** Examples of what NOT to say:
-- ❌ "Make sure to keep your record updated"
-- ❌ "It's important to maintain professional development"
-- ❌ "Consider taking relevant courses"
-- ❌ "Stay current with requirements"
-
-**ALWAYS ANSWER FROM THE DOCUMENTS.** Examples of what TO say:
-- ✅ "According to Schofer Promo Prep PDF, page 12: 'Officers should complete JPME Phase I before O-4 board...'"
-- ✅ "The FY26 catalog lists these specific courses: [exact list from document]"
-- ✅ "NAVADMIN 123/24 states the deadline is [exact date]"
-
-## DOCUMENT SEARCH PRIORITY:
-
-1. **Medical Corps CDB Slide Presentation** - CHECK THIS FIRST (most current guidance)
-2. **Schofer Promo Prep PDF** - CHECK THIS SECOND (comprehensive prep guide)
-3. CDB guidance documents (O'Sullivan, etc.)
-4. Course catalogs and training materials — **USE THE MOST RECENT YEAR AVAILABLE**
-5. NAVADMINs and official instructions
-6. Other reference materials
-
-## YEAR-AWARE CITATION RULES (CRITICAL):
-
-Documents are labeled with their year (e.g., [Year: 2026] or [Year: 2025]).
-
-**When multiple years of the same document type exist:**
-- Make course recommendations based on the MOST RECENT year's catalog
-- Always state which year you are citing: "According to the FY26 catalog..."
-- If a course only appears in an older catalog, explicitly flag it: "This course appeared in the FY25 catalog — verify it is still offered in the current year"
-- Never silently cite an older document when a newer version is available
-- If the newest catalog is missing something that was in an older one, note the discrepancy
-
-**Why this matters:** Course catalogs change yearly. Officers need current offerings, not outdated ones.
-
-## HOW TO ANSWER QUESTIONS:
-
-**STEP 1: SEARCH THE DOCUMENTS**
-- Check the most recent year of each document type first
-- Look for specific facts: dates, course names, requirements, procedures, templates, examples
-
-**STEP 2: EXTRACT SPECIFIC INFORMATION**
-- Pull exact text, requirements, lists, deadlines, procedures
-- Include document name, year, and page/section if visible
-- Quote verbatim when precision matters
-
-**STEP 3: FORMAT FOR ACTION**
-Be practical and actionable:
-- List specific courses to take (with course codes/names from catalog, and which year's catalog)
-- Provide exact deadlines and requirements (from instructions)
-- Share actual procedures or checklists (from guidance docs)
-- Quote example language or templates (from prep materials)
-- Give specific milestones or timelines (from authoritative sources)
-
-**STEP 4: CITE YOUR SOURCES**
-Always format as: "According to [Document Name] [Year]: '[quoted text or specific fact]'"
-
-**IF INFORMATION NOT FOUND:**
-Say: "I searched [list documents checked] and could not find information about [topic]. This may require checking [suggest specific doc type]."
-
-DO NOT say: "Generally you should..." or "It's a good idea to..." or other platitudes.
-
-## RESPONSE STYLE:
-
-- **Concrete, not abstract**: Give specifics (course codes, dates, procedures), not principles
-- **Quoted, not paraphrased**: Use exact language from docs when it matters
-- **Detailed, not brief**: Include all relevant details from the source
-- **Practical, not theoretical**: Focus on what to DO, with actionable guidance
-- **Suggestive, not directive**: Use phrases like "consider", "you may want to", "it's valued" rather than "you must", "you should", or "it's required" (unless the document explicitly states something is a hard requirement)
-
-${documentCount > 0 ? `\nYou have access to ${documentCount} document(s), ordered most-recent-year first. Prefer the newest year when making recommendations. Extract specific, actionable information from them. If you can't find something concrete to share, say so - don't fill space with generic advice.` : '\nNo documents uploaded yet. Cannot answer without source materials.'}`;
-
-    // Build the user message with context
     let userMessage = question;
-
     if (context && context.trim()) {
-      userMessage = `## REFERENCE DOCUMENTS TO SEARCH:
-
-${context}
-
----
-
-## QUESTION: ${question}
-
-## YOUR TASK:
-1. Search Medical Corps CDB Slide Presentation FIRST, then Schofer Promo Prep PDF (prefer .pdf over .docx)
-2. Find SPECIFIC information: exact requirements, course names, dates, procedures, examples
-3. QUOTE the relevant text and CITE the document name
-4. Be DETAILED and PRACTICAL - include all relevant specifics
-5. NO GENERIC ADVICE - only facts from the documents
-6. If not found in docs, say "I could not find..." and stop - don't guess or improvise`;
+      userMessage = '## REFERENCE DOCUMENTS TO SEARCH:\n\n'
+        + context
+        + '\n\n---\n\n'
+        + '## QUESTION: ' + question + '\n\n'
+        + '## YOUR TASK:\n'
+        + '1. Search most recent year documents first\n'
+        + '2. Find SPECIFIC information: exact requirements, course names, dates, procedures\n'
+        + '3. QUOTE the relevant text and CITE the document name and year\n'
+        + '4. NO GENERIC ADVICE - only facts from the documents\n'
+        + '5. If not found, say "I could not find..." and stop';
     } else {
-      userMessage = `## QUESTION: ${question}
-
-## PROBLEM:
-No reference documents have been uploaded yet. I cannot answer your question without source materials.
-
-Please upload documents to the Documents tab:
-- Schofer Promo Prep guide (PDF preferred)
-- Course catalogs (NAVMED, etc.)
-- NAVADMINs and instructions
-- CDB guidance materials
-
-I will NOT provide generic advice without documents to cite.`;
+      userMessage = '## QUESTION: ' + question + '\n\n'
+        + 'No reference documents uploaded yet. Please upload documents to the Documents tab before asking questions.';
     }
 
-    // Call Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const qaRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -238,22 +191,20 @@ I will NOT provide generic advice without documents to cite.`;
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 8192,
         system: systemPrompt,
-        messages: [
-          { role: 'user', content: userMessage }
-        ]
+        messages: [{ role: 'user', content: userMessage }]
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Claude API error:', response.status, errorText);
+    if (!qaRes.ok) {
+      const errorText = await qaRes.text();
+      console.error('Claude Q&A error:', qaRes.status, errorText);
       return res.status(500).json({ error: 'Failed to get AI response' });
     }
 
-    const data = await response.json();
-    const answer = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+    const qaData = await qaRes.json();
+    const answer = (qaData.content && qaData.content[0] && qaData.content[0].text) || 'Sorry, I could not generate a response.';
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       answer,
       documentsSearched: documentCount || 0
     });
@@ -263,4 +214,3 @@ I will NOT provide generic advice without documents to cite.`;
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
-

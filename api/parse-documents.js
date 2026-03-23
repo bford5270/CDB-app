@@ -159,7 +159,7 @@ If a field cannot be determined, use null (strings), 0 (numbers), [] (arrays), o
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 6000,
         system: systemPrompt,
         messages: [

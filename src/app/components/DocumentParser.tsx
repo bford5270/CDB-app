@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  CheckCircle, AlertTriangle, TrendingUp, TrendingDown, Minus,
-  FileText, Award, Shield, Loader2, ChevronRight, SkipForward,
-  User, BarChart3, BookOpen
+  CheckCircle, AlertTriangle,
+  Award, Shield, Loader2, ChevronRight, SkipForward,
+  User, BarChart3
 } from 'lucide-react';
 import type { UploadedDocuments } from './DocumentUpload';
 
@@ -98,25 +98,54 @@ function confidenceBadge(level: 'high' | 'medium' | 'low') {
   return <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Low confidence</span>;
 }
 
-function TrendIcon({ trend }: { trend: string }) {
-  if (trend === 'improving') return <TrendingUp className="w-4 h-4 text-green-600 inline mr-1" />;
-  if (trend === 'declining') return <TrendingDown className="w-4 h-4 text-red-600 inline mr-1" />;
-  if (trend === 'stable') return <Minus className="w-4 h-4 text-blue-600 inline mr-1" />;
-  return <Minus className="w-4 h-4 text-gray-400 inline mr-1" />;
-}
 
-function trendLabel(trend: string) {
-  return trend === 'improving' ? 'Improving'
-    : trend === 'declining' ? 'Declining'
-    : trend === 'stable' ? 'Stable'
-    : 'Insufficient data';
-}
+const AQD_TITLES: Record<string, string> = {
+  // Warfare qualifications
+  FMF: 'Fleet Marine Force',
+  SW: 'Surface Warfare',
+  AW: 'Aviation Warfare',
+  SS: 'Submarine Warfare',
+  EXW: 'Explosive Ordnance Disposal',
+  SCW: 'Special Warfare Combatant-Craft',
+  CW: 'Coastal Warfare',
+  // Administrative / joint
+  JS7: 'Joint Staff',
+  // Medical subspecialties (common MC codes)
+  '62D': 'Internal Medicine',
+  '62G': 'General Internal Medicine',
+  '62H': 'Physical Medicine & Rehab',
+  '62K': 'Anesthesiology',
+  '62L': 'Radiology',
+  '62M': 'Pathology',
+  '62N': 'Neurology',
+  '62P': 'Psychiatry',
+  '62R': 'Urology',
+  '62S': 'Orthopedic Surgery',
+  '62T': 'Otolaryngology',
+  '62U': 'Ophthalmology',
+  '62V': 'Dermatology',
+  '62W': 'OB/GYN',
+  '62X': 'Pediatrics',
+  '67A': 'General Surgery',
+  '67B': 'Thoracic Surgery',
+  '67C': 'Neurosurgery',
+  '67D': 'Plastic Surgery',
+  '6OC': 'Operational Medicine',
+  '6OD': 'Diving Medicine',
+  '6OE': 'Hyperbaric Medicine',
+  '6OF': 'Undersea Medicine',
+  '6OG': 'Flight Surgery',
+  '6OH': 'Emergency Medicine',
+};
 
-function trendColor(trend: string) {
-  return trend === 'improving' ? 'text-green-700'
-    : trend === 'declining' ? 'text-red-700'
-    : 'text-blue-700';
-}
+const PROMO_REC_LABELS: Record<string, string> = {
+  EP: 'Early Promote',
+  MP: 'Must Promote',
+  P: 'Promotable',
+  PR: 'Progressing',
+  SP: 'Significant Problems',
+  NOB: 'Not Observed',
+};
 
 function formatDate(iso: string) {
   if (!iso) return '—';
@@ -446,11 +475,14 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
             {extracted.confidence && <span className="ml-auto">{confidenceBadge(extracted.confidence.aqds)}</span>}
           </h3>
           {extracted.aqds.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-1">
               {extracted.aqds.map(aqd => (
-                <span key={aqd} className="px-2 py-1 bg-blue-50 text-blue-800 rounded text-sm font-mono font-bold">
-                  {aqd}
-                </span>
+                <div key={aqd} className="flex items-center gap-2 text-sm">
+                  <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded w-14 text-center flex-shrink-0">
+                    {aqd}
+                  </span>
+                  <span className="text-gray-700">{AQD_TITLES[aqd] || 'Unknown qualification'}</span>
+                </div>
               ))}
             </div>
           ) : (
@@ -458,142 +490,117 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
           )}
         </div>
 
-        {/* FITREP Summary */}
-        {hasPSR && (
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              FITREP Summary
-              {extracted.confidence && <span className="ml-auto">{confidenceBadge(extracted.confidence.psrData)}</span>}
-            </h3>
-
-            {extracted.fitrepCount > 0 ? (
-              <>
-                {/* Stats row */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-gray-50 rounded p-3 text-center">
-                    <div className="text-2xl font-bold text-gray-900">{extracted.fitrepCount}</div>
-                    <div className="text-xs text-gray-500">Total FITREPs</div>
-                  </div>
-                  <div className={`rounded p-3 text-center ${
-                    extracted.fitrepAverage >= 4.5 ? 'bg-green-50' :
-                    extracted.fitrepAverage >= 4.0 ? 'bg-yellow-50' : 'bg-red-50'
-                  }`}>
-                    <div className={`text-2xl font-bold ${
-                      extracted.fitrepAverage >= 4.5 ? 'text-green-700' :
-                      extracted.fitrepAverage >= 4.0 ? 'text-yellow-700' : 'text-red-700'
-                    }`}>
-                      {extracted.fitrepAverage > 0 ? extracted.fitrepAverage.toFixed(2) : '—'}
-                    </div>
-                    <div className="text-xs text-gray-500">Trait Average</div>
-                  </div>
-                </div>
-
-                {/* Promotion rec breakdown */}
-                <div className="flex gap-2 flex-wrap mb-3">
-                  {extracted.earlyPromotes > 0 && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-bold">
-                      EP: {extracted.earlyPromotes}
-                    </span>
-                  )}
-                  {extracted.mustPromotes > 0 && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold">
-                      MP: {extracted.mustPromotes}
-                    </span>
-                  )}
-                  {extracted.promotables > 0 && (
-                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-bold">
-                      P: {extracted.promotables}
-                    </span>
-                  )}
-                  {extracted.progressings > 0 && (
-                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-bold">
-                      PR: {extracted.progressings}
-                    </span>
-                  )}
-                </div>
-
-                {/* Trend */}
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Trend:</span>
-                  <span className={`font-medium ${trendColor(extracted.psrTrend)}`}>
-                    <TrendIcon trend={extracted.psrTrend} />
-                    {trendLabel(extracted.psrTrend)}
-                  </span>
-                </div>
-
-                {/* Below RS average */}
-                {extracted.belowRSAverageCount > 0 && (
-                  <div className={`mt-3 text-xs rounded p-2 ${
-                    extracted.belowRSAveragePercentage > 50 ? 'bg-red-50 text-red-700' :
-                    extracted.belowRSAveragePercentage > 30 ? 'bg-yellow-50 text-yellow-700' :
-                    'bg-gray-50 text-gray-600'
-                  }`}>
-                    Below RS average in {extracted.belowRSAverageCount} of {extracted.fitrepCount} FITREPs
-                    ({extracted.belowRSAveragePercentage}%)
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-gray-500">No FITREP data found in PSR.</p>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* FITREP timeline table (collapsible) — shown if we have detailed data */}
-      {extracted.fitreps.length > 0 && (
+      {/* Fitness Reports — collapsible */}
+      {hasPSR && extracted.fitrepCount > 0 && (
         <details className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <summary className="px-5 py-4 font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            FITREP History ({extracted.fitreps.length} reports)
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+            {extracted.fitrepCount} Fitness Reports
+            {extracted.confidence && <span className="ml-2">{confidenceBadge(extracted.confidence.psrData)}</span>}
             <span className="text-xs text-gray-400 ml-auto">click to expand</span>
           </summary>
-          <div className="overflow-x-auto px-5 pb-4">
-            <table className="min-w-full text-xs divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-2 text-left text-gray-500">Grade</th>
-                  <th className="px-2 py-2 text-left text-gray-500">Period</th>
-                  <th className="px-2 py-2 text-left text-gray-500">Station</th>
-                  <th className="px-2 py-2 text-center text-gray-500">Avg</th>
-                  <th className="px-2 py-2 text-center text-gray-500">Rec</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {extracted.fitreps.map((f, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-2 py-2 font-medium">{f.payGrade}</td>
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      {f.startDate ? formatDate(f.startDate) : '?'} — {f.endDate ? formatDate(f.endDate) : '?'}
-                    </td>
-                    <td className="px-2 py-2">{f.station || '—'}</td>
-                    <td className="px-2 py-2 text-center font-medium">
-                      {f.individualAverage > 0 ? (
-                        <span className={
-                          f.individualAverage >= 4.5 ? 'text-green-700' :
-                          f.individualAverage >= 4.0 ? 'text-blue-700' : 'text-yellow-700'
-                        }>
-                          {f.individualAverage.toFixed(2)}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                        f.promotionRec === 'EP' ? 'bg-green-100 text-green-800' :
-                        f.promotionRec === 'MP' ? 'bg-blue-100 text-blue-800' :
-                        f.promotionRec === 'P'  ? 'bg-yellow-100 text-yellow-800' :
-                        f.promotionRec === 'PR' ? 'bg-orange-100 text-orange-800' :
-                        f.promotionRec === 'SP' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {f.promotionRec || '—'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="px-5 pb-5 space-y-4">
+
+            {/* Promotion rec breakdown */}
+            <div className="flex gap-2 flex-wrap pt-1">
+              {extracted.earlyPromotes > 0 && (
+                <span className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-semibold">
+                  Early Promote (EP): {extracted.earlyPromotes}
+                </span>
+              )}
+              {extracted.mustPromotes > 0 && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm font-semibold">
+                  Must Promote (MP): {extracted.mustPromotes}
+                </span>
+              )}
+              {extracted.promotables > 0 && (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm font-semibold">
+                  Promotable (P): {extracted.promotables}
+                </span>
+              )}
+              {extracted.progressings > 0 && (
+                <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded text-sm font-semibold">
+                  Progressing (PR): {extracted.progressings}
+                </span>
+              )}
+            </div>
+
+            {/* RS average comparison */}
+            {extracted.fitrepCount > 0 && (() => {
+              const aboveCount = extracted.fitrepCount - extracted.belowRSAverageCount;
+              const abovePct = Math.round((aboveCount / extracted.fitrepCount) * 100);
+              return (
+                <div className={`text-sm rounded p-3 ${
+                  extracted.belowRSAveragePercentage > 50 ? 'bg-red-50 text-red-800 border border-red-200' :
+                  extracted.belowRSAveragePercentage > 25 ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
+                  'bg-green-50 text-green-800 border border-green-200'
+                }`}>
+                  <span className="font-semibold">At or above RS cumulative average</span> in {aboveCount} of {extracted.fitrepCount} reports ({abovePct}%)
+                  {extracted.belowRSAverageCount > 0 && (
+                    <span className="ml-2 text-xs opacity-75">
+                      · Below RS average in {extracted.belowRSAverageCount} ({extracted.belowRSAveragePercentage}%)
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* FITREP table */}
+            {extracted.fitreps.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-2 text-left text-gray-500">Grade</th>
+                      <th className="px-2 py-2 text-left text-gray-500">Period</th>
+                      <th className="px-2 py-2 text-left text-gray-500">Station</th>
+                      <th className="px-2 py-2 text-center text-gray-500">Ind Avg</th>
+                      <th className="px-2 py-2 text-center text-gray-500">RS Avg</th>
+                      <th className="px-2 py-2 text-center text-gray-500">Recommendation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {extracted.fitreps.map((f, i) => {
+                      const aboveRS = f.individualAverage > 0 && f.rsAverage > 0 && f.individualAverage >= f.rsAverage;
+                      return (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-2 py-2 font-medium">{f.payGrade}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">
+                            {f.startDate ? formatDate(f.startDate) : '?'} — {f.endDate ? formatDate(f.endDate) : '?'}
+                          </td>
+                          <td className="px-2 py-2">{f.station || '—'}</td>
+                          <td className="px-2 py-2 text-center font-medium">
+                            {f.individualAverage > 0 ? f.individualAverage.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            {f.rsAverage > 0 ? (
+                              <span className={aboveRS ? 'text-green-700 font-medium' : 'text-red-600 font-medium'}>
+                                {f.rsAverage.toFixed(2)}
+                                {aboveRS ? ' ▲' : ' ▼'}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                              f.promotionRec === 'EP' ? 'bg-green-100 text-green-800' :
+                              f.promotionRec === 'MP' ? 'bg-blue-100 text-blue-800' :
+                              f.promotionRec === 'P'  ? 'bg-yellow-100 text-yellow-800' :
+                              f.promotionRec === 'PR' ? 'bg-orange-100 text-orange-800' :
+                              f.promotionRec === 'SP' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {f.promotionRec ? `${f.promotionRec} — ${PROMO_REC_LABELS[f.promotionRec] ?? f.promotionRec}` : '—'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </details>
       )}

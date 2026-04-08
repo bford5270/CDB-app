@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles, ShieldAlert } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
@@ -11,6 +11,9 @@ import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
+  const [piiConsented, setPiiConsented] = useState(() =>
+    sessionStorage.getItem('pii-consent') === 'true'
+  );
 
   // Scroll to top on initial load
   useEffect(() => {
@@ -200,6 +203,34 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* PII Consent Banner */}
+      {!piiConsented && (
+        <div className="bg-amber-50 border-b-2 border-amber-400">
+          <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <ShieldAlert className="w-8 h-8 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-900">Data Privacy Notice — Please Read Before Uploading</p>
+              <p className="text-sm text-amber-800 mt-1">
+                Documents you upload (ODC, OSR, PSR) contain <strong>Personally Identifiable Information (PII)</strong> including your
+                name, performance scores, station assignments, and reporting senior details. This data is sent to{' '}
+                <strong>Anthropic's Claude API</strong> for AI processing. Anthropic does not use API data for model training,
+                but data does leave this environment and transit Anthropic's servers.{' '}
+                <strong>Do not upload classified materials.</strong> By proceeding you acknowledge this.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                sessionStorage.setItem('pii-consent', 'true');
+                setPiiConsented(true);
+              }}
+              className="flex-shrink-0 px-5 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 text-sm"
+            >
+              I Understand, Proceed
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">

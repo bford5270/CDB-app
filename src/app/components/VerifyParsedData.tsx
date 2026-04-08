@@ -27,7 +27,20 @@ export interface ParsedOfficerData {
   earlyPromotes: number;
   mustPromotes: number;
   promotables: number;
-  
+  psrTrend?: 'improving' | 'stable' | 'declining' | 'insufficient_data';
+  belowRSAverageCount?: number;
+  belowRSAveragePercentage?: number;
+  fitreps?: Array<{
+    payGrade: string;
+    station: string;
+    startDate: string;
+    endDate: string;
+    individualAverage: number;
+    rsAverage: number;
+    promotionRec: string;
+    reportType: string;
+  }>;
+
   // Education (parsed)
   hasUndergrad: boolean;
   hasMedicalSchool: boolean;
@@ -98,6 +111,10 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     earlyPromotes: parsedData.earlyPromotes || 0,
     mustPromotes: parsedData.mustPromotes || 0,
     promotables: parsedData.promotables || 0,
+    psrTrend: parsedData.psrTrend,
+    belowRSAverageCount: parsedData.belowRSAverageCount,
+    belowRSAveragePercentage: parsedData.belowRSAveragePercentage,
+    fitreps: parsedData.fitreps,
     hasUndergrad: parsedData.hasUndergrad ?? true,
     hasMedicalSchool: parsedData.hasMedicalSchool ?? true,
     designator: parsedData.designator || '2300',

@@ -3,6 +3,18 @@ import { useState, useEffect } from 'react';
 import { parsePSR, type PSRSummary } from '../utils/parsingUtils';
 import type { UploadedDocument } from './DocumentUpload';
 
+async function parsePSRWithAI(text: string): Promise<PSRSummary> {
+  const response = await fetch('/api/parse-psr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    throw new Error(`parse-psr API error ${response.status}`);
+  }
+  return response.json();
+}
+
 interface PSRAnalysisProps {
   psrFile: UploadedDocument | null;
   onAnalysisComplete: (data: PSRData) => void;
@@ -50,8 +62,14 @@ export function PSRAnalysis({ psrFile, onAnalysisComplete }: PSRAnalysisProps) {
     setAnalyzing(true);
 
     try {
-      // Parse the PSR using our parsing utilities
-      const analysis = parsePSR(psrFile.text);
+      // Try AI-powered parsing first; fall back to regex if it fails
+      let analysis: PSRSummary;
+      try {
+        analysis = await parsePSRWithAI(psrFile.text);
+      } catch (aiErr) {
+        console.warn('AI PSR parsing failed, falling back to regex:', aiErr);
+        analysis = parsePSR(psrFile.text);
+      }
       setRawAnalysis(analysis);
 
       // Convert to PSRData format

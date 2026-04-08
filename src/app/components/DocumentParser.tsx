@@ -81,6 +81,19 @@ interface DocumentParserProps {
     earlyPromotes?: number;
     mustPromotes?: number;
     promotables?: number;
+    psrTrend?: 'improving' | 'stable' | 'declining' | 'insufficient_data';
+    belowRSAverageCount?: number;
+    belowRSAveragePercentage?: number;
+    fitreps?: Array<{
+      payGrade: string;
+      station: string;
+      startDate: string;
+      endDate: string;
+      individualAverage: number;
+      rsAverage: number;
+      promotionRec: string;
+      reportType: string;
+    }>;
   }) => void;
   onSkip?: () => void;
   // Legacy props kept for compatibility
@@ -241,6 +254,10 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       earlyPromotes: extracted.earlyPromotes,
       mustPromotes: extracted.mustPromotes,
       promotables: extracted.promotables,
+      psrTrend: extracted.psrTrend,
+      belowRSAverageCount: extracted.belowRSAverageCount,
+      belowRSAveragePercentage: extracted.belowRSAveragePercentage,
+      fitreps: extracted.fitreps,
     });
   }
 

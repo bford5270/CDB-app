@@ -133,51 +133,85 @@ export default async function handler(req, res) {
     // =========================================================================
     // MODE 2: Q&A
     // =========================================================================
-    const { question, context, documentCount } = body;
+    const { question, context, documentCount, officerRecord } = body;
 
     if (!question) {
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    const systemPrompt = 'You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).\n\n'
-      + 'Your ONLY job is to extract and present information from the uploaded reference documents. You are NOT a general advisor.\n\n'
-      + '## ABSOLUTE REQUIREMENTS:\n\n'
-      + 'NEVER GIVE GENERIC ADVICE. Always answer from the documents with specific citations.\n\n'
-      + 'Format citations as: "According to [Document Name] [Year]: \'[quoted text]\'\"\n\n'
-      + '## YEAR-AWARE CITATION RULES:\n\n'
-      + 'Documents are labeled with their year (e.g., [Year: 2026]). '
-      + 'Always prefer the most recent year catalog for course recommendations. '
-      + 'If citing an older catalog, flag it: "This was in the FY25 catalog - verify it is still offered."\n\n'
-      + '## DOCUMENT SEARCH PRIORITY:\n'
-      + '1. Medical Corps CDB Slide Presentation (most current guidance)\n'
-      + '2. Schofer Promo Prep PDF (comprehensive prep guide)\n'
-      + '3. CDB guidance documents\n'
-      + '4. Course catalogs - USE MOST RECENT YEAR\n'
-      + '5. NAVADMINs and official instructions\n\n'
-      + '## RESPONSE STYLE:\n'
-      + '- Concrete specifics (course codes, dates, procedures), not principles\n'
-      + '- Quote exact language from docs when it matters\n'
-      + '- Include all relevant details from the source\n'
-      + '- Use "consider" / "you may want to" rather than "you must" unless the doc explicitly requires it\n\n'
-      + (documentCount > 0
-        ? 'You have access to ' + documentCount + ' document(s), ordered most-recent-year first. Prefer the newest year when making recommendations.'
-        : 'No documents uploaded yet. Cannot answer without source materials.');
+    const hasOfficerRecord = officerRecord && officerRecord.trim().length > 0;
+    const hasDocuments = context && context.trim().length > 0;
 
-    let userMessage = question;
-    if (context && context.trim()) {
-      userMessage = '## REFERENCE DOCUMENTS TO SEARCH:\n\n'
-        + context
+    const systemPrompt = [
+      'You are a precise, grounded assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).',
+      '',
+      '## CRITICAL ANTI-HALLUCINATION RULES:',
+      'You have access to two data sources below. NEVER answer from memory or training data.',
+      '1. OFFICER RECORD — structured data extracted directly from the officer\'s PSR. This is ground truth for all fitrep questions.',
+      '2. REFERENCE DOCUMENTS — uploaded PDFs/docs about CDB guidance, courses, and policy.',
+      '',
+      '## WHICH SOURCE TO USE:',
+      '- Questions about the officer\'s OWN fitreps, scores, marks, trends, or record → answer ONLY from OFFICER RECORD.',
+      '  If no OFFICER RECORD is provided, say: "No PSR data has been parsed yet. Please complete Step 1 to upload and parse your PSR."',
+      '- Questions about CDB policy, courses, requirements, procedures, promotions → answer ONLY from REFERENCE DOCUMENTS.',
+      '  If not found in documents, say exactly: "I could not find this information in the uploaded documents."',
+      '- NEVER blend sources or fabricate details. If a specific fitrep date, score, or station is not in the OFFICER RECORD, say so.',
+      '',
+      '## CITATION FORMAT:',
+      '- Officer record facts: "[From Officer Record]: ..."',
+      '- Document facts: "According to [Document Name] [Year]: \'[exact quote]\'"',
+      '- If citing older catalog: flag it — "This was in the FY25 catalog — verify it is still offered."',
+      '',
+      '## FITREP ANALYSIS RULES (when officer record is available):',
+      'When analyzing the officer\'s fitrep record, you MUST:',
+      '- Count and report ALL fitreps by type (EP/MP/P/PR/SP)',
+      '- Identify the trend direction (improving/stable/declining) based on the actual sequence of promotion recommendations',
+      '- Flag any leftward movement (e.g., EP→MP, MP→P) in consecutive graded reports',
+      '- Note when individual average is below the Reporting Senior\'s average',
+      '- Provide specific dates, stations, and scores from the record — do not generalize',
+      '',
+      '## DOCUMENT SEARCH PRIORITY:',
+      '1. Medical Corps CDB Slide Presentation (most current guidance)',
+      '2. Schofer Promo Prep PDF (comprehensive prep guide)',
+      '3. CDB guidance documents',
+      '4. Course catalogs — USE MOST RECENT YEAR',
+      '5. NAVADMINs and official instructions',
+      '',
+      '## RESPONSE STYLE:',
+      '- Lead with the answer, not the preamble',
+      '- Use specific numbers, dates, and names from the sources',
+      '- Quote exact language from documents when it matters',
+      hasOfficerRecord
+        ? 'Officer PSR data IS available — use it to answer record-specific questions.'
+        : 'No officer PSR data available yet — redirect record questions to Step 1.',
+      documentCount > 0
+        ? `${documentCount} reference document(s) loaded, ordered most-recent-year first.`
+        : 'No reference documents uploaded yet — direct users to the Documents tab.',
+    ].join('\n');
+
+    const sections = [];
+
+    if (hasOfficerRecord) {
+      sections.push(officerRecord);
+    }
+
+    if (hasDocuments) {
+      sections.push('=== REFERENCE DOCUMENTS (for policy, course, and guidance questions) ===\n\n' + context);
+    }
+
+    let userMessage;
+    if (sections.length > 0) {
+      userMessage = sections.join('\n\n---\n\n')
         + '\n\n---\n\n'
         + '## QUESTION: ' + question + '\n\n'
         + '## YOUR TASK:\n'
-        + '1. Search most recent year documents first\n'
-        + '2. Find SPECIFIC information: exact requirements, course names, dates, procedures\n'
-        + '3. QUOTE the relevant text and CITE the document name and year\n'
-        + '4. NO GENERIC ADVICE - only facts from the documents\n'
-        + '5. If not found, say "I could not find..." and stop';
+        + (hasOfficerRecord ? '1. If this is about the officer\'s own record: answer from OFFICER RECORD only, cite specific fitreps by date/station/score.\n' : '')
+        + (hasDocuments ? (hasOfficerRecord ? '2' : '1') + '. If this is about policy/courses/requirements: search reference documents, quote and cite.\n' : '')
+        + (hasOfficerRecord ? (hasDocuments ? '3' : '2') : '2') + '. If the answer is not in the provided data, say so explicitly — do NOT guess.';
     } else {
       userMessage = '## QUESTION: ' + question + '\n\n'
-        + 'No reference documents uploaded yet. Please upload documents to the Documents tab before asking questions.';
+        + 'No officer record or reference documents are available yet.\n'
+        + 'Please complete Step 1 to upload and parse your PSR, and upload documents to the Documents tab.';
     }
 
     const qaRes = await fetch('https://api.anthropic.com/v1/messages', {

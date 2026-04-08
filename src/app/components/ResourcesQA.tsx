@@ -13,8 +13,35 @@ interface Message {
   content: string;
 }
 
+interface FitrepRecord {
+  payGrade: string;
+  station: string;
+  startDate: string;
+  endDate: string;
+  individualAverage: number;
+  rsAverage: number;
+  promotionRec: string;
+  reportType: string;
+}
+
+interface OfficerData {
+  fitrepAverage?: number;
+  fitrepCount?: number;
+  earlyPromotes?: number;
+  mustPromotes?: number;
+  promotables?: number;
+  psrTrend?: string;
+  belowRSAverageCount?: number;
+  belowRSAveragePercentage?: number;
+  fitreps?: FitrepRecord[];
+  currentRank?: string;
+  aqds?: string[];
+  boardCertified?: boolean | null;
+}
+
 interface ResourcesQAProps {
   className?: string;
+  officerData?: Partial<OfficerData> | null;
 }
 
 // ============================================================================
@@ -93,7 +120,7 @@ async function extractTextFromFile(file: File): Promise<string> {
 // MAIN COMPONENT
 // ============================================================================
 
-export function ResourcesQA({ className = '' }: ResourcesQAProps) {
+export function ResourcesQA({ className = '', officerData }: ResourcesQAProps) {
   // State
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
@@ -273,6 +300,39 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
         })
         .join('\n\n');
 
+      // Build structured officer record context if available
+      let officerRecord: string | null = null;
+      if (officerData && (officerData.fitrepCount || officerData.fitreps?.length)) {
+        const lines: string[] = ['=== OFFICER FITREP RECORD (VERIFIED FROM PSR) ==='];
+        if (officerData.currentRank) lines.push(`Current Rank: ${officerData.currentRank}`);
+        if (officerData.fitrepCount) lines.push(`Total FITREPs: ${officerData.fitrepCount}`);
+        if (officerData.fitrepAverage) lines.push(`Overall Average Score: ${officerData.fitrepAverage.toFixed(2)}`);
+        if (officerData.earlyPromotes !== undefined) lines.push(`Early Promote (EP) marks: ${officerData.earlyPromotes}`);
+        if (officerData.mustPromotes !== undefined) lines.push(`Must Promote (MP) marks: ${officerData.mustPromotes}`);
+        if (officerData.promotables !== undefined) lines.push(`Promotable (P) marks: ${officerData.promotables}`);
+        if (officerData.psrTrend) lines.push(`Performance Trend: ${officerData.psrTrend}`);
+        if (officerData.belowRSAverageCount !== undefined) {
+          lines.push(`FITREPs below Reporting Senior average: ${officerData.belowRSAverageCount} (${officerData.belowRSAveragePercentage ?? 0}%)`);
+        }
+        if (officerData.aqds?.length) lines.push(`AQDs: ${officerData.aqds.join(', ')}`);
+        if (officerData.boardCertified !== null && officerData.boardCertified !== undefined) {
+          lines.push(`Board Certified: ${officerData.boardCertified ? 'Yes' : 'No'}`);
+        }
+
+        if (officerData.fitreps?.length) {
+          lines.push('');
+          lines.push('Individual FITREP Records (chronological):');
+          officerData.fitreps.forEach((f, i) => {
+            const start = f.startDate ? new Date(f.startDate).toLocaleDateString('en-US', { year: '2-digit', month: 'short' }) : '?';
+            const end = f.endDate ? new Date(f.endDate).toLocaleDateString('en-US', { year: '2-digit', month: 'short' }) : '?';
+            lines.push(
+              `  [${i + 1}] ${f.payGrade} | ${start}–${end} | ${f.station || 'Unknown Station'} | Score: ${f.individualAverage.toFixed(2)} | RS Avg: ${f.rsAverage.toFixed(2)} | Rec: ${f.promotionRec} | Type: ${f.reportType}`
+            );
+          });
+        }
+        officerRecord = lines.join('\n');
+      }
+
       // Call the API
       const response = await fetch('/api/ask', {
         method: 'POST',
@@ -280,7 +340,8 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
         body: JSON.stringify({
           question: userMessage,
           context: docsContext,
-          documentCount: documents.length
+          documentCount: documents.length,
+          officerRecord,
         })
       });
 

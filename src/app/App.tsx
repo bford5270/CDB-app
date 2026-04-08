@@ -47,6 +47,19 @@ export default function App() {
     earlyPromotes?: number;
     mustPromotes?: number;
     promotables?: number;
+    psrTrend?: 'improving' | 'stable' | 'declining' | 'insufficient_data';
+    belowRSAverageCount?: number;
+    belowRSAveragePercentage?: number;
+    fitreps?: Array<{
+      payGrade: string;
+      station: string;
+      startDate: string;
+      endDate: string;
+      individualAverage: number;
+      rsAverage: number;
+      promotionRec: string;
+      reportType: string;
+    }>;
   }) => {
     // Determine current rank from rank history
     // Only consider promotions where the date of rank is on or before today
@@ -76,6 +89,10 @@ export default function App() {
       earlyPromotes: data.earlyPromotes || 0,
       mustPromotes: data.mustPromotes || 0,
       promotables: data.promotables || 0,
+      psrTrend: data.psrTrend,
+      belowRSAverageCount: data.belowRSAverageCount,
+      belowRSAveragePercentage: data.belowRSAveragePercentage,
+      fitreps: data.fitreps,
       hasUndergrad: data.hasUndergrad,
       hasMedicalSchool: data.hasMedicalSchool,
       warnings: [...data.warnings, ...data.psrIssues],
@@ -287,7 +304,7 @@ export default function App() {
 
         {/* CDB Reference Q&A - Always visible */}
         <div className="mt-6">
-          <ResourcesQA />
+          <ResourcesQA officerData={confirmedData ?? parsedData} />
         </div>
 
         {/* Disclaimer */}

@@ -84,7 +84,7 @@ export default function App() {
       clearanceLevel: data.clearanceLevel || '',
       clearanceDate: data.clearanceDate || '',
       boardCertified: data.boardCertified,
-      certificationCode: data.certificationCode || (data.boardCertified === true ? 'J' : data.boardCertified === false ? 'K' : null),
+      certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
       aqds: data.aqds,
       fitrepAverage: data.fitrepAverage || 0,
       fitrepCount: data.fitrepCount || 0,

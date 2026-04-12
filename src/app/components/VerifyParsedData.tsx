@@ -16,7 +16,7 @@ export interface ParsedOfficerData {
   
   // From ODC - Board Certification
   boardCertified: boolean | null;
-  certificationCode: 'J' | 'K' | null; // J = Board Certified, K = Not Board Certified
+  certificationCode: 'J' | 'K' | null; // K = Board Certified, J = Board Eligible (not yet certified) — matches Navy ODC standard
   
   // From ODC - AQDs
   aqds: string[];
@@ -343,12 +343,12 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                     checked={data.boardCertified === true}
                     onChange={() => {
                       updateField('boardCertified', true);
-                      updateField('certificationCode', 'J');
+                      updateField('certificationCode', 'K');
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
                   <span className="text-sm">
-                    <span className="font-medium">J Code</span> - Board Certified
+                    <span className="font-medium">K Code</span> - Board Certified
                   </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -358,23 +358,23 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                     checked={data.boardCertified === false}
                     onChange={() => {
                       updateField('boardCertified', false);
-                      updateField('certificationCode', 'K');
+                      updateField('certificationCode', 'J');
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
                   <span className="text-sm">
-                    <span className="font-medium">K Code</span> - Not Board Certified
+                    <span className="font-medium">J Code</span> - Board Eligible (not yet certified)
                   </span>
                 </label>
               </div>
               {data.certificationCode && (
                 <div className={`mt-2 p-3 rounded-lg ${
-                  data.certificationCode === 'J' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
+                  data.certificationCode === 'K' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
                 }`}>
                   <p className="text-sm">
-                    {data.certificationCode === 'J' 
-                      ? '✓ Board certified physicians are competitive for promotion boards.'
-                      : '⚠️ Board certification is typically expected by O4. Consider timeline for certification.'}
+                    {data.certificationCode === 'K'
+                      ? '✓ Board certified (K code) — competitive for promotion boards.'
+                      : '⚠️ Board eligible (J code) — board certification is typically expected by O4. Consider your timeline for the specialty board exam.'}
                   </p>
                 </div>
               )}

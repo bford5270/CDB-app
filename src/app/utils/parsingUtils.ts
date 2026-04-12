@@ -497,9 +497,9 @@ export function extractSecurityClearance(text: string): SecurityClearance | unde
       const grantedYear = parseInt(parsedInvestigation.substring(0, 4), 10);
       const grantedMonth = parsedInvestigation.substring(5, 7);
       
-      let expirationYears = 10; // Default for Secret
+      let expirationYears = 10; // Default for Secret (DCSA ICD 704)
       if (clearance.level === 'V' || clearance.level === 'T') {
-        expirationYears = 6; // Top Secret/SCI expires in 6 years
+        expirationYears = 5; // Top Secret/SCI: 5-year periodic reinvestigation per DCSA ICD 704
       } else if (clearance.level === 'C') {
         expirationYears = 15; // Confidential expires in 15 years
       }
@@ -533,9 +533,9 @@ export function extractSecurityClearance(text: string): SecurityClearance | unde
       
       let expirationYears = 10;
       if (clearance.level === 'V' || clearance.level === 'T') {
-        expirationYears = 6;
+        expirationYears = 5; // TS/SCI: 5-year periodic reinvestigation per DCSA ICD 704
       }
-      
+
       clearance.expirationDate = `${grantedYear + expirationYears}-${grantedMonth}`;
     }
     

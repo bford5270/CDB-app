@@ -383,7 +383,7 @@ export function AnalysisResults({ officerData: o }: AnalysisResultsProps) {
                   <li>• What actions you took to address or improve the situation</li>
                   <li>• Your commitment and trajectory going forward</li>
                   <li>• Keep it to one page — concise and professional</li>
-                  <li>• Submit via your chain of command to PERS-8 or the convening authority per current MILPERSMAN 1420-010</li>
+                  <li>• Submit <strong>directly</strong> to the selection board via MyNavy HR (mynavyhr.navy.mil → Career Tools → Selection Boards) — do <strong>not</strong> route through your chain of command (per MILPERSMAN 1420-010)</li>
                 </ul>
               </div>
             </div>

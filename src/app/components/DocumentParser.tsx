@@ -21,7 +21,7 @@ export interface ExtractedOfficerData {
   rankHistory: Array<{ rank: string; date: string }>;
 
   boardCertified: boolean | null;
-  certificationCode: 'J' | 'K' | null;
+  certificationCode: 'J' | 'K' | 'T' | null;
 
   clearanceLevel: 'Secret' | 'Top Secret' | 'None' | '';
   clearanceDate: string;
@@ -75,7 +75,7 @@ interface DocumentParserProps {
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
     clearanceDate?: string;
-    certificationCode?: 'J' | 'K' | null;
+    certificationCode?: 'J' | 'K' | 'T' | null;
     fitrepAverage?: number;
     fitrepCount?: number;
     earlyPromotes?: number;
@@ -454,13 +454,16 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
             <div className="flex justify-between">
               <dt className="text-gray-500">Board Certification</dt>
               <dd>
-                {extracted.boardCertified === true && (
-                  <span className="text-green-700 font-medium">✓ Certified (J Code)</span>
+                {extracted.certificationCode === 'K' && (
+                  <span className="text-green-700 font-medium">✓ Board Certified (K Code)</span>
                 )}
-                {extracted.boardCertified === false && (
-                  <span className="text-yellow-700 font-medium">Not Certified (K Code)</span>
+                {extracted.certificationCode === 'J' && (
+                  <span className="text-yellow-700 font-medium">Board Eligible, Not Certified (J Code)</span>
                 )}
-                {extracted.boardCertified === null && (
+                {extracted.certificationCode === 'T' && (
+                  <span className="text-blue-700 font-medium">In Training / Residency (T Code)</span>
+                )}
+                {!extracted.certificationCode && (
                   <span className="text-gray-400">Not detected</span>
                 )}
               </dd>

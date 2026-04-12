@@ -1007,8 +1007,12 @@ export function parseODC(text: string): OfficerData {
   // Extract AQDs
   data.aqds = extractAQDsFromODC(text);
   
-  // Extract board certification
-  data.boardCertified = extractBoardCertification(text);
+  // Extract board certification — convert 'K'|'J'|'T' code to boolean for OfficerData
+  // K = certified (true), J = eligible not certified (false), T = in training (false)
+  const certCode = extractBoardCertification(text);
+  if (certCode !== undefined) {
+    data.boardCertified = certCode === 'K';
+  }
   
   // Extract security clearance
   data.securityClearance = extractSecurityClearance(text);

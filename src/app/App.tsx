@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles, ShieldAlert } from 'lucide-react';
+import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles, ShieldAlert, Printer } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
+import { PrintableSummary } from './components/PrintableSummary';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
+  const [showPrintSummary, setShowPrintSummary] = useState(false);
   const [piiConsented, setPiiConsented] = useState(() =>
     sessionStorage.getItem('pii-consent') === 'true'
   );
@@ -269,13 +271,22 @@ export default function App() {
                 >
                   Back to Verify
                 </button>
-                <button
-                  onClick={() => setStep(4)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  Generate AI Action Plan
-                  <Sparkles className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowPrintSummary(true)}
+                    className="px-5 py-3 border border-blue-300 text-blue-700 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print CDB Sheet
+                  </button>
+                  <button
+                    onClick={() => setStep(4)}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    Generate AI Action Plan
+                    <Sparkles className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -291,17 +302,26 @@ export default function App() {
                 >
                   Back to Analysis
                 </button>
-                <button
-                  onClick={() => {
-                    setStep(1);
-                    setShowParser(false);
-                    setParsedData({});
-                    setConfirmedData(null);
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Start New Analysis
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowPrintSummary(true)}
+                    className="px-5 py-3 border border-blue-300 text-blue-700 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print CDB Sheet
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStep(1);
+                      setShowParser(false);
+                      setParsedData({});
+                      setConfirmedData(null);
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    Start New Analysis
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -311,6 +331,14 @@ export default function App() {
         <div className="mt-6">
           <ResourcesQA officerData={confirmedData ?? parsedData} />
         </div>
+
+        {/* Print Summary Modal */}
+        {showPrintSummary && confirmedData && (
+          <PrintableSummary
+            officerData={confirmedData}
+            onClose={() => setShowPrintSummary(false)}
+          />
+        )}
 
         {/* Disclaimer */}
         <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">

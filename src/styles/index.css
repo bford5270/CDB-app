@@ -1,3 +1,15 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+@media print {
+  /* Hide everything except the print-only summary */
+  body > * { display: none !important; }
+  .print\:block { display: block !important; }
+
+  /* Reset page margins for clean output */
+  @page { margin: 0.6in; }
+
+  /* Ensure colors print (browsers strip backgrounds by default) */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -695,6 +695,238 @@
       }
     }
   },
+  "aweOpportunities": [
+    {
+      "id": "awe-asst-professor",
+      "name": "Assistant Professor — USUHS or Affiliated Program",
+      "aweType": "Academic",
+      "description": "Serve on faculty at the Uniformed Services University of the Health Sciences (USUHS) or an affiliated military medical school. Teaches medical students, supports graduate programs, and builds the academic record needed for associate/full professor progression.",
+      "eligibleRanks": ["O4", "O5"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Demonstrates academic commitment and subject matter expertise",
+        "Builds toward 67A (Executive Medicine) AQD prerequisites",
+        "Strengthens record for senior MTF and academic command billets",
+        "Opportunity to publish and build research portfolio"
+      ],
+      "howToApply": "Request via detailer. USUHS faculty billets listed in OPNAV billet database. Academic rank conferred by USUHS based on credentials and experience.",
+      "contact": {
+        "organization": "USUHS Department of Military and Emergency Medicine",
+        "website": "https://www.usuhs.edu",
+        "note": "Contact your detailer and corps chief office for billet availability"
+      }
+    },
+    {
+      "id": "awe-associate-professor",
+      "name": "Associate / Full Professor — USUHS",
+      "aweType": "Academic",
+      "description": "Senior faculty position at USUHS. Leads curriculum development, mentors junior faculty, and contributes to DoD medical education policy. Typically filled by CDR/CAPT with established research or clinical education track record.",
+      "eligibleRanks": ["O5", "O6"],
+      "typicalDuration": "2–4 years",
+      "benefits": [
+        "Senior academic credential — positions officer for SES or academic executive roles post-service",
+        "Directly supports USUHS mission and Medical Corps strategic intent",
+        "Qualifies officer for 67A AQD if not already held"
+      ],
+      "howToApply": "Nomination by USUHS Department Chair in coordination with corps chief. Academic rank promotion through USUHS process.",
+      "contact": {
+        "organization": "USUHS Office of the Provost",
+        "website": "https://www.usuhs.edu",
+        "note": "Coordinate with Medical Corps Career Planner (CAPT O'Sullivan)"
+      }
+    },
+    {
+      "id": "awe-researcher-pi",
+      "name": "Researcher / Principal Investigator — DoD Research Command",
+      "aweType": "Research",
+      "description": "Serve as PI or co-investigator at a DoD research command: Naval Medical Research Command (NMRC), Walter Reed Army Institute of Research (WRAIR), Naval Aerospace Medical Research Laboratory (NAMRL), or CDMRP-funded program. Drives peer-reviewed publications and grants.",
+      "eligibleRanks": ["O3", "O4", "O5"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Peer-reviewed publications strengthen promotion record at all levels",
+        "May count toward 6OC (Clinical Investigator Program) AQD if enrolled in CIP",
+        "Opens academic and industry pathways post-service",
+        "Demonstrates intellectual breadth beyond clinical care"
+      ],
+      "howToApply": "Apply to Clinical Investigator Program (CIP) for structured research track, or request research billet directly via detailer. CDMRP intramural funding available separately.",
+      "contact": {
+        "organization": "Naval Medical Research Command (NMRC)",
+        "website": "https://www.med.navy.mil/Navy-Medicine-Operational-Training-Command/",
+        "note": "CIP applications open annually — contact corps chief for CIP nomination cycle"
+      }
+    },
+    {
+      "id": "awe-cip",
+      "name": "Clinical Investigator Program (CIP) Fellowship",
+      "aweType": "Research",
+      "description": "Formal 2–3 year DoD research fellowship leading to a graduate degree (PhD, MPH, or Master's in research discipline). Graduates earn 6OC AQD and establish the academic foundation for a research-focused career track.",
+      "eligibleRanks": ["O3", "O4"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "6OC AQD upon completion",
+        "Advanced degree (PhD or Master's) funded by Navy",
+        "Positions officer for research command leadership and academic appointments",
+        "Highly competitive — demonstrates selectivity on promotion record"
+      ],
+      "howToApply": "Annual call for nominations through corps chief office. Highly competitive — requires research proposal and faculty sponsor.",
+      "contact": {
+        "organization": "Navy Medicine Clinical Investigator Program",
+        "note": "Contact Medical Corps Career Planner for annual nomination timeline"
+      }
+    },
+    {
+      "id": "awe-bumed-staff",
+      "name": "BUMED / OPNAV Staff Medical Officer",
+      "aweType": "Policy",
+      "description": "Staff billet at Bureau of Medicine and Surgery (BUMED) or OPNAV N093 (Surgeon General staff). Engages in policy development, resource allocation, and strategic planning at the enterprise level. Essential for O6 and flag-track officers.",
+      "eligibleRanks": ["O4", "O5", "O6"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Builds strategic and policy competencies required for 67A AQD",
+        "Visibility with senior Navy Medicine leadership",
+        "Critical for flag officer track — most flag nominees have HQ staff experience",
+        "Develops joint and interagency skills"
+      ],
+      "howToApply": "Request via detailer. BUMED billets are competitive — communicate interest to corps chief office 18–24 months before EAOS.",
+      "contact": {
+        "organization": "Bureau of Medicine and Surgery (BUMED)",
+        "website": "https://www.med.navy.mil",
+        "note": "Discuss with your detailer during your 18-month window"
+      }
+    },
+    {
+      "id": "awe-dha-staff",
+      "name": "Defense Health Agency (DHA) Staff Officer",
+      "aweType": "Policy",
+      "description": "Joint staff billet within DHA supporting the military health system. Covers healthcare operations, policy, and resource management across all services. Satisfies joint duty assignment (JDA) credit toward O7 eligibility.",
+      "eligibleRanks": ["O4", "O5", "O6"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Counts toward Joint Duty Assignment (JDA) requirement for O7 consideration",
+        "Interagency and joint service exposure",
+        "Contributes to 67A and 67G AQD pathways",
+        "Visibility across all military services and DoD health leadership"
+      ],
+      "howToApply": "Request through detailer. Joint billets require JPME I for full credit. Apply at least 18 months prior.",
+      "contact": {
+        "organization": "Defense Health Agency (DHA)",
+        "website": "https://www.health.mil",
+        "note": "Joint duty credit requires JPME I — complete JPME before or during DHA tour"
+      }
+    },
+    {
+      "id": "awe-health-policy-fellowship",
+      "name": "Health Policy Fellowship (White House / Congress)",
+      "aweType": "Policy",
+      "description": "Competitive fellowship placing officers on Capitol Hill, White House staff, federal agencies (HHS, VA, OMB), or think tanks. Robert Wood Johnson Health Policy Fellowship is the most common route. Builds senior policy and legislative experience.",
+      "eligibleRanks": ["O4", "O5"],
+      "typicalDuration": "1–2 years",
+      "benefits": [
+        "Exceptional visibility — highly selective",
+        "Builds legislative and executive branch relationships",
+        "Positions officer for senior advisory and policy roles post-service",
+        "Strengthens executive leadership narrative for promotion boards"
+      ],
+      "howToApply": "RWJ fellowship opens annually (applications in fall). Congressional fellowship through AUSA/AMA pathways. Requires CDR/LCDR and demonstrated policy interest.",
+      "contact": {
+        "organization": "Robert Wood Johnson Health Policy Fellowship Program",
+        "website": "https://healthpolicyfellows.org",
+        "note": "Requires strong endorsement — discuss with mentor and corps chief"
+      }
+    },
+    {
+      "id": "awe-gme-director",
+      "name": "GME Residency Program Director",
+      "aweType": "Education",
+      "description": "Lead a Graduate Medical Education (GME) residency program at an NMRTC. Responsible for ACGME accreditation compliance, curriculum, faculty development, and resident training. Demonstrates senior academic and administrative leadership.",
+      "eligibleRanks": ["O5", "O6"],
+      "typicalDuration": "3–4 years",
+      "benefits": [
+        "Senior educational leadership credential",
+        "ACGME accreditation experience directly applicable to senior MTF positions",
+        "Builds toward 67A (Executive Medicine) AQD",
+        "Mentorship of the next generation of Navy physicians"
+      ],
+      "howToApply": "Nominated by MTF command. Requires specialty board certification and prior faculty experience preferred. Coordinate with NMRTC command and specialty corps chief.",
+      "contact": {
+        "note": "Discuss with your MTF Chief of Staff or GME committee chair"
+      }
+    },
+    {
+      "id": "awe-nmlpdc-faculty",
+      "name": "NMLPDC Faculty — Leadership Development",
+      "aweType": "Education",
+      "description": "Serve on faculty at the Navy Medicine Leader and Professional Development Command (NMLPDC). Instructs DIVOLC, ILC, SLC, or other leadership programs. Develops curriculum and shapes officer professional development Navy-wide.",
+      "eligibleRanks": ["O4", "O5", "O6"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Deep engagement with leadership development programs",
+        "Builds facilitator and curriculum design skills",
+        "Strengthens 67A AQD qualifications",
+        "High visibility with Navy Medicine leadership"
+      ],
+      "howToApply": "Request via detailer. NMLPDC located at Bethesda, MD (Walter Reed National Military Medical Center campus).",
+      "contact": {
+        "organization": "Navy Medicine Leader and Professional Development Command (NMLPDC)",
+        "email": "usn.bethesda.navmedleadprodevcmd.list.nmpdc-ldr-devacademy@health.mil"
+      }
+    },
+    {
+      "id": "awe-operational-oconus",
+      "name": "OCONUS / Operational Deployed Tour",
+      "aweType": "Operational",
+      "description": "Overseas tour at an OCONUS MTF (Germany, Japan, Spain, Bahrain), deployed with a Marine unit (battalion/regimental surgeon), Fleet Surgical Team (FST), or theater medical command. Builds operational credibility critical for senior promotions.",
+      "eligibleRanks": ["O3", "O4", "O5", "O6"],
+      "typicalDuration": "1–3 years (OCONUS tour) or 6–12 months (deployment)",
+      "benefits": [
+        "Operational credibility — strongly weighted by promotion boards",
+        "Contributes to warfare qualification AQDs (FMF, SW)",
+        "Required for some senior operational billets (CATF Surgeon, GHE staff)",
+        "Joint and multinational medical engagement experience"
+      ],
+      "howToApply": "Coordinate with detailer. Volunteer for deployment through parent command. OCONUS billets require PCS orders.",
+      "contact": {
+        "note": "Communicate OCONUS / operational preference to your detailer at the 24-month window"
+      }
+    },
+    {
+      "id": "awe-joint-duty",
+      "name": "Joint Duty Assignment (JDA)",
+      "aweType": "Joint",
+      "description": "Assignment to a joint command: Joint Staff (Pentagon), CENTCOM/INDOPACOM/EUCOM surgeon staff, SOCOM, or qualifying DHA billet. Earns Joint Duty Assignment credit — required for officers competitive for O7 selection.",
+      "eligibleRanks": ["O4", "O5", "O6"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Joint Duty credit required for O7 (flag) consideration per Goldwater-Nichols",
+        "Interservice and strategic-level experience",
+        "Exposure to combatant command medical operations",
+        "Strengthens flag officer packet significantly"
+      ],
+      "howToApply": "Must have JPME I for full joint credit. Request JDA-coded billets through detailer. JPME II (Naval War College resident course) enhances competitive standing.",
+      "contact": {
+        "note": "JPME I completion is prerequisite — complete before or simultaneously with JDA tour"
+      }
+    },
+    {
+      "id": "awe-socom-sof",
+      "name": "Special Operations Command Medical Officer (SOF)",
+      "aweType": "Operational",
+      "description": "Embed with Navy Special Warfare (NSW/SEAL teams), Marine Raiders (MARSOC), or Joint Special Operations Command (JSOC) as a Special Operations medical officer. Highly competitive, requires additional training (SOCM, SEAL/SOF screening).",
+      "eligibleRanks": ["O3", "O4"],
+      "typicalDuration": "2–3 years",
+      "benefits": [
+        "Exceptional operational credibility",
+        "Contributes to FMF/EXW AQD pathways",
+        "Highly distinctive on promotion record",
+        "Builds trauma, austere medicine, and small-unit leadership skills"
+      ],
+      "howToApply": "Volunteer through command. Requires SOCM qualification and physical screening. Coordinate with Naval Special Warfare Command Medical Officer.",
+      "contact": {
+        "organization": "Naval Special Warfare Command",
+        "note": "SOCM course required — 18+ weeks. Apply 18–24 months before desired start"
+      }
+    }
+  ],
   "careerMilestones": {
     "O3": {
       "typicalYears": "0-4",

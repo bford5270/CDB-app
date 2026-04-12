@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, BookOpen, Award, Calendar, ExternalLink, Mail, Phone, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Target, TrendingUp, CheckCircle } from 'lucide-react';
+import { Sparkles, BookOpen, Award, Calendar, ExternalLink, Mail, Phone, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Target, TrendingUp, CheckCircle, Briefcase } from 'lucide-react';
 import type { ParsedOfficerData } from './VerifyParsedData';
 import { supabase } from '../utils/supabaseClient';
 
@@ -37,11 +37,25 @@ interface CareerInsight {
   description: string;
 }
 
+interface AWERecommendation {
+  id: string;
+  name: string;
+  aweType: string;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+  eligibleRanks: string[];
+  typicalDuration: string;
+  benefits: string[];
+  howToApply: string;
+  contact?: { organization?: string; email?: string; website?: string; note?: string };
+}
+
 interface AIRecommendations {
   summary: string;
   careerInsights: CareerInsight[];
   courseRecommendations: CourseRecommendation[];
   aqdRecommendations: AQDRecommendation[];
+  aweRecommendations: AWERecommendation[];
   nextSteps: string[];
 }
 
@@ -123,7 +137,7 @@ export function PersonalizedActionPlan({ officerData }: PersonalizedActionPlanPr
       const officerSummary = buildOfficerSummary(officerData);
       const catalogSummary = buildCatalogSummary(catalog);
 
-      const systemPrompt = `You are a Navy Medical Corps career advisor helping officers prepare for Career Development Boards (CDBs). 
+      const systemPrompt = `You are a Navy Medical Corps career advisor helping officers prepare for Career Development Boards (CDBs).
 
 Your role is to provide personalized, actionable recommendations based on the officer's current record and career stage. Use a supportive, mentoring tone with phrases like "Consider...", "You might explore...", "This could strengthen your record by..."
 
@@ -135,8 +149,9 @@ IMPORTANT GUIDELINES:
 - Reference specific courses from the FY26 catalog with actual dates
 - For senior officers (O5+), emphasize executive-level courses and AQDs
 - For junior officers, focus on foundational training and warfare qualifications
+- AWE (Additional Work Experiences) are broadening assignments beyond clinical duty — recommend 1-2 that best fit this officer's rank and gaps
 
-FY26 COURSE CATALOG DATA:
+FY26 COURSE & AWE CATALOG DATA:
 ${catalogSummary}
 
 ${refDocs ? `ADDITIONAL REFERENCE MATERIAL:\n${refDocs.substring(0, 8000)}` : ''}`;
@@ -175,10 +190,24 @@ Please provide your response as a JSON object with this exact structure:
       "contributingCourses": ["Course IDs that help achieve this"]
     }
   ],
+  "aweRecommendations": [
+    {
+      "id": "awe id from catalog",
+      "name": "AWE billet/program name",
+      "aweType": "Academic|Research|Policy|Education|Operational|Joint",
+      "reason": "Why this AWE fits this officer's record and career stage specifically",
+      "priority": "high|medium|low",
+      "eligibleRanks": ["O4", "O5"],
+      "typicalDuration": "2-3 years",
+      "benefits": ["Career benefit 1", "Career benefit 2"],
+      "howToApply": "How to pursue this opportunity",
+      "contact": {"organization": "Org name", "note": "Any important note"}
+    }
+  ],
   "nextSteps": ["Prioritized list of 3-5 immediate actions to take"]
 }
 
-Limit to 3-5 course recommendations and 1-2 AQD recommendations, prioritized by impact. Focus on the most impactful actions for their career stage.`;
+Limit to 3-5 course recommendations, 1-2 AQD recommendations, and 1-2 AWE recommendations, prioritized by impact. For AWEs, choose those that directly address gaps in this officer's record (e.g., recommend researcher if no publications/research; recommend BUMED staff if near O5/O6 and no HQ experience; recommend operational tour if no deployment). Focus on the most impactful actions for their career stage.`;
 
       // Call Claude API
       const response = await fetch('/api/ask', {
@@ -478,6 +507,100 @@ Limit to 3-5 course recommendations and 1-2 AQD recommendations, prioritized by 
         </div>
       )}
 
+      {/* AWE Recommendations */}
+      {recommendations.aweRecommendations && recommendations.aweRecommendations.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-blue-600" />
+            Additional Work Experience (AWE) Opportunities
+          </h3>
+          <p className="text-sm text-gray-500">
+            Broadening assignments beyond clinical duty that strengthen your record for senior boards.
+          </p>
+          <div className="space-y-3">
+            {recommendations.aweRecommendations.map((awe) => (
+              <div key={awe.id} className="border border-indigo-200 rounded-lg overflow-hidden">
+                <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                          awe.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          awe.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {awe.priority === 'high' ? 'High Priority' :
+                           awe.priority === 'medium' ? 'Recommended' : 'Consider'}
+                        </span>
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-indigo-100 text-indigo-700">
+                          {awe.aweType}
+                        </span>
+                        {awe.eligibleRanks && (
+                          <span className="text-xs text-gray-500">
+                            {awe.eligibleRanks.join(' / ')} • {awe.typicalDuration}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mt-2">{awe.name}</h4>
+                      <p className="text-sm text-gray-700 mt-1">{awe.reason}</p>
+                    </div>
+                  </div>
+
+                  {/* Benefits */}
+                  {awe.benefits && awe.benefits.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Why it matters</p>
+                      <ul className="space-y-1">
+                        {awe.benefits.map((b, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-500 mt-0.5 flex-shrink-0" />
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* How to Apply */}
+                  {awe.howToApply && (
+                    <div className="mt-3 p-2 bg-white/70 rounded text-sm text-gray-700">
+                      <span className="font-medium text-gray-800">How to pursue: </span>
+                      {awe.howToApply}
+                    </div>
+                  )}
+
+                  {/* Contact */}
+                  {awe.contact && (awe.contact.organization || awe.contact.note) && (
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+                      {awe.contact.organization && (
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="w-3.5 h-3.5" />
+                          {awe.contact.organization}
+                        </span>
+                      )}
+                      {awe.contact.website && (
+                        <a
+                          href={awe.contact.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          More info
+                        </a>
+                      )}
+                      {awe.contact.note && (
+                        <span className="italic text-gray-500">{awe.contact.note}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Next Steps */}
       {recommendations.nextSteps.length > 0 && (
         <div className="bg-gray-900 text-white rounded-xl p-6">
@@ -561,9 +684,10 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
   const courses = catalog.courses as Array<Record<string, unknown>>;
   const aqds = catalog.aqds as Record<string, Record<string, unknown>>;
   const milestones = catalog.careerMilestones as Record<string, Record<string, unknown>>;
+  const awes = catalog.aweOpportunities as Array<Record<string, unknown>> | undefined;
 
   let summary = `COURSES AVAILABLE (FY26):\n`;
-  
+
   courses.forEach((course: Record<string, unknown>) => {
     summary += `\n[${course.id}] ${course.name}\n`;
     summary += `  Category: ${course.category}\n`;
@@ -571,7 +695,7 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
     if (course.requirement) summary += `  Requirement: ${course.requirement}\n`;
     if (course.duration) summary += `  Duration: ${course.duration}\n`;
     if (course.format) summary += `  Format: ${course.format}\n`;
-    
+
     // Add session dates
     const sessions = course.sessions as Array<Record<string, unknown>> | undefined;
     if (sessions && sessions.length > 0) {
@@ -579,7 +703,7 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
         const dates = session.dates as Array<Record<string, unknown>> | undefined;
         if (dates && dates.length > 0) {
           summary += `  Location: ${session.location}\n`;
-          summary += `  Dates: ${dates.slice(0, 3).map((d: Record<string, unknown>) => 
+          summary += `  Dates: ${dates.slice(0, 3).map((d: Record<string, unknown>) =>
             `${d.start} to ${d.end}${d.virtual ? ' (Virtual)' : ''}`
           ).join('; ')}\n`;
         }
@@ -588,7 +712,7 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
         if (session.poc) summary += `  POC: ${session.poc}\n`;
       });
     }
-    
+
     if (course.prerequisites && (course.prerequisites as string[]).length > 0) {
       summary += `  Prerequisites: ${(course.prerequisites as string[]).join(', ')}\n`;
     }
@@ -606,6 +730,20 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
     }
   });
 
+  if (awes && awes.length > 0) {
+    summary += `\nADDITIONAL WORK EXPERIENCES (AWEs):\n`;
+    awes.forEach((awe: Record<string, unknown>) => {
+      summary += `\n[${awe.id}] ${awe.name} (${awe.aweType})\n`;
+      summary += `  Eligible Ranks: ${Array.isArray(awe.eligibleRanks) ? (awe.eligibleRanks as string[]).join(', ') : 'All'}\n`;
+      summary += `  Duration: ${awe.typicalDuration}\n`;
+      summary += `  ${awe.description}\n`;
+      if (Array.isArray(awe.benefits)) {
+        summary += `  Benefits: ${(awe.benefits as string[]).slice(0, 2).join('; ')}\n`;
+      }
+      if (awe.howToApply) summary += `  How to apply: ${awe.howToApply}\n`;
+    });
+  }
+
   summary += `\nCAREER MILESTONES BY RANK:\n`;
   Object.entries(milestones).forEach(([rank, info]) => {
     summary += `\n${rank} (Years: ${info.typicalYears}):\n`;
@@ -620,7 +758,8 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
 function generateFallbackRecommendations(data: ParsedOfficerData, catalog: Record<string, unknown>): AIRecommendations {
   const courses = catalog.courses as Array<Record<string, unknown>>;
   const milestones = catalog.careerMilestones as Record<string, Record<string, unknown>>;
-  
+  const awes = (catalog.aweOpportunities as Array<Record<string, unknown>>) || [];
+
   const rank = data.currentRank || 'LT';
   const rankMilestones = milestones[rank] || milestones['O3'];
   const recommendedCourseIds = (rankMilestones?.recommendedCourses as string[]) || [];
@@ -743,17 +882,80 @@ function generateFallbackRecommendations(data: ParsedOfficerData, catalog: Recor
     });
   }
 
+  // AWE fallback recommendations
+  const aweRecommendations: AWERecommendation[] = [];
+  const rankToO: Record<string, string> = { LT: 'O3', LCDR: 'O4', CDR: 'O5', CAPT: 'O6' };
+  const oRank = rankToO[rank] || 'O3';
+
+  // Recommend researcher/CIP for junior/mid officers without publications context
+  if (['O3', 'O4'].includes(oRank)) {
+    const cip = awes.find(a => a.id === 'awe-cip');
+    if (cip) {
+      aweRecommendations.push({
+        id: cip.id as string,
+        name: cip.name as string,
+        aweType: cip.aweType as string,
+        reason: 'A research fellowship builds academic credentials, earns the 6OC AQD, and distinguishes your record for competitive promotion boards.',
+        priority: 'medium',
+        eligibleRanks: cip.eligibleRanks as string[],
+        typicalDuration: cip.typicalDuration as string,
+        benefits: cip.benefits as string[],
+        howToApply: cip.howToApply as string,
+        contact: cip.contact as AWERecommendation['contact'],
+      });
+    }
+  }
+
+  // Recommend BUMED/HQ staff for O5/O6
+  if (['O5', 'O6'].includes(oRank)) {
+    const bumed = awes.find(a => a.id === 'awe-bumed-staff');
+    if (bumed) {
+      aweRecommendations.push({
+        id: bumed.id as string,
+        name: bumed.name as string,
+        aweType: bumed.aweType as string,
+        reason: 'HQ staff experience is consistently weighted by CDR and CAPT selection boards and is essential for flag officer consideration.',
+        priority: 'high',
+        eligibleRanks: bumed.eligibleRanks as string[],
+        typicalDuration: bumed.typicalDuration as string,
+        benefits: bumed.benefits as string[],
+        howToApply: bumed.howToApply as string,
+        contact: bumed.contact as AWERecommendation['contact'],
+      });
+    }
+  }
+
+  // Recommend operational tour if no operational tours
+  if ((data.operationalTours || 0) === 0) {
+    const opTour = awes.find(a => a.id === 'awe-operational-oconus');
+    if (opTour) {
+      aweRecommendations.push({
+        id: opTour.id as string,
+        name: opTour.name as string,
+        aweType: opTour.aweType as string,
+        reason: 'No operational tours detected. Operational credibility is heavily weighted at LCDR and CDR boards.',
+        priority: 'high',
+        eligibleRanks: opTour.eligibleRanks as string[],
+        typicalDuration: opTour.typicalDuration as string,
+        benefits: opTour.benefits as string[],
+        howToApply: opTour.howToApply as string,
+        contact: opTour.contact as AWERecommendation['contact'],
+      });
+    }
+  }
+
   return {
     summary: `As a ${rank} with ${data.operationalTours || 0} operational tour(s) and a trait average of ${data.fitrepAverage?.toFixed(2) || 'unknown'}, your focus should be on ${rankMilestones?.focus ? (rankMilestones.focus as string[]).slice(0, 2).join(' and ').toLowerCase() : 'professional development'}. ${courseRecommendations.length > 0 ? `Consider prioritizing ${courseRecommendations[0].name} in the near term.` : ''}`,
     careerInsights,
     courseRecommendations: courseRecommendations.slice(0, 5),
     aqdRecommendations,
+    aweRecommendations: aweRecommendations.slice(0, 2),
     nextSteps: [
       courseRecommendations[0] ? `Register for ${courseRecommendations[0].name} through your SEAT officer` : 'Review course catalog for applicable training',
+      aweRecommendations[0] ? `Explore AWE: ${aweRecommendations[0].name} — discuss with detailer at your 18-month window` : 'Discuss broadening assignment options with your detailer',
       'Schedule CDB with your mentor to discuss career trajectory',
       'Review your OSR/ODC for accuracy before next promotion board',
       !data.jpmeComplete && ['LCDR', 'CDR'].includes(rank) ? 'Apply for JPME I Fleet Seminar Program (Apr 1 - May 31)' : 'Continue building operational experience',
-      'Update your professional biography and prepare board-ready record'
     ].filter(Boolean)
   };
 }

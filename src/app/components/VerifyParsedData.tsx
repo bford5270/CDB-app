@@ -528,14 +528,23 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
 
       {/* Experience & Additional Info */}
       <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Experience & Qualifications" 
-          icon={Award} 
+        <SectionHeader
+          title="Experience & Qualifications"
+          icon={Award}
           section="experience"
           status="complete"
         />
         {expandedSections.experience && (
           <div className="p-4 space-y-4">
+            {/* Manual-entry notice */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                <strong>These fields are not auto-populated from your documents.</strong> Enter them manually using your
+                OSR or memory. They directly affect gap analysis — leaving them blank will trigger false warnings.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Current Billet</label>
               <input
@@ -549,7 +558,10 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deployments</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Deployments
+                  <span className="ml-1 text-xs text-gray-400 font-normal">(any length, overseas)</span>
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -559,7 +571,10 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Operational Tours</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Operational Tours
+                  <span className="ml-1 text-xs text-gray-400 font-normal">(GMO, SMO, OMO, ship, MEU)</span>
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -578,7 +593,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   onChange={(e) => updateField('jpmeComplete', e.target.checked)}
                   className="w-4 h-4 text-blue-600 rounded"
                 />
-                <span className="text-sm">JPME I Complete</span>
+                <span className="text-sm">JPME I Complete <span className="text-xs text-gray-400">(JS7 AQD or Joint Forces Staff College DL)</span></span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -587,7 +602,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   onChange={(e) => updateField('jointDuty', e.target.checked)}
                   className="w-4 h-4 text-blue-600 rounded"
                 />
-                <span className="text-sm">Joint Duty Assignment</span>
+                <span className="text-sm">Joint Duty Assignment <span className="text-xs text-gray-400">(Joint Staff, COCOM, inter-service MTF billet)</span></span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -596,7 +611,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   onChange={(e) => updateField('commandTour', e.target.checked)}
                   className="w-4 h-4 text-blue-600 rounded"
                 />
-                <span className="text-sm">Command Tour Complete</span>
+                <span className="text-sm">Command / Dept Head Tour <span className="text-xs text-gray-400">(OIC, dept head, XO, director)</span></span>
               </label>
             </div>
           </div>

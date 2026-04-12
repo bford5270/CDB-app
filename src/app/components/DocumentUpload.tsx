@@ -82,8 +82,24 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
   }, [documents, onDocumentsChange]);
 
   const handleFileSelect = useCallback((type: keyof UploadedDocuments, file: File) => {
+    const name = file.name.toLowerCase();
+    const officeExts = ['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls', '.odt', '.odp'];
+    if (officeExts.some(ext => name.endsWith(ext))) {
+      const updated: UploadedDocuments = {
+        ...documents,
+        [type]: {
+          file,
+          text: '',
+          status: 'error' as const,
+          error: 'Office documents (.docx, .pptx, etc.) cannot be read by this app. Download your document as a PDF from MyNavy HR or your records portal and upload the PDF instead.',
+        },
+      };
+      setDocuments(updated);
+      onDocumentsChange(updated);
+      return;
+    }
     processFile(file, type);
-  }, [processFile]);
+  }, [documents, processFile, onDocumentsChange]);
 
   const handleClear = useCallback((type: keyof UploadedDocuments) => {
     const updated = { ...documents, [type]: null };

@@ -307,20 +307,26 @@ export function AnalysisResults({ officerData: o }: AnalysisResultsProps) {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: 'Total FITREPs', value: o.fitrepCount || 0 },
-            { label: 'Avg Score', value: o.fitrepAverage > 0 ? o.fitrepAverage.toFixed(2) : '—' },
-            { label: 'Early Promote', value: o.earlyPromotes ?? 0, highlight: (o.earlyPromotes ?? 0) > 0 ? 'text-green-600' : '' },
-            { label: 'Must Promote', value: o.mustPromotes ?? 0 },
-            { label: 'Promotable', value: o.promotables ?? 0 },
-          ].map(s => (
-            <div key={s.label} className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-xs text-gray-500 mb-1">{s.label}</div>
-              <div className={`text-2xl font-bold text-blue-600 ${s.highlight ?? ''}`}>{s.value}</div>
+        {(() => {
+          const prCount = fitreps.filter(f => f.promotionRec === 'PR').length;
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {[
+                { label: 'Total FITREPs', value: o.fitrepCount || 0, highlight: '' },
+                { label: 'Avg Score',     value: o.fitrepAverage > 0 ? o.fitrepAverage.toFixed(2) : '—', highlight: '' },
+                { label: 'Early Promote', value: o.earlyPromotes ?? 0, highlight: (o.earlyPromotes ?? 0) > 0 ? 'text-green-600' : '' },
+                { label: 'Must Promote',  value: o.mustPromotes ?? 0, highlight: '' },
+                { label: 'Promotable',    value: o.promotables ?? 0, highlight: '' },
+                { label: 'Progressing',   value: prCount, highlight: prCount > 0 ? 'text-amber-600' : '' },
+              ].map(s => (
+                <div key={s.label} className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-500 mb-1">{s.label}</div>
+                  <div className={`text-2xl font-bold text-blue-600 ${s.highlight}`}>{s.value}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* Trend */}
         <div className={`flex items-center gap-3 rounded-lg p-3 border ${

@@ -51,8 +51,8 @@ FROM ODC (Officer Data Card):
 - Designator: 4-digit medical corps designator (e.g., 2300, 2100, 2355). Medical Corps officers have designators starting with 21xx or 23xx.
 - Year Group: 4-digit year group (YG)
 - DOR (Dates of Rank): Look for lines labeled "DOR". Dates are in MMDDYY format (e.g., 090124 = Sep 1, 2024). Medical Corps officers commission as LT (O3) and progress: LT → LCDR → CDR → CAPT. Assign ranks in that order from oldest to newest DOR date.
-- AQDs: 2-3 character codes with 2-digit year and title. Common examples: FMF, SW, AW, SS, EXW, 62D, JS7, 67A, 67B, 6OC, FMF, SCW
-- Board Certification: K = Board Certified, J = Not Board Certified. Appears as last character in specialty code like "16Q0K" or "16Q0J"
+- AQDs: 2-3 character codes with 2-digit year and title. Common examples: LA7 (Surface Warfare MDO), BX2 (FMF MDO), AW, SS, EXW, JS7 (JPME I), JS8 (JPME II), 67A, 67B, 6OC, 62D. Legacy display codes FMF/SW may also appear.
+- Board Certification: K = Board Certified, J = Board Eligible (trained, not yet certified), T = In Training (residency). Appears as last character in specialty code like "16Q0K", "16Q0J", or "16Q0T"
 - Security Clearance: Look for 2-letter codes (SS=Secret/Secret, VV=TS/TS, TV=TS/Secret, ST=Secret/TS). Investigation date in MMYY format.
 
 FROM OSR (Officer Summary Record):
@@ -99,7 +99,7 @@ BELOW RS AVERAGE: Count how many graded FITREPs have individualAverage < rsAvera
   ],
 
   "boardCertified": true|false|null,
-  "certificationCode": "J"|"K"|null,
+  "certificationCode": "J"|"K"|"T"|null,
 
   "clearanceLevel": "Secret"|"Top Secret"|"None"|"",
   "clearanceDate": "YYYY-MM" or "",

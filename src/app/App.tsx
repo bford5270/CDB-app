@@ -43,7 +43,7 @@ export default function App() {
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
     clearanceDate?: string;
-    certificationCode?: 'J' | 'K' | null;
+    certificationCode?: 'J' | 'K' | 'T' | null;
     fitrepAverage?: number;
     fitrepCount?: number;
     earlyPromotes?: number;
@@ -84,7 +84,7 @@ export default function App() {
       clearanceLevel: data.clearanceLevel || '',
       clearanceDate: data.clearanceDate || '',
       boardCertified: data.boardCertified,
-      certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
+      certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null) as 'J' | 'K' | 'T' | null,
       aqds: data.aqds,
       fitrepAverage: data.fitrepAverage || 0,
       fitrepCount: data.fitrepCount || 0,

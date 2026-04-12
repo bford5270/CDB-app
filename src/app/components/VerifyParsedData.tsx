@@ -15,8 +15,10 @@ export interface ParsedOfficerData {
   clearanceDate: string;
   
   // From ODC - Board Certification
+  // Per Navy ODC standard (Schofer, The Wealthy Captain):
+  //   K = Board Certified, J = Board Eligible (trained, not yet certified), T = In Training
   boardCertified: boolean | null;
-  certificationCode: 'J' | 'K' | null; // K = Board Certified, J = Board Eligible (not yet certified) — matches Navy ODC standard
+  certificationCode: 'J' | 'K' | 'T' | null;
   
   // From ODC - AQDs
   aqds: string[];
@@ -86,15 +88,18 @@ const DESIGNATOR_OPTIONS = [
   { value: '2510', label: '2510 - Undersea Medicine' },
 ];
 
+// AQD codes sourced from Schofer (The Wealthy Captain, Ch. 3) and Navy ODC standard
 const COMMON_AQDS = [
-  { code: 'FMF', name: 'Fleet Marine Force' },
-  { code: 'SW', name: 'Surface Warfare' },
-  { code: 'AW', name: 'Aviation Warfare' },
-  { code: 'SS', name: 'Submarine Warfare' },
+  { code: 'BX2', name: 'FMF Qualified MDO' },        // Fleet Marine Force
+  { code: 'LA7', name: 'Surface Warfare MDO' },       // Surface Warfare Medical Dept Officer
+  { code: 'AW',  name: 'Aviation Warfare' },
+  { code: 'SS',  name: 'Submarine Warfare' },
   { code: 'EXW', name: 'Expeditionary Warfare' },
+  { code: 'JS7', name: 'JPME Phase I' },
+  { code: 'JS8', name: 'JPME Phase II' },
   { code: '67A', name: 'Executive Medicine' },
   { code: '67B', name: 'Expeditionary Medicine' },
-  { code: '67G', name: 'Managed Care' },
+  { code: '6OC', name: 'Clinical Investigator' },
 ];
 
 export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: VerifyParsedDataProps) {
@@ -335,12 +340,12 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
           <div className="p-4">
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Board Certification Status</label>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="boardCert"
-                    checked={data.boardCertified === true}
+                    checked={data.certificationCode === 'K'}
                     onChange={() => {
                       updateField('boardCertified', true);
                       updateField('certificationCode', 'K');
@@ -355,7 +360,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   <input
                     type="radio"
                     name="boardCert"
-                    checked={data.boardCertified === false}
+                    checked={data.certificationCode === 'J'}
                     onChange={() => {
                       updateField('boardCertified', false);
                       updateField('certificationCode', 'J');
@@ -363,18 +368,37 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                     className="w-4 h-4 text-blue-600"
                   />
                   <span className="text-sm">
-                    <span className="font-medium">J Code</span> - Board Eligible (not yet certified)
+                    <span className="font-medium">J Code</span> - Board Eligible (trained, not certified)
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="boardCert"
+                    checked={data.certificationCode === 'T'}
+                    onChange={() => {
+                      updateField('boardCertified', false);
+                      updateField('certificationCode', 'T');
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium">T Code</span> - In Training (residency)
                   </span>
                 </label>
               </div>
               {data.certificationCode && (
                 <div className={`mt-2 p-3 rounded-lg ${
-                  data.certificationCode === 'K' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
+                  data.certificationCode === 'K' ? 'bg-green-50 text-green-800' :
+                  data.certificationCode === 'T' ? 'bg-blue-50 text-blue-800' :
+                  'bg-yellow-50 text-yellow-800'
                 }`}>
                   <p className="text-sm">
                     {data.certificationCode === 'K'
                       ? '✓ Board certified (K code) — competitive for promotion boards.'
-                      : '⚠️ Board eligible (J code) — board certification is typically expected by O4. Consider your timeline for the specialty board exam.'}
+                      : data.certificationCode === 'T'
+                      ? 'ℹ️ In training (T code) — completing residency. Pursue board certification (K code) as soon as eligible; expected by O-4.'
+                      : '⚠️ Board eligible (J code) — trained but not yet certified. Board certification is expected by O-4. Schedule specialty board exam promptly.'}
                   </p>
                 </div>
               )}

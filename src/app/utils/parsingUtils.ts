@@ -89,12 +89,23 @@ export interface OfficerData {
 // ============================================================================
 
 // Valid AQD codes for Medical Corps officers
+// Warfare/Operational codes per Schofer (The Wealthy Captain, Ch. 3):
+//   LA7 = Surface Warfare Medical Department Officer (MDO)
+//   BX2 = Fleet Marine Force (FMF) Qualified Medical Officer
+//   U6O/U4M/U6M/J6M/J4M/J5M/J3M = Individual Augmentee (IA) tours
+// Joint:
+//   JS7 = JPME Phase I, JS8 = JPME Phase II
 const VALID_AQD_CODES = new Set([
   '67A', '67B', '67G', '67H', '67I', '67J', '67K', '67L', '67M', '67N',
   'JS7', 'JS8', 'JS9',
   '62D', '6ZB', '6ZC', '6ZF', '6ZG', '6ZH',
   '68M', '68N', '68O', '68P', '68Q',
-  'FMF', 'SCW', 'SWO', 'NAV', 'AQD',
+  // Warfare qualifications — legacy display codes kept for backwards compat,
+  // proper ODC codes per Schofer: LA7 (Surface Warfare MDO), BX2 (FMF MDO)
+  'FMF', 'SW', 'AW', 'SS', 'EXW', 'SCW', 'SWO', 'NAV',
+  'LA7', 'BX2',
+  // Individual Augmentee (IA) tour codes
+  'U6O', 'U4M', 'U6M', 'J6M', 'J4M', 'J5M', 'J3M',
   '6OC', '6OD', '6OE',
   'GMO', 'FS1', 'FS2', 'FS3',
   '2P1', '2P2', '2P3', '2PA', '2PH', '2PO', '2PS', '2PT',
@@ -428,31 +439,35 @@ export function extractAQDsFromODC(text: string): AQDEntry[] {
 
 /**
  * Extract board certification status from ODC
- * K = Board Certified, J = Not Board Certified
- * Pattern: Usually appears as part of specialty code like "16Q0K" or "16Q0J"
+ * Per Navy ODC standard (Schofer, The Wealthy Captain Ch. 3):
+ *   K = Board Certified
+ *   J = Board Eligible / trained but not yet certified
+ *   T = In Training (not yet board eligible)
+ * Pattern: last character of specialty code like "16Q0K", "16Q0J", "16Q0T"
  */
-export function extractBoardCertification(text: string): boolean | undefined {
-  // Look for patterns like 16Q0K, 16Q0J, etc.
-  // The last character K or J indicates board certification status
-  
-  // Pattern: digits followed by Q (or other letters) and ending in K or J
-  const certPattern = /\d{2}[A-Z]\d[KJ]\b/g;
+export function extractBoardCertification(text: string): 'K' | 'J' | 'T' | undefined {
+  // Pattern: digits followed by letter and ending in K, J, or T
+  const certPattern = /\d{2}[A-Z]\d[KJT]\b/g;
   const matches = text.match(certPattern);
-  
+
   if (matches && matches.length > 0) {
-    // Check the last character of the first match
     const lastChar = matches[0].charAt(matches[0].length - 1).toUpperCase();
-    return lastChar === 'K'; // K = Board Certified, J = Not Board Certified
+    if (lastChar === 'K') return 'K'; // Board Certified
+    if (lastChar === 'J') return 'J'; // Board Eligible (not yet certified)
+    if (lastChar === 'T') return 'T'; // In Training
   }
-  
+
   // Also check for explicit mentions
   if (/\bBOARD\s*CERT/i.test(text)) {
-    return true;
+    return 'K';
   }
   if (/\bNOT\s+BOARD\s*CERT/i.test(text)) {
-    return false;
+    return 'J';
   }
-  
+  if (/\bIN\s+TRAINING\b/i.test(text) || /\bRESIDENCY\b/i.test(text)) {
+    return 'T';
+  }
+
   return undefined;
 }
 

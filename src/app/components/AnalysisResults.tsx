@@ -26,7 +26,8 @@ interface Strength {
 const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT'];
 const rankGTE = (a: string, b: string) => RANK_ORDER.indexOf(a) >= RANK_ORDER.indexOf(b);
 
-const WARFARE_AQDS = ['FMF', 'SW', 'AW', 'SS', 'EXW', 'SCW'];
+// Warfare/Operational AQD codes — proper ODC codes (LA7/BX2 per Schofer) plus legacy display codes
+const WARFARE_AQDS = ['LA7', 'BX2', 'FMF', 'SW', 'AW', 'SS', 'EXW', 'SCW'];
 const OPERATIONAL_AQDS = ['6OC', '6OD', '6OE', '6OF', '6OG', '6OH'];
 
 function getDateOfRank(officerData: ParsedOfficerData): string {
@@ -75,15 +76,39 @@ function analyzeRecord(o: ParsedOfficerData): { gaps: Gap[]; strengths: Strength
   const rank = o.currentRank;
   const hasWarfare = WARFARE_AQDS.some(q => o.aqds.includes(q));
 
-  // Board certification
-  if (o.boardCertified === false && rankGTE(rank, 'LCDR')) {
-    gaps.push({ category: 'Board Certification', severity: 'critical',
-      description: 'Not board certified — critical gap at LCDR and above',
-      recommendation: 'Board certification is essential for O-5 selection. Prioritize completing specialty board requirements. Contact specialty board directly for exam schedule.',
-      icon: Award });
-    score -= 20;
-  } else if (o.boardCertified === true) {
-    strengths.push({ category: 'Board Certified', description: 'Board certification demonstrates clinical excellence — essential for O-5 promotion.', icon: Award });
+  // Board certification — K=certified, J=eligible not certified, T=in training
+  const certCode = o.certificationCode;
+  if (certCode === 'K' || o.boardCertified === true) {
+    strengths.push({ category: 'Board Certified (K Code)', description: 'Board certification demonstrates clinical excellence — essential for O-5 promotion.', icon: Award });
+  } else if (certCode === 'T') {
+    // In training — appropriate for LT/early LCDR, flag if approaching LCDR board
+    if (rankGTE(rank, 'LCDR')) {
+      gaps.push({ category: 'Board Certification', severity: 'critical',
+        description: 'Still showing T code (In Training) at LCDR or above — board certification expected',
+        recommendation: 'Complete residency and sit for your specialty board exam immediately. K code is expected by O-4 board. Contact your specialty board for eligibility date.',
+        icon: Award });
+      score -= 15;
+    } else {
+      gaps.push({ category: 'Board Certification', severity: 'recommended',
+        description: 'T code (In Training) — in residency, not yet board eligible',
+        recommendation: 'Complete residency and pursue board certification (K code) as soon as eligible. Board certification is expected by O-4.',
+        icon: Award });
+      score -= 5;
+    }
+  } else if (certCode === 'J' || (o.boardCertified === false && !certCode)) {
+    if (rankGTE(rank, 'LCDR')) {
+      gaps.push({ category: 'Board Certification', severity: 'critical',
+        description: 'J code (Board Eligible, not yet certified) — critical gap at LCDR and above',
+        recommendation: 'Board certification (K code) is essential for O-5 selection. Schedule your specialty board exam immediately. Contact the relevant specialty board for the next exam cycle.',
+        icon: Award });
+      score -= 20;
+    } else {
+      gaps.push({ category: 'Board Certification', severity: 'important',
+        description: 'J code — board eligible but not yet certified. Certification expected by O-4.',
+        recommendation: 'Schedule your specialty board exam. Board certification (K code) is a competitive differentiator for O-4 and required by O-5.',
+        icon: Award });
+      score -= 10;
+    }
   }
 
   // FITREP average
@@ -111,8 +136,8 @@ function analyzeRecord(o: ParsedOfficerData): { gaps: Gap[]; strengths: Strength
   // Warfare qual
   if (!hasWarfare && rankGTE(rank, 'LCDR')) {
     gaps.push({ category: 'Warfare Qualification', severity: 'important',
-      description: 'No warfare qualification AQD (FMF, SW, AW, SS) on record',
-      recommendation: 'Warfare qualifications demonstrate operational commitment. Pursue FMF via a Marine unit tour, SW via surface ship assignment, or AW via aviation command attachment.',
+      description: 'No warfare qualification AQD on record (BX2/FMF, LA7/SW, AW, SS)',
+      recommendation: 'Warfare qualifications demonstrate operational commitment. Pursue BX2 (FMF MDO) via a Marine unit tour, or LA7 (Surface Warfare MDO) via surface ship assignment. Contact your detailer 9–18 months before PRD to request an operational billet.',
       icon: Anchor });
     score -= 10;
   } else if (hasWarfare) {
@@ -200,19 +225,37 @@ export function AnalysisResults({ officerData: o }: AnalysisResultsProps) {
     belowRSPct > 30 ||
     psrIssues.length > 0;
 
-  // Career opportunities by rank
+  // Career opportunities by rank — targets aligned with Schofer (The Wealthy Captain, Ch. 3)
+  // CDR targets reflect jobs that produce CAPTs: Residency Director, Dept Head large MTF,
+  // Director/CMO/OIC, BUMED staff, Specialty Leader, Detailer, senior operational leader
+  const hasWarfareQual = WARFARE_AQDS.some(q => o.aqds.includes(q));
   const careerData: Record<string, { current: string[]; target: string[]; aqdsToGet: string[] }> = {
     LT:   { current: ['GMO', 'Battalion/Squadron Surgeon', "Ship's Medical Officer", 'Clinic Staff Physician'],
              target: ['Department Head', 'OMO Tour (small deck SMO)', 'Group/Wing UMO'],
-             aqdsToGet: ['FMF or SW or AW (warfare qual)', '6OC (Operational Medicine)'] },
+             aqdsToGet: [
+               ...(hasWarfareQual ? [] : ['BX2 (FMF MDO) or LA7 (Surface Warfare MDO) — warfare qual']),
+               'JS7 (JPME Phase I) — start distance learning now',
+             ] },
     LCDR: { current: ['Department Head', 'Group/Wing UMO', 'OMO Tour', 'MTF Staff Physician'],
-             target: ['Senior Dept Head', 'Executive OMO', 'XO/SMO', 'BUMED Staff'],
-             aqdsToGet: ['JS7 (Joint Staff)', ...(WARFARE_AQDS.some(q => o.aqds.includes(q)) ? [] : ['FMF or SW or AW']), '6OC (Operational Med)'] },
-    CDR:  { current: ['Senior Dept Head', 'XO', 'SMO CVN/LHA', 'BUMED Staff', 'Senior UMO'],
-             target: ['CO of MTF', 'Fleet Surgeon', 'District Medical Officer', 'BUMED Division Director'],
-             aqdsToGet: ['JS7 (Joint Staff)', 'Executive leadership certifications'] },
-    CAPT: { current: ['CO of MTF', 'Fleet Surgeon', 'District Medical Officer', 'BUMED Division Director'],
-             target: ['Flag officer consideration', 'Senior executive billet'],
+             target: ['Senior Dept Head / XO', 'Executive OMO (SMO CVN/LHA)', 'BUMED Staff', 'Milestone position (apply now)'],
+             aqdsToGet: [
+               ...(hasWarfareQual ? [] : ['BX2 (FMF MDO) or LA7 (Surface Warfare MDO)']),
+               'JS7 (JPME Phase I) — required for joint duty',
+               '67A (Executive Medicine) — required for command track (O4+, needs Master\'s)',
+             ] },
+    CDR:  { current: ['Senior Dept Head', 'XO/SMO', 'BUMED Staff', 'Residency Program Director', 'Milestone position'],
+             // Per Schofer: these are the jobs that produce CAPTs
+             target: [
+               'Residency Program Director (most common path to O6)',
+               'Dept Head / Director at large MTF (≥500 personnel, ≥$5M budget)',
+               'CMO / Director / OIC (any significant command)',
+               'BUMED Staff or Specialty Leader',
+               'Senior Detailer (Medical Corps)',
+               'Senior operational leader (Fleet Surgeon, SOCOM, COCOM staff)',
+             ],
+             aqdsToGet: ['JS7/JS8 (Joint duty — required for senior flag consideration)'] },
+    CAPT: { current: ['CO of MTF', 'Fleet Surgeon', 'BUMED Division Director', 'COCOM Surgeon'],
+             target: ['Flag officer consideration (RDML)', 'Senior executive billet'],
              aqdsToGet: [] },
   };
   const career = careerData[rank] ?? careerData['LCDR'];
@@ -486,6 +529,41 @@ export function AnalysisResults({ officerData: o }: AnalysisResultsProps) {
           )}
         </div>
       </div>
+
+      {/* ── MILESTONE POSITIONS ── shown for LCDR/CDR per Schofer guidance ── */}
+      {(rank === 'LCDR' || rank === 'CDR') && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-6 h-6 text-indigo-600" />
+            <h3 className="text-xl font-bold text-indigo-900">Milestone Positions</h3>
+          </div>
+          <p className="text-sm text-indigo-800 mb-4">
+            Per CAPT Joel Schofer, MD (The Wealthy Captain): <em>"Applying for a Milestone, getting slated, and doing well
+            may be the most successful path in Navy Medicine."</em> Milestone billets are competitive assignments managed by
+            the Corps Chief's Office that provide the broadening, visibility, and leadership experience boards look for when
+            selecting for O6.
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 uppercase tracking-wide mb-2">What Milestone Positions Are</h4>
+              <ul className="space-y-1 text-sm text-indigo-800">
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">•</span>Screened, competitive billets identified as high-development assignments</li>
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">•</span>Include: BUMED staff, Specialty Leader, Detailer, GME Director, senior OMO</li>
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">•</span>Managed by the Corps Chief's Office — contact BUMED M1 for the current list</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 uppercase tracking-wide mb-2">How to Pursue</h4>
+              <ul className="space-y-1 text-sm text-indigo-800">
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">1.</span>Contact your detailer <strong>9–18 months before PRD</strong> to express interest</li>
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">2.</span>Build a strong package: stellar FITREPs, board cert (K code), warfare qual, JPME</li>
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">3.</span>Have a mentor (ideally a CAPT or Flag) who knows the current landscape</li>
+                <li className="flex items-start gap-2"><span className="text-indigo-500 font-bold mt-0.5">4.</span>Apply proactively — do not wait for the Corps Chief to come to you</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── STRENGTHS ── */}
       {strengths.length > 0 && (

@@ -1,9 +1,12 @@
-import { AlertCircle, CheckCircle, TrendingUp, Award, BookOpen, Anchor, Users, Target, Clock } from 'lucide-react';
-import type { OfficerData } from './OfficerDataForm';
+import {
+  AlertCircle, CheckCircle, TrendingUp, TrendingDown, Minus,
+  Award, BookOpen, Anchor, Users, Target, Clock, Shield, FileText, BarChart3, Mail
+} from 'lucide-react';
+import type { ParsedOfficerData } from './VerifyParsedData';
 import { PromotionTimeline } from './PromotionTimeline';
 
 interface AnalysisResultsProps {
-  officerData: OfficerData;
+  officerData: ParsedOfficerData;
 }
 
 interface Gap {
@@ -20,328 +23,486 @@ interface Strength {
   icon: any;
 }
 
-export function AnalysisResults({ officerData }: AnalysisResultsProps) {
-  const analyzeRecord = (): { gaps: Gap[]; strengths: Strength[]; overallScore: number } => {
-    const gaps: Gap[] = [];
-    const strengths: Strength[] = [];
-    let score = 100;
+const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT'];
+const rankGTE = (a: string, b: string) => RANK_ORDER.indexOf(a) >= RANK_ORDER.indexOf(b);
 
-    const rankData = officerData.rankHistoryData;
-    const currentRank = rankData?.currentRank || '';
-    const timeInGrade = rankData?.timeInGrade || 0;
-    const boardEligibility = rankData?.boardEligibility || 'not-eligible';
+const WARFARE_AQDS = ['FMF', 'SW', 'AW', 'SS', 'EXW', 'SCW'];
+const OPERATIONAL_AQDS = ['6OC', '6OD', '6OE', '6OF', '6OG', '6OH'];
 
-    // Board Eligibility Analysis
-    if (boardEligibility === 'above-zone') {
-      gaps.push({
-        category: 'Promotion Timing',
-        severity: 'critical',
-        description: 'Above zone for next rank - past primary promotion window',
-        recommendation: 'Above-zone selection requires exceptional record. Ensure all recent FITREPs are top-tier. Consider requesting board reconsideration if previously passed over. Seek mentorship from senior officers who can provide career guidance.',
-        icon: Clock,
-      });
-      score -= 15;
-    } else if (boardEligibility === 'in-zone') {
-      strengths.push({
-        category: 'Promotion Timing',
-        description: 'Currently in-zone for promotion board - prime selection window',
-        icon: Clock,
-      });
-    }
+function getDateOfRank(officerData: ParsedOfficerData): string {
+  const rank = officerData.currentRank;
+  const matches = officerData.rankHistory.filter(r => r.rank === rank);
+  if (!matches.length) return '';
+  return matches.sort((a, b) => b.date.localeCompare(a.date))[0].date;
+}
 
-    // Fitness Report Analysis
-    if (officerData.fitnessReportAverage < 4.0) {
-      gaps.push({
-        category: 'Performance',
-        severity: 'critical',
-        description: 'Fitness report average below competitive threshold',
-        recommendation: 'Focus on exceeding expectations in current billet. Seek high-visibility assignments and document exceptional performance. Target 4.5+ average for CDR board competitiveness.',
-        icon: Award,
-      });
-      score -= 20;
-    } else if (officerData.fitnessReportAverage >= 4.5) {
-      strengths.push({
-        category: 'Performance',
-        description: 'Exceptional fitness report average demonstrates consistent high performance',
-        icon: Award,
-      });
-    }
+function clearanceAgeYears(clearanceDate: string): number | null {
+  if (!clearanceDate) return null;
+  try {
+    const d = new Date(clearanceDate.length === 7 ? clearanceDate + '-01' : clearanceDate);
+    if (isNaN(d.getTime())) return null;
+    return (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  } catch { return null; }
+}
 
-    // Board Certification - Based on MC CDB slides
-    if (officerData.boardCertified === false && currentRank >= 'LCDR') {
-      gaps.push({
-        category: 'Board Certification',
-        severity: 'critical',
-        description: 'Not board certified in specialty',
-        recommendation: 'Board certification is vital for O-5 selection according to MC CDB career progression guidance. Consider prioritizing completion of specialty board certification requirements. This demonstrates clinical expertise and is highly valued by promotion boards.',
-        icon: Award,
-      });
-      score -= 20;
-    } else if (officerData.boardCertified === true) {
-      strengths.push({
-        category: 'Board Certification',
-        description: 'Board certified - demonstrates clinical excellence and is vital for O-5 promotion',
-        icon: Award,
-      });
-    }
+function fmtDate(iso: string): string {
+  if (!iso) return '?';
+  try {
+    const d = new Date(iso.length === 7 ? iso + '-01' : iso);
+    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  } catch { return iso; }
+}
 
-    // Post-Graduate Education
-    if (!officerData.postGradEducation) {
-      gaps.push({
-        category: 'Advanced Education',
-        severity: 'recommended',
-        description: 'No advanced degree beyond medical training',
-        recommendation: 'Consider pursuing graduate education through Navy programs: MPH via Uniformed Services University (USU), MBA through Naval Postgraduate School (NPS), or MHA programs. Advanced leadership/business degrees are increasingly valued for senior Medical Corps positions, particularly for Executive OMO and Flag billets.',
-        icon: BookOpen,
-      });
-      score -= 10;
-    } else {
-      strengths.push({
-        category: 'Advanced Education',
-        description: 'Advanced degree enhances leadership credentials and is valued for senior positions',
-        icon: BookOpen,
-      });
-    }
+function scoreColor(score: number) {
+  if (score >= 4.5) return 'text-green-700 bg-green-50 border-green-300';
+  if (score >= 4.0) return 'text-blue-700 bg-blue-50 border-blue-300';
+  if (score >= 3.5) return 'text-yellow-700 bg-yellow-50 border-yellow-300';
+  return 'text-red-700 bg-red-50 border-red-300';
+}
 
-    // Joint Duty - adjusted for rank and timing
-    if (!officerData.jointDuty && currentRank >= 'LCDR') {
-      const severity = currentRank === 'CDR' || boardEligibility === 'in-zone' ? 'critical' : 'important';
-      gaps.push({
-        category: 'Joint Experience',
-        severity: severity,
-        description: 'No joint duty assignment completed',
-        recommendation: 'Consider seeking joint duty assignment with Joint Staff, COCOM, or inter-service medical facilities. JPME Phase I (available through Joint Forces Staff College distance learning) demonstrates joint qualification and is increasingly valued for O-5 and above positions.',
-        icon: Users,
-      });
-      score -= severity === 'critical' ? 15 : 10;
-    } else if (officerData.jointDuty) {
-      strengths.push({
-        category: 'Joint Experience',
-        description: 'Joint duty assignment demonstrates versatility and broadens perspective',
-        icon: Users,
-      });
-    }
+function recColor(rec: string) {
+  if (rec === 'EP') return 'bg-green-100 text-green-800 border border-green-300';
+  if (rec === 'MP') return 'bg-blue-100 text-blue-800 border border-blue-300';
+  if (rec === 'P')  return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+  if (rec === 'PR' || rec === 'SP') return 'bg-red-100 text-red-800 border border-red-300';
+  return 'bg-gray-100 text-gray-600';
+}
 
-    // OMO Tours - Based on MC CDB slides career progression guidance
-    if (currentRank === 'LCDR' && boardEligibility === 'in-zone') {
-      gaps.push({
-        category: 'Operational Medical Officer (OMO) Tour',
-        severity: 'important',
-        description: 'No documented OMO tour approaching CDR board',
-        recommendation: 'Consider completing at least one OMO tour before the CDR board. According to MC CDB career progression guidance, OMO tours (such as small deck SMO, CVN staff, USMC Battalion Surgeon, or Fleet Surgeon assignments) are highly valued for developing operational competency. These tours typically occur around the 6-12 year mark and demonstrate your ability to support operational Navy Medicine.',
-        icon: Anchor,
-      });
-      score -= 10;
-    } else if (currentRank === 'CDR' && boardEligibility === 'in-zone') {
-      gaps.push({
-        category: 'Senior/Executive OMO Tour',
-        severity: 'important',
-        description: 'Consider senior operational experience for CAPT board',
-        recommendation: 'For competitive CAPT selection, consider completing a Senior or Executive OMO tour. Examples include: CVN/LHA/LHD SMO, Group UMO, CATF Surgeon, Regimental Surgeon, or Senior GHE billets. These positions (typically around 12-18 years) demonstrate your capability to serve in increasingly responsible operational leadership roles.',
-        icon: Anchor,
-      });
-      score -= 10;
-    }
+function analyzeRecord(o: ParsedOfficerData): { gaps: Gap[]; strengths: Strength[]; score: number } {
+  const gaps: Gap[] = [];
+  const strengths: Strength[] = [];
+  let score = 100;
+  const rank = o.currentRank;
+  const hasWarfare = WARFARE_AQDS.some(q => o.aqds.includes(q));
 
-    // Deployments
-    if (officerData.deployments === 0 && (rankData?.timeInService || 0) > 60) {
-      gaps.push({
-        category: 'Operational Experience',
-        severity: 'important',
-        description: 'No deployment experience',
-        recommendation: 'Consider pursuing operational assignments including ship duty, expeditionary medicine, or forward-deployed hospitals. Deployment experience is highly valued and demonstrates commitment to operational Navy Medicine.',
-        icon: Anchor,
-      });
-      score -= 10;
-    } else if (officerData.deployments >= 2) {
-      strengths.push({
-        category: 'Operational Experience',
-        description: 'Multiple deployments demonstrate strong operational experience',
-        icon: Anchor,
-      });
-    }
+  // Board certification
+  if (o.boardCertified === false && rankGTE(rank, 'LCDR')) {
+    gaps.push({ category: 'Board Certification', severity: 'critical',
+      description: 'Not board certified — critical gap at LCDR and above',
+      recommendation: 'Board certification is essential for O-5 selection. Prioritize completing specialty board requirements. Contact specialty board directly for exam schedule.',
+      icon: Award });
+    score -= 20;
+  } else if (o.boardCertified === true) {
+    strengths.push({ category: 'Board Certified', description: 'Board certification demonstrates clinical excellence — essential for O-5 promotion.', icon: Award });
+  }
 
-    // Command Experience - adjusted for rank
-    if (!officerData.commandTour && currentRank === 'CDR') {
-      gaps.push({
-        category: 'Leadership',
-        severity: 'critical',
-        description: 'No command tour for CDR-level officer',
-        recommendation: 'Command at sea or major medical department head is highly valued for CAPT selection. Per MC CDB career progression guidance, officers competitive for promotion will have accrued operational and clinical experience necessary to serve in billets commensurate with the next rank. Consider seeking: Division/Department Head at major MTF, SMO/Medical Director positions, or DIO/GME Director roles.',
-        icon: Target,
-      });
-      score -= 15;
-    } else if (!officerData.commandTour && currentRank === 'LCDR' && boardEligibility === 'in-zone') {
-      gaps.push({
-        category: 'Leadership',
-        severity: 'important',
-        description: 'No department head or command experience approaching CDR board',
-        recommendation: 'Consider pursuing department head positions at medical treatment facilities. The MC career path deliberately develops clinical, operational, and leadership skillsets. Leadership roles managing people and resources demonstrate readiness for increased responsibility at the CDR level.',
-        icon: Target,
-      });
-      score -= 10;
-    } else if (officerData.commandTour) {
-      strengths.push({
-        category: 'Leadership',
-        description: 'Command/department head experience demonstrates proven leadership capability',
-        icon: Target,
-      });
-    }
+  // FITREP average
+  if (o.fitrepAverage > 0 && o.fitrepAverage < 4.0) {
+    gaps.push({ category: 'FITREP Performance', severity: 'critical',
+      description: `Overall FITREP average of ${o.fitrepAverage.toFixed(2)} is below the competitive threshold of 4.0`,
+      recommendation: 'Target 4.5+ average for CDR board competitiveness. Seek high-visibility assignments, document accomplishments, and communicate impact to reporting senior.',
+      icon: Award });
+    score -= 20;
+  } else if (o.fitrepAverage >= 4.5) {
+    strengths.push({ category: 'FITREP Performance', description: `Exceptional FITREP average of ${o.fitrepAverage.toFixed(2)} — demonstrates consistent high performance.`, icon: Award });
+  }
 
-    // Special Qualifications & Service Schools
-    if (officerData.specialQualifications.length === 0) {
-      gaps.push({
-        category: 'Professional Development',
-        severity: 'recommended',
-        description: 'Limited special qualifications or service schools documented',
-        recommendation: 'Consider completing relevant service schools and certifications. Per CDB guidance, ensure your record reflects how awesome you are - document all training completed. Key service schools for Medical Corps: Combat Casualty Care (C4), AMDOC, MedXcellence, FMSO Training, Tropical Medicine. Clinical certifications: ATLS, ACLS, PALS, Dive Medical Officer, Flight Surgeon. All completions should be added to your OSR via askmncc@navy.mil.',
-        icon: BookOpen,
-      });
-      score -= 5;
-    } else if (officerData.specialQualifications.length >= 3) {
-      strengths.push({
-        category: 'Professional Development',
-        description: 'Multiple special qualifications demonstrate commitment to excellence and professional growth',
-        icon: BookOpen,
-      });
-    }
+  // Declining trend
+  if (o.psrTrend === 'declining') {
+    gaps.push({ category: 'FITREP Trend', severity: 'critical',
+      description: 'Declining FITREP trend detected — recent reports are lower than earlier reports',
+      recommendation: 'Address root causes with your reporting senior. A letter to the board should be considered to explain any extenuating circumstances. Reverse trend immediately.',
+      icon: TrendingDown });
+    score -= 15;
+  } else if (o.psrTrend === 'improving') {
+    strengths.push({ category: 'FITREP Trend', description: 'Improving trend — recent reports show stronger performance than earlier ones.', icon: TrendingUp });
+  }
 
-    // Time in Grade analysis
-    if (timeInGrade > 96 && currentRank !== 'CAPT') {
-      gaps.push({
-        category: 'Career Progression',
-        severity: 'important',
-        description: `Extended time in grade (${Math.floor(timeInGrade / 12)} years) - slower than typical progression`,
-        recommendation: 'Review past fitness reports for areas of improvement. Ensure visibility with senior leadership. Consider seeking mentorship from senior Medical Corps officers who have successfully navigated promotion boards. Per CDB slides: typical promotion flow points are 5 FYs after promotion to last rank.',
-        icon: TrendingUp,
-      });
-      score -= 10;
-    }
+  // Warfare qual
+  if (!hasWarfare && rankGTE(rank, 'LCDR')) {
+    gaps.push({ category: 'Warfare Qualification', severity: 'important',
+      description: 'No warfare qualification AQD (FMF, SW, AW, SS) on record',
+      recommendation: 'Warfare qualifications demonstrate operational commitment. Pursue FMF via a Marine unit tour, SW via surface ship assignment, or AW via aviation command attachment.',
+      icon: Anchor });
+    score -= 10;
+  } else if (hasWarfare) {
+    const quals = WARFARE_AQDS.filter(q => o.aqds.includes(q));
+    strengths.push({ category: 'Warfare Qualification', description: `Warfare qual(s): ${quals.join(', ')} — demonstrates operational medicine competency.`, icon: Anchor });
+  }
 
-    // Record Review Recommendation - Based on CDB slides page 10
-    if (boardEligibility === 'in-zone' || boardEligibility === 'above-zone') {
-      gaps.push({
-        category: 'Record Review',
-        severity: 'important',
-        description: 'Approaching promotion board - time to review your record',
-        recommendation: 'CDB guidance emphasizes: "Ensure your record reflects how awesome you are." Review your OSR, PSR, and ODC now. Check for: (1) No gaps in PSR - especially last 5 years of FITREPs, (2) All service schools documented, (3) Awards updated (NAM or higher), (4) Education degrees listed, (5) AQDs current, (6) Security clearance up to date, (7) Official photo on file in current rank. Review annually to have time to fix issues. If corrections needed, submit via askmncc@navy.mil or via Letter to the Board (10 days before board convenes).',
-        icon: AlertCircle,
-      });
-    }
+  // Joint duty
+  if (!o.jointDuty && rankGTE(rank, 'CDR')) {
+    gaps.push({ category: 'Joint Duty', severity: 'critical',
+      description: 'No joint duty assignment completed — required for senior leadership',
+      recommendation: 'Joint duty (Joint Staff, COCOM, inter-service MTF) is increasingly required for senior positions. JPME Phase I via Joint Forces Staff College (DL) is an immediate step.',
+      icon: Users });
+    score -= 15;
+  } else if (!o.jointDuty && rankGTE(rank, 'LCDR')) {
+    gaps.push({ category: 'Joint Duty', severity: 'important',
+      description: 'No joint duty assignment — begin planning for this requirement',
+      recommendation: 'Complete JPME Phase I (distance learning). Seek joint duty billet at next PCS opportunity.',
+      icon: Users });
+    score -= 10;
+  } else if (o.jointDuty) {
+    strengths.push({ category: 'Joint Duty', description: 'Joint duty experience — demonstrates versatility and inter-service leadership.', icon: Users });
+  }
 
-    return { gaps, strengths, overallScore: Math.max(0, score) };
+  // Command / department head
+  if (!o.commandTour && rank === 'CDR') {
+    gaps.push({ category: 'Leadership / Command', severity: 'critical',
+      description: 'No command or major department head tour on record for CDR',
+      recommendation: 'Command or department head is highly valued for CAPT selection. Target: Division/Department Head at major MTF, SMO/Medical Director, or DIO/GME Director.',
+      icon: Target });
+    score -= 15;
+  } else if (!o.commandTour && rank === 'LCDR') {
+    gaps.push({ category: 'Leadership / Department Head', severity: 'important',
+      description: 'No department head or leadership tour approaching CDR board',
+      recommendation: 'Seek department head positions at MTFs. Document leadership of people and resources in your FITREP.',
+      icon: Target });
+    score -= 10;
+  } else if (o.commandTour) {
+    strengths.push({ category: 'Command / Leadership Tour', description: 'Command or department head experience — demonstrates proven leadership capability.', icon: Target });
+  }
+
+  // OMO tour
+  if (rank === 'LCDR' && !o.commandTour && (o.operationalTours ?? 0) === 0) {
+    gaps.push({ category: 'Operational Medicine (OMO) Tour', severity: 'important',
+      description: 'No OMO tour documented — important for CDR board competitiveness',
+      recommendation: 'OMO tours (small deck SMO, CVN staff, USMC Battalion Surgeon, Fleet Surgeon) are highly valued. These typically occur at the 6–12 year mark.',
+      icon: Anchor });
+    score -= 10;
+  }
+
+  // Deployments
+  if ((o.deployments ?? 0) === 0 && rankGTE(rank, 'LCDR')) {
+    gaps.push({ category: 'Deployment Experience', severity: 'important',
+      description: 'No deployment experience on record',
+      recommendation: 'Pursue operational assignments including ship duty, expeditionary medicine, or forward-deployed hospitals.',
+      icon: Anchor });
+    score -= 10;
+  } else if ((o.deployments ?? 0) >= 2) {
+    strengths.push({ category: 'Deployments', description: `${o.deployments} deployments — strong operational experience.`, icon: Anchor });
+  }
+
+  // Education
+  if (!o.hasMedicalSchool && !o.hasUndergrad) {
+    gaps.push({ category: 'Education', severity: 'important',
+      description: 'No education records confirmed in system',
+      recommendation: 'Ensure medical degree and undergraduate education are documented in your OSR. Submit corrections via askmncc@navy.mil.',
+      icon: BookOpen });
+  }
+
+  return { gaps, strengths, score: Math.max(0, score) };
+}
+
+export function AnalysisResults({ officerData: o }: AnalysisResultsProps) {
+  const dateOfRank = getDateOfRank(o);
+  const { gaps, strengths, score } = analyzeRecord(o);
+  const rank = o.currentRank;
+
+  // Letter to board logic
+  const psrIssues = o.warnings?.filter(w =>
+    /leftward|gap|consecutive|declining|below/i.test(w)
+  ) ?? [];
+  const belowRSPct = o.belowRSAveragePercentage ?? 0;
+  const needsLetterToBoard =
+    (o.psrTrend === 'declining') ||
+    belowRSPct > 30 ||
+    psrIssues.length > 0;
+
+  // Career opportunities by rank
+  const careerData: Record<string, { current: string[]; target: string[]; aqdsToGet: string[] }> = {
+    LT:   { current: ['GMO', 'Battalion/Squadron Surgeon', "Ship's Medical Officer", 'Clinic Staff Physician'],
+             target: ['Department Head', 'OMO Tour (small deck SMO)', 'Group/Wing UMO'],
+             aqdsToGet: ['FMF or SW or AW (warfare qual)', '6OC (Operational Medicine)'] },
+    LCDR: { current: ['Department Head', 'Group/Wing UMO', 'OMO Tour', 'MTF Staff Physician'],
+             target: ['Senior Dept Head', 'Executive OMO', 'XO/SMO', 'BUMED Staff'],
+             aqdsToGet: ['JS7 (Joint Staff)', ...(WARFARE_AQDS.some(q => o.aqds.includes(q)) ? [] : ['FMF or SW or AW']), '6OC (Operational Med)'] },
+    CDR:  { current: ['Senior Dept Head', 'XO', 'SMO CVN/LHA', 'BUMED Staff', 'Senior UMO'],
+             target: ['CO of MTF', 'Fleet Surgeon', 'District Medical Officer', 'BUMED Division Director'],
+             aqdsToGet: ['JS7 (Joint Staff)', 'Executive leadership certifications'] },
+    CAPT: { current: ['CO of MTF', 'Fleet Surgeon', 'District Medical Officer', 'BUMED Division Director'],
+             target: ['Flag officer consideration', 'Senior executive billet'],
+             aqdsToGet: [] },
   };
+  const career = careerData[rank] ?? careerData['LCDR'];
 
-  const getNextRank = (currentRank: string): string => {
-    const progression: Record<string, string> = {
-      ENS: 'LTJG',
-      LTJG: 'LT',
-      LT: 'LCDR',
-      LCDR: 'CDR',
-      CDR: 'CAPT',
-      CAPT: 'RADM',
-    };
-    return progression[currentRank] || 'Next Rank';
-  };
+  const scoreLabel = score >= 85 ? 'Highly Competitive' : score >= 70 ? 'Competitive' : score >= 50 ? 'Needs Improvement' : 'Significant Gaps';
+  const scoreColor2 = score >= 85 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600';
 
-  const { gaps, strengths, overallScore } = analyzeRecord();
-  const nextRank = getNextRank(officerData.rankHistoryData?.currentRank || '');
+  const severityBg = (s: string) =>
+    s === 'critical' ? 'border-red-200 bg-red-50' :
+    s === 'important' ? 'border-orange-200 bg-orange-50' :
+    'border-yellow-200 bg-yellow-50';
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'border-red-200 bg-red-50';
-      case 'important':
-        return 'border-orange-200 bg-orange-50';
-      case 'recommended':
-        return 'border-yellow-200 bg-yellow-50';
-      default:
-        return 'border-gray-200 bg-gray-50';
-    }
-  };
+  const severityBadge = (s: string) =>
+    s === 'critical' ? 'bg-red-100 text-red-800' :
+    s === 'important' ? 'bg-orange-100 text-orange-800' :
+    'bg-yellow-100 text-yellow-800';
 
-  const getSeverityBadgeColor = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-800';
-      case 'important':
-        return 'bg-orange-100 text-orange-800';
-      case 'recommended':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 85) return 'Highly Competitive';
-    if (score >= 70) return 'Competitive';
-    if (score >= 50) return 'Needs Improvement';
-    return 'Significant Gaps';
-  };
+  const fitreps = o.fitreps ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Career Development Analysis</h2>
-        <p className="text-gray-600">
-          Based on Navy Medical Corps career progression standards
-        </p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Career Development Analysis</h2>
+        <p className="text-gray-600">Navy Medical Corps career progression assessment for {rank || 'officer'}</p>
       </div>
 
       {/* Promotion Timeline */}
-      {officerData.rankHistoryData?.currentRank && officerData.rankHistoryData?.dateOfRank && (
-        <PromotionTimeline
-          currentRank={officerData.rankHistoryData.currentRank}
-          dateOfRank={officerData.rankHistoryData.dateOfRank}
-        />
+      {rank && dateOfRank && (
+        <PromotionTimeline currentRank={rank} dateOfRank={dateOfRank} />
       )}
 
       {/* Overall Score */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Overall Record Assessment
-            </h3>
-            <p className="text-gray-600">
-              Competitiveness for {nextRank} promotion board
-            </p>
-          </div>
-          <div className="text-center">
-            <div className={`text-5xl font-bold ${getScoreColor(overallScore)}`}>
-              {overallScore}
-            </div>
-            <div className="text-sm font-medium text-gray-600">{getScoreLabel(overallScore)}</div>
-          </div>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Overall Record Assessment</h3>
+          <p className="text-gray-600 text-sm mt-1">Competitiveness for next promotion board</p>
+        </div>
+        <div className="text-center">
+          <div className={`text-5xl font-bold ${scoreColor2}`}>{score}</div>
+          <div className="text-sm font-medium text-gray-600 mt-1">{scoreLabel}</div>
         </div>
       </div>
 
-      {/* Strengths */}
+      {/* ── FITREP DEEP DIVE ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-6 h-6 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">FITREP Analysis</h3>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: 'Total FITREPs', value: o.fitrepCount || 0 },
+            { label: 'Avg Score', value: o.fitrepAverage > 0 ? o.fitrepAverage.toFixed(2) : '—' },
+            { label: 'Early Promote', value: o.earlyPromotes ?? 0, highlight: (o.earlyPromotes ?? 0) > 0 ? 'text-green-600' : '' },
+            { label: 'Must Promote', value: o.mustPromotes ?? 0 },
+            { label: 'Promotable', value: o.promotables ?? 0 },
+          ].map(s => (
+            <div key={s.label} className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500 mb-1">{s.label}</div>
+              <div className={`text-2xl font-bold text-blue-600 ${s.highlight ?? ''}`}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Trend */}
+        <div className={`flex items-center gap-3 rounded-lg p-3 border ${
+          o.psrTrend === 'improving' ? 'bg-green-50 border-green-200' :
+          o.psrTrend === 'declining' ? 'bg-red-50 border-red-200' :
+          'bg-blue-50 border-blue-200'
+        }`}>
+          {o.psrTrend === 'improving' ? <TrendingUp className="w-5 h-5 text-green-600" /> :
+           o.psrTrend === 'declining' ? <TrendingDown className="w-5 h-5 text-red-600" /> :
+           <Minus className="w-5 h-5 text-blue-600" />}
+          <span className="text-sm font-medium">
+            Trend: <strong>{o.psrTrend ?? 'insufficient data'}</strong>
+            {o.belowRSAverageCount != null && o.belowRSAverageCount > 0 &&
+              ` · Below RS average in ${o.belowRSAverageCount} report(s) (${belowRSPct}%)`}
+          </span>
+        </div>
+
+        {/* Per-FITREP timeline */}
+        {fitreps.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-500 border-b">
+                  <th className="pb-2 pr-3">Grade</th>
+                  <th className="pb-2 pr-3">Period</th>
+                  <th className="pb-2 pr-3">Station</th>
+                  <th className="pb-2 pr-3 text-center">Score</th>
+                  <th className="pb-2 pr-3 text-center">RS Avg</th>
+                  <th className="pb-2 text-center">Rec</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {[...fitreps].reverse().map((f, i) => {
+                  const belowRS = f.rsAverage > 0 && f.individualAverage < f.rsAverage;
+                  return (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="py-2 pr-3 font-medium text-gray-700">{f.payGrade}</td>
+                      <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">
+                        {fmtDate(f.startDate)} – {fmtDate(f.endDate)}
+                      </td>
+                      <td className="py-2 pr-3 text-gray-600 max-w-[160px] truncate">{f.station || '—'}</td>
+                      <td className="py-2 pr-3 text-center">
+                        {f.individualAverage > 0 ? (
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold border ${scoreColor(f.individualAverage)}`}>
+                            {f.individualAverage.toFixed(2)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2 pr-3 text-center text-gray-600 text-xs">
+                        {f.rsAverage > 0 ? f.rsAverage.toFixed(2) : '—'}
+                        {belowRS && <span className="ml-1 text-amber-600 font-bold" title="Below RS average">⚠</span>}
+                      </td>
+                      <td className="py-2 text-center">
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${recColor(f.promotionRec)}`}>
+                          {f.promotionRec || '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 italic">No individual FITREP records parsed. Upload PSR and re-run analysis for a per-report breakdown.</p>
+        )}
+
+        {/* PSR Issues */}
+        {psrIssues.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" /> PSR Issues Detected
+            </h4>
+            <ul className="space-y-1">
+              {psrIssues.map((issue, i) => (
+                <li key={i} className="text-sm text-red-800">• {issue}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Letter to the Board */}
+        {needsLetterToBoard && (
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <Mail className="w-6 h-6 text-amber-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-amber-900 text-base mb-2">Letter to the Board Recommended</h4>
+                <p className="text-sm text-amber-800 mb-3">
+                  Based on the issues identified in your record, submitting a <strong>personal statement to the selection board</strong> is strongly recommended.
+                  A letter to the board is a one-page statement you submit directly to the promotion board (typically <strong>10 days before it convenes</strong>)
+                  that allows you to address anything adverse or unusual in your record in your own words.
+                </p>
+                <div className="text-sm text-amber-900 font-semibold mb-1">Reasons warranting a letter in your record:</div>
+                <ul className="text-sm text-amber-800 space-y-1 mb-3">
+                  {o.psrTrend === 'declining' && <li>• Declining FITREP trend — explain any extenuating circumstances (PCS turbulence, unit issues, personal hardship)</li>}
+                  {belowRSPct > 30 && <li>• Below RS average in {belowRSPct}% of reports — provide context and trajectory</li>}
+                  {psrIssues.map((issue, i) => <li key={i}>• {issue}</li>)}
+                </ul>
+                <div className="text-sm text-amber-900 font-semibold mb-1">What to include:</div>
+                <ul className="text-sm text-amber-800 space-y-1">
+                  <li>• Brief factual explanation of circumstances (no excuses, just context)</li>
+                  <li>• What actions you took to address or improve the situation</li>
+                  <li>• Your commitment and trajectory going forward</li>
+                  <li>• Keep it to one page — concise and professional</li>
+                  <li>• Submit via your chain of command to PERS-8 or the convening authority per current MILPERSMAN 1420-010</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── SECURITY CLEARANCE ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="w-6 h-6 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">Security Clearance</h3>
+        </div>
+        {o.clearanceLevel && o.clearanceLevel !== 'None' ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <span className={`px-4 py-1.5 rounded-full text-sm font-bold ${
+                o.clearanceLevel === 'Top Secret' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+              }`}>
+                {o.clearanceLevel}
+              </span>
+              {o.clearanceDate && (
+                <span className="text-sm text-gray-600">
+                  Investigation date: <strong>{fmtDate(o.clearanceDate)}</strong>
+                  {(() => {
+                    const age = clearanceAgeYears(o.clearanceDate);
+                    if (age === null) return null;
+                    if (age > 5) return <span className="ml-2 text-red-600 font-semibold">⚠ {Math.floor(age)} years old — reinvestigation may be required</span>;
+                    if (age > 4) return <span className="ml-2 text-amber-600 font-semibold">Approaching 5-year reinvestigation threshold</span>;
+                    return <span className="ml-2 text-green-600">Current</span>;
+                  })()}
+                </span>
+              )}
+            </div>
+            {rankGTE(rank, 'LCDR') && o.clearanceLevel !== 'Top Secret' && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <strong>Consider upgrading to Top Secret.</strong> TS clearance opens significantly more billets at LCDR and above, particularly joint, BUMED staff, and senior OMO positions.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+            <strong>No clearance on record.</strong> A minimum Secret clearance is required for most billets.
+            {rankGTE(rank, 'LCDR') && ' This is a significant gap at your rank — initiate an SF-86 immediately through your security manager.'}
+          </div>
+        )}
+      </div>
+
+      {/* ── CAREER OPPORTUNITIES ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Target className="w-6 h-6 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">Career Opportunities</h3>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Current Billets ({rank})</h4>
+            <ul className="space-y-1">
+              {career.current.map((b, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Target for Next Rank</h4>
+            <ul className="space-y-1">
+              {career.target.map((b, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <TrendingUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* AQDs */}
+        <div className="mt-5 pt-5 border-t border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">AQDs &amp; Service Schools</h4>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {o.aqds.length > 0
+              ? o.aqds.map(a => (
+                  <span key={a} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono font-bold">{a}</span>
+                ))
+              : <span className="text-sm text-gray-500 italic">No AQDs on record</span>
+            }
+          </div>
+          {career.aqdsToGet.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recommended to pursue:</p>
+              <ul className="space-y-1">
+                {career.aqdsToGet.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                    <BookOpen className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />{a}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── STRENGTHS ── */}
       {strengths.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <CheckCircle className="w-6 h-6 text-green-600" />
             <h3 className="text-xl font-bold text-gray-900">Record Strengths</h3>
           </div>
-          <div className="grid gap-4">
-            {strengths.map((strength, index) => {
-              const Icon = strength.icon;
+          <div className="grid gap-3">
+            {strengths.map((s, i) => {
+              const Icon = s.icon;
               return (
-                <div
-                  key={index}
-                  className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3"
-                >
+                <div key={i} className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
                   <Icon className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="font-semibold text-green-900">{strength.category}</h4>
-                    <p className="text-green-800 text-sm mt-1">{strength.description}</p>
+                    <h4 className="font-semibold text-green-900">{s.category}</h4>
+                    <p className="text-green-800 text-sm mt-0.5">{s.description}</p>
                   </div>
                 </div>
               );
@@ -350,38 +511,31 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
         </div>
       )}
 
-      {/* Gaps and Recommendations */}
+      {/* ── GAPS ── */}
       {gaps.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="w-6 h-6 text-orange-600" />
-            <h3 className="text-xl font-bold text-gray-900">Identified Gaps & Recommendations</h3>
+            <h3 className="text-xl font-bold text-gray-900">Identified Gaps &amp; Recommendations</h3>
           </div>
           <div className="grid gap-4">
-            {gaps.map((gap, index) => {
-              const Icon = gap.icon;
+            {gaps.map((g, i) => {
+              const Icon = g.icon;
               return (
-                <div
-                  key={index}
-                  className={`border rounded-lg p-5 ${getSeverityColor(gap.severity)}`}
-                >
+                <div key={i} className={`border rounded-xl p-5 ${severityBg(g.severity)}`}>
                   <div className="flex items-start gap-3">
                     <Icon className="w-5 h-5 text-gray-700 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-gray-900">{gap.category}</h4>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${getSeverityBadgeColor(
-                            gap.severity
-                          )}`}
-                        >
-                          {gap.severity}
+                        <h4 className="font-semibold text-gray-900">{g.category}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${severityBadge(g.severity)}`}>
+                          {g.severity}
                         </span>
                       </div>
-                      <p className="text-gray-800 text-sm mb-3">{gap.description}</p>
-                      <div className="bg-white/50 rounded-md p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-gray-700 mb-1">RECOMMENDATION:</p>
-                        <p className="text-sm text-gray-800">{gap.recommendation}</p>
+                      <p className="text-gray-800 text-sm mb-3">{g.description}</p>
+                      <div className="bg-white/60 rounded-lg p-3 border border-gray-200">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">RECOMMENDATION</p>
+                        <p className="text-sm text-gray-800">{g.recommendation}</p>
                       </div>
                     </div>
                   </div>
@@ -389,18 +543,6 @@ export function AnalysisResults({ officerData }: AnalysisResultsProps) {
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* No gaps message */}
-      {gaps.length === 0 && strengths.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-          <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-green-900 mb-2">Exceptional Record</h3>
-          <p className="text-green-800">
-            No significant gaps identified. Continue maintaining high performance and seek
-            increasingly challenging assignments to remain competitive.
-          </p>
         </div>
       )}
     </div>

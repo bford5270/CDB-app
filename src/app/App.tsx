@@ -7,7 +7,6 @@ import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
-import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
@@ -112,31 +111,6 @@ export default function App() {
   const handleDataConfirmed = (data: ParsedOfficerData) => {
     setConfirmedData(data);
     setStep(3);
-  };
-
-  // Convert ParsedOfficerData to OfficerData for AnalysisResults
-  const getOfficerDataForAnalysis = (): OfficerData | null => {
-    if (!confirmedData) return null;
-    
-    return {
-      rankHistoryData: {
-        currentRank: confirmedData.currentRank,
-        rankHistory: confirmedData.rankHistory,
-      },
-      designator: confirmedData.designator || '2300',
-      currentBillet: confirmedData.currentBillet || '',
-      educationLevel: confirmedData.hasMedicalSchool ? 'MD' : 'Undergrad',
-      postGradEducation: '',
-      deployments: confirmedData.deployments || 0,
-      jointDuty: confirmedData.jointDuty || false,
-      commandTour: confirmedData.commandTour || false,
-      specialQualifications: [],
-      selectedAQDs: confirmedData.aqds || [],
-      fitnessReportAverage: confirmedData.fitrepAverage || 0,
-      boardCertified: confirmedData.boardCertified ?? undefined,
-      hasUndergrad: confirmedData.hasUndergrad,
-      hasMedicalSchool: confirmedData.hasMedicalSchool,
-    };
   };
 
   const steps = [
@@ -287,7 +261,7 @@ export default function App() {
           {/* Step 3: Career Analysis */}
           {step === 3 && confirmedData && (
             <>
-              <AnalysisResults officerData={getOfficerDataForAnalysis()!} />
+              <AnalysisResults officerData={confirmedData} />
               <div className="mt-8 flex justify-between">
                 <button
                   onClick={() => setStep(2)}

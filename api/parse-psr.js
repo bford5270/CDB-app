@@ -1,6 +1,8 @@
 // api/parse-psr.js - Vercel Serverless Function for PSR parsing via Claude
 // Replaces brittle regex parsing with AI extraction of FITREP data from raw PDF text
 
+import { scrubPII } from './pii-scrubber.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -103,7 +105,7 @@ If a field cannot be determined from the text, use reasonable defaults (0 for nu
 
   const userMessage = `Parse this Navy PSR text and return the JSON structure described. The text is raw PDF extraction and may be garbled:
 
-${text.substring(0, 15000)}`; // Cap at ~15k chars to stay within token limits
+${scrubPII(text.substring(0, 15000))}`; // Cap at ~15k chars to stay within token limits
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

@@ -3,6 +3,8 @@
 //   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR
 //   2. (default) Q&A against uploaded reference documents
 
+import { scrubPII } from './pii-scrubber.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -37,9 +39,9 @@ export default async function handler(req, res) {
       }
 
       const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + odc.substring(0, 8000));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + osr.substring(0, 6000));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + psr.substring(0, 10000));
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(odc.substring(0, 8000)));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(osr.substring(0, 6000)));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(psr.substring(0, 10000)));
       const docContext = sections.join('\n\n');
 
       const parseSystemPrompt = [
@@ -133,7 +135,9 @@ export default async function handler(req, res) {
     // =========================================================================
     // MODE 2: Q&A
     // =========================================================================
-    const { question, context, documentCount, officerRecord } = body;
+    const { question, context: rawContext, documentCount, officerRecord: rawOfficerRecord } = body;
+    const context = rawContext ? scrubPII(rawContext) : rawContext;
+    const officerRecord = rawOfficerRecord ? scrubPII(rawOfficerRecord) : rawOfficerRecord;
 
     if (!question) {
       return res.status(400).json({ error: 'Question is required' });

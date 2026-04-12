@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, BookOpen, Award, Calendar, ExternalLink, Mail, Phone, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Target, TrendingUp, CheckCircle } from 'lucide-react';
 import type { ParsedOfficerData } from './VerifyParsedData';
+import { supabase } from '../utils/supabaseClient';
 
 interface PersonalizedActionPlanProps {
   officerData: ParsedOfficerData;
@@ -56,32 +57,38 @@ async function loadCourseCatalog() {
   }
 }
 
-// Load reference documents from IndexedDB
+// Load reference documents from Supabase
 async function loadReferenceDocuments(): Promise<string> {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('cdb-references', 1);
-    
-    request.onerror = () => resolve('');
-    
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      const transaction = db.transaction(['documents'], 'readonly');
-      const store = transaction.objectStore('documents');
-      const getAllRequest = store.getAll();
-      
-      getAllRequest.onsuccess = () => {
-        const docs = getAllRequest.result;
-        const combinedText = docs.map((d: { name: string; text: string }) => 
-          `--- ${d.name} ---\n${d.text}`
-        ).join('\n\n');
-        resolve(combinedText);
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('name, extracted_text, created_at, file_path')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return '';
+
+    // Sort most-recent-year first (same logic as ResourcesQA)
+    const sorted = [...data].sort((a, b) => {
+      const yearOf = (d: { name: string; file_path: string }) => {
+        const text = `${d.name} ${d.file_path}`.toUpperCase();
+        const m2 = text.match(/FY(\d{2})\b/);
+        if (m2) return 2000 + parseInt(m2[1]);
+        const m4 = text.match(/FY(20\d{2})\b/);
+        if (m4) return parseInt(m4[1]);
+        const my = text.match(/\b(202[4-9]|203\d)\b/);
+        if (my) return parseInt(my[1]);
+        return new Date(d.created_at).getFullYear();
       };
-      
-      getAllRequest.onerror = () => resolve('');
-    };
-    
-    request.onupgradeneeded = () => resolve('');
-  });
+      return yearOf(b) - yearOf(a);
+    });
+
+    return sorted
+      .filter(d => d.extracted_text)
+      .map(d => `--- ${d.name} ---\n${d.extracted_text}`)
+      .join('\n\n');
+  } catch {
+    return '';
+  }
 }
 
 export function PersonalizedActionPlan({ officerData }: PersonalizedActionPlanProps) {

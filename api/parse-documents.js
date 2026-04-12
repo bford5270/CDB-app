@@ -3,6 +3,8 @@
 // Replaces brittle per-document regex parsing with a single Claude call that sees
 // all three documents together and can cross-reference them.
 
+import { scrubPII } from './pii-scrubber.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -25,9 +27,9 @@ export default async function handler(req, res) {
   // ============================================================================
 
   const docSections = [];
-  if (odc) docSections.push(`=== OFFICER DATA CARD (ODC) ===\n${odc.substring(0, 8000)}`);
-  if (osr) docSections.push(`=== OFFICER SUMMARY RECORD (OSR) ===\n${osr.substring(0, 6000)}`);
-  if (psr) docSections.push(`=== PERFORMANCE SUMMARY REPORT (PSR) ===\n${psr.substring(0, 10000)}`);
+  if (odc) docSections.push(`=== OFFICER DATA CARD (ODC) ===\n${scrubPII(odc.substring(0, 8000))}`);
+  if (osr) docSections.push(`=== OFFICER SUMMARY RECORD (OSR) ===\n${scrubPII(osr.substring(0, 6000))}`);
+  if (psr) docSections.push(`=== PERFORMANCE SUMMARY REPORT (PSR) ===\n${scrubPII(psr.substring(0, 10000))}`);
 
   const docContext = docSections.join('\n\n');
 

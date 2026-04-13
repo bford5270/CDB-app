@@ -26,6 +26,8 @@ export default async function handler(req, res) {
   // BUILD DOCUMENT CONTEXT
   // ============================================================================
 
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD server time
+
   const docSections = [];
   if (odc) docSections.push(`=== OFFICER DATA CARD (ODC) ===\n${scrubPII(odc.substring(0, 8000))}`);
   if (osr) docSections.push(`=== OFFICER SUMMARY RECORD (OSR) ===\n${scrubPII(osr.substring(0, 6000))}`);
@@ -39,6 +41,9 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.
 
+TODAY'S DATE: ${today}
+Use this date for all temporal reasoning below. Documents may have been printed weeks or months ago.
+
 You will receive raw text extracted from one or more Navy personnel documents (ODC, OSR, PSR). The text is often garbled from PDF extraction — columns merged, whitespace stripped, fields scrambled. Cross-reference all available documents when they appear together.
 
 RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.
@@ -51,40 +56,52 @@ FROM ODC (Officer Data Card):
 - Designator: 4-digit medical corps designator (e.g., 2300, 2100, 2355). Medical Corps officers have designators starting with 21xx or 23xx.
 - Year Group: 4-digit year group (YG)
 - DOR (Dates of Rank): Look for lines labeled "DOR". Dates are in MMDDYY format (e.g., 090124 = Sep 1, 2024). Medical Corps officers commission as LT (O3) and progress: LT → LCDR → CDR → CAPT. Assign ranks in that order from oldest to newest DOR date.
-- AQDs: 2-3 character codes with 2-digit year and title. Common examples: LA7 (Surface Warfare MDO), BX2 (FMF MDO), AW, SS, EXW, JS7 (JPME I), JS8 (JPME II), 67A, 67B, 6OC, 62D. Legacy display codes FMF/SW may also appear.
-- Board Certification: K = Board Certified, J = Board Eligible (trained, not yet certified), T = In Training (residency). Appears as last character in specialty code like "16Q0K", "16Q0J", or "16Q0T"
+  * Include ALL DOR dates in rankHistory regardless of whether they are past or future.
+  * Set "rank" to the highest rank whose DOR date is on or before TODAY (${today}). A DOR in the future means that promotion has not yet taken effect.
+- AQDs: Look for 2-3 character codes followed by a 2-digit year and a title on the same line.
+  Proper ODC codes: LA7 (Surface Warfare MDO), BX2 (FMF Qualified MDO), AW (Aviation Warfare), SS (Submarine), EXW (Expeditionary), JS7 (JPME Phase I), JS8 (JPME Phase II), 67A (Executive Medicine), 67B (Expeditionary Medicine), 6OC (Clinical Investigator), 62D (Faculty Dev).
+  Legacy display labels FMF and SW may also appear — include them as-is.
+  Extract every AQD line you find; do not limit to examples above.
+- Board Certification: Appears as the last character of a specialty subspecialty code (e.g., "16Q0K", "23Q0J", "19D0T").
+  K = Board Certified, J = Board Eligible (trained, not yet certified), T = In Training (still in residency).
+  Set certificationCode to "K", "J", or "T". Set boardCertified to true if K, false if J or T, null if not found.
 - Security Clearance: Look for 2-letter codes (SS=Secret/Secret, VV=TS/TS, TV=TS/Secret, ST=Secret/TS). Investigation date in MMYY format.
+  Compute clearance age: if investigation date is more than 4 years before TODAY, add a warning "Clearance approaching reinvestigation threshold". If more than 5 years (TS) or 9 years (Secret), add warning "Clearance reinvestigation likely overdue".
 
 FROM OSR (Officer Summary Record):
-- Education: degrees, institutions, graduation years
+- Education: degrees, institutions, graduation years (set hasUndergrad / hasMedicalSchool)
 - Courses completed: service schools, certifications
-- Additional AQDs or qualifications
+- Additional AQDs or qualifications not in ODC
 
 FROM PSR (Performance Summary Report):
 - Each FITREP entry contains: pay grade, from/to dates, station, reporting senior info, 5 trait scores (1.0-5.0), individual average, RS cumulative average, RS count, promotion recommendation
 - Promotion recommendations: EP (Early Promote), MP (Must Promote), P (Promotable), PR (Progressing), SP (Significant Problems), NOB (Not Observed/Blank)
+- Sort all fitreps chronologically by startDate (oldest first) before analysis.
 
 === PSR ANALYSIS RULES (apply these explicitly) ===
 
 TREND: Compare promotion recommendations chronologically.
-- "improving": recent 3 recs are higher or equal on average vs oldest 3 (EP > MP > P > PR > SP)
-- "declining": recent 3 are lower
-- "stable": no clear direction
-- "insufficient_data": fewer than 2 graded reports (exclude NOB)
+- "improving": recent 3 recs are higher on average vs oldest 3 (EP > MP > P > PR > SP, rank EP=5 MP=4 P=3 PR=2 SP=1)
+- "declining": recent 3 are lower on average
+- "stable": difference < 0.5 points either direction
+- "insufficient_data": fewer than 2 graded reports (exclude NOB/AT)
 
-LEFTWARD MOVEMENT: Flag any of these as an issue string:
+LEFTWARD MOVEMENT: Flag any of these as a psrIssues string:
 - EP → MP transition between consecutive graded reports
 - MP → P transition
 - P → PR transition
-- Format: "Leftward movement: [grade1] [rec1] → [grade2] [rec2] ([dates])"
+- Format: "Leftward movement: [grade] [rec1] → [grade] [rec2] ([period1 end] to [period2 start])"
 
-DATE GAPS: If gap between end of one FITREP and start of next exceeds 3 months, flag:
+DATE GAPS (between consecutive FITREPs): If gap between end of one FITREP and start of next exceeds 90 days:
 - "Date gap: [N] months between [date1] and [date2]"
+
+TRAILING GAP: If the most recent FITREP endDate is more than 90 days before TODAY (${today}):
+- "Potential trailing gap: last FITREP ended [endDate], [N] months before today — verify no unreported period"
 
 CONSECUTIVE LOW MARKS: If 2+ consecutive reports are P or below:
 - "Consecutive low marks: [N] consecutive P or below reports"
 
-BELOW RS AVERAGE: Count how many graded FITREPs have individualAverage < rsAverage.
+BELOW RS AVERAGE: Count how many graded FITREPs have individualAverage < rsAverage. Compute belowRSAveragePercentage as (count / total graded fitreps) * 100, rounded to 1 decimal.
 
 === OUTPUT FORMAT ===
 
@@ -104,7 +121,7 @@ BELOW RS AVERAGE: Count how many graded FITREPs have individualAverage < rsAvera
   "clearanceLevel": "Secret"|"Top Secret"|"None"|"",
   "clearanceDate": "YYYY-MM" or "",
 
-  "aqds": ["FMF", "SW", ...],
+  "aqds": ["LA7", "JS7", ...],
 
   "hasUndergrad": true|false,
   "hasMedicalSchool": true|false,
@@ -144,7 +161,7 @@ BELOW RS AVERAGE: Count how many graded FITREPs have individualAverage < rsAvera
   }
 }
 
-Use "warnings" to note anything uncertain, missing, or defaulted (e.g., "Designator not detected in ODC text").
+Use "warnings" to note anything uncertain, missing, or defaulted (e.g., "Designator not detected in ODC text", "AQD section appears incomplete").
 Use "confidence" to indicate how reliable each extracted section is.
 If a field cannot be determined, use null (strings), 0 (numbers), [] (arrays), or "" (empty strings).`;
 

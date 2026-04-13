@@ -38,62 +38,61 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'At least one document is required' });
       }
 
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD server time
+
       const sections = [];
       if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(odc.substring(0, 8000)));
       if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(osr.substring(0, 6000)));
       if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(psr.substring(0, 10000)));
       const docContext = sections.join('\n\n');
 
-      const parseSystemPrompt = [
-        'You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.',
-        'You receive raw text from PDF-extracted Navy documents (ODC, OSR, PSR). Text is often garbled. Cross-reference all available documents.',
-        'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
-        '',
-        'FROM ODC: name, rank (ENS/LTJG/LT/LCDR/CDR/CAPT), designator (4-digit e.g. 2300), yearGroup,',
-        'rankHistory (DOR dates in MMDDYY format converted to YYYY-MM-DD, MC progression LT->LCDR->CDR->CAPT),',
-        'AQDs (2-3 char codes like FMF/SW/AW/SS/62D/JS7/67A), board certification (K=certified J=not, last char of code like 16Q0K),',
-        'security clearance (SS/VV/TT codes, investigation date in MMYY format).',
-        '',
-        'FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.',
-        '',
-        'FROM PSR: each FITREP has pay grade, from/to dates, station, reporting senior, 5 trait scores (1-5),',
-        'individual average, RS cumulative average, RS count, promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
-        '',
-        'PSR ANALYSIS RULES:',
-        'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
-        'psrIssues: flag leftward movement (EP to MP, MP to P, P to PR in consecutive graded reports),',
-        'date gaps over 3 months between consecutive FITREPs, 2 or more consecutive P or below.',
-        'belowRSAverageCount: count fitreps where individualAverage is less than rsAverage.',
-        '',
-        'Return this JSON (use null for unknown strings, 0 for unknown numbers, [] for unknown arrays, false for unknown booleans):',
-        '{',
-        '  "name": null,',
-        '  "rank": null,',
-        '  "designator": null,',
-        '  "yearGroup": null,',
-        '  "rankHistory": [{"rank": "LT", "date": "YYYY-MM-DD"}],',
-        '  "boardCertified": null,',
-        '  "certificationCode": null,',
-        '  "clearanceLevel": "",',
-        '  "clearanceDate": "",',
-        '  "aqds": [],',
-        '  "hasUndergrad": false,',
-        '  "hasMedicalSchool": false,',
-        '  "fitrepAverage": 0,',
-        '  "fitrepCount": 0,',
-        '  "earlyPromotes": 0,',
-        '  "mustPromotes": 0,',
-        '  "promotables": 0,',
-        '  "progressings": 0,',
-        '  "psrTrend": "insufficient_data",',
-        '  "psrIssues": [],',
-        '  "belowRSAverageCount": 0,',
-        '  "belowRSAveragePercentage": 0,',
-        '  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],',
-        '  "warnings": [],',
-        '  "confidence": {"rankHistory":"medium","aqds":"medium","psrData":"medium","overall":"medium"}',
-        '}'
-      ].join('\n');
+      const parseSystemPrompt = `You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.
+
+TODAY'S DATE: ${today}
+Use this date for all temporal reasoning. Documents may have been printed weeks or months ago.
+
+You receive raw text from PDF-extracted Navy documents (ODC, OSR, PSR). Text is often garbled — columns merged, whitespace stripped. Cross-reference all available documents.
+RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.
+
+FROM ODC:
+- name, designator (4-digit e.g. 2300), yearGroup
+- rankHistory: DOR dates in MMDDYY format → YYYY-MM-DD. MC progression: LT→LCDR→CDR→CAPT. Include ALL DOR dates even future ones.
+- rank: set to the highest rank whose DOR date is on or before TODAY (${today}). A future DOR means that promotion is not yet effective.
+- AQDs: 2-3 char codes with 2-digit year and title. Proper codes: LA7 (Surface Warfare MDO), BX2 (FMF MDO), AW, SS, EXW, JS7 (JPME I), JS8 (JPME II), 67A, 67B, 6OC, 62D. Legacy FMF/SW also valid. Extract every AQD line found.
+- Board certification: last char of subspecialty code (e.g. 16Q0K, 23Q0J, 19D0T). K=Board Certified, J=Board Eligible not certified, T=In Training. Set certificationCode to "K"/"J"/"T", boardCertified to true/false/null.
+- Security clearance: SS/VV/TT/TV/ST codes, investigation date in MMYY format. If investigation date is >4 years before today, add warning about approaching reinvestigation.
+
+FROM OSR: hasUndergrad, hasMedicalSchool, any additional AQDs or courses.
+
+FROM PSR: each FITREP — payGrade, from/to dates (convert to YYYY-MM-DD), station, 5 trait scores (1-5), individualAverage, rsAverage, rsCount, promotionRec (EP/MP/P/PR/SP/NOB), reportType (RG/CC/AT/TR/NOB).
+Sort fitreps chronologically (oldest first) before all analysis.
+
+PSR ANALYSIS (apply explicitly):
+- trend: rank EP=5 MP=4 P=3 PR=2 SP=1. Compare avg of recent 3 vs oldest 3 graded (non-NOB) recs. improving/declining/stable (diff<0.5)/insufficient_data (<2 graded)
+- psrIssues: flag each of these as a string:
+  * Leftward movement between consecutive graded reports (EP→MP, MP→P, P→PR): "Leftward movement: O3 EP → O3 MP (Jan 2020 to Mar 2021)"
+  * Gap >90 days between consecutive FITREPs: "Date gap: 4 months between 2021-06-01 and 2021-10-15"
+  * Trailing gap: if most recent FITREP endDate is >90 days before ${today}: "Potential trailing gap: last FITREP ended YYYY-MM-DD, N months before today"
+  * 2+ consecutive P or below: "Consecutive low marks: N consecutive P or below"
+- belowRSAverageCount: graded FITREPs where individualAverage < rsAverage
+- belowRSAveragePercentage: (belowRSAverageCount / total graded) * 100, 1 decimal place
+
+Return JSON (null for unknown strings, 0 for unknown numbers, [] for unknown arrays):
+{
+  "name": null, "rank": null, "designator": null, "yearGroup": null,
+  "rankHistory": [{"rank": "LT", "date": "YYYY-MM-DD"}],
+  "boardCertified": null, "certificationCode": null,
+  "clearanceLevel": "", "clearanceDate": "",
+  "aqds": [],
+  "hasUndergrad": false, "hasMedicalSchool": false,
+  "fitrepAverage": 0, "fitrepCount": 0,
+  "earlyPromotes": 0, "mustPromotes": 0, "promotables": 0, "progressings": 0,
+  "psrTrend": "insufficient_data", "psrIssues": [],
+  "belowRSAverageCount": 0, "belowRSAveragePercentage": 0,
+  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],
+  "warnings": [],
+  "confidence": {"rankHistory":"medium","aqds":"medium","psrData":"medium","overall":"medium"}
+}`;
 
       const parseRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',

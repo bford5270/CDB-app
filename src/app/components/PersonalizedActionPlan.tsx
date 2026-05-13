@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, BookOpen, Award, Calendar, ExternalLink, Mail, Phone, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Target, TrendingUp, CheckCircle } from 'lucide-react';
 import type { ParsedOfficerData } from './VerifyParsedData';
+import { loadSupabaseDocuments } from '../utils/supabaseClient';
 
 interface PersonalizedActionPlanProps {
   officerData: ParsedOfficerData;
@@ -56,33 +57,7 @@ async function loadCourseCatalog() {
   }
 }
 
-// Load reference documents from IndexedDB
-async function loadReferenceDocuments(): Promise<string> {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('cdb-references', 1);
-    
-    request.onerror = () => resolve('');
-    
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      const transaction = db.transaction(['documents'], 'readonly');
-      const store = transaction.objectStore('documents');
-      const getAllRequest = store.getAll();
-      
-      getAllRequest.onsuccess = () => {
-        const docs = getAllRequest.result;
-        const combinedText = docs.map((d: { name: string; text: string }) => 
-          `--- ${d.name} ---\n${d.text}`
-        ).join('\n\n');
-        resolve(combinedText);
-      };
-      
-      getAllRequest.onerror = () => resolve('');
-    };
-    
-    request.onupgradeneeded = () => resolve('');
-  });
-}
+const loadReferenceDocuments = loadSupabaseDocuments;
 
 export function PersonalizedActionPlan({ officerData }: PersonalizedActionPlanProps) {
   const [recommendations, setRecommendations] = useState<AIRecommendations | null>(null);

@@ -1,4 +1,3 @@
-cat > public/default-references.json << 'EOF'
 {
   "documents": [
     {
@@ -18,4 +17,3 @@ cat > public/default-references.json << 'EOF'
     }
   ]
 }
-EOF

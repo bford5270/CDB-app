@@ -7,6 +7,7 @@ import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
+import { calculateRankData } from './components/RankHistoryForm';
 import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
@@ -97,12 +98,9 @@ export default function App() {
   // Convert ParsedOfficerData to OfficerData for AnalysisResults
   const getOfficerDataForAnalysis = (): OfficerData | null => {
     if (!confirmedData) return null;
-    
+
     return {
-      rankHistoryData: {
-        currentRank: confirmedData.currentRank,
-        rankHistory: confirmedData.rankHistory,
-      },
+      rankHistoryData: calculateRankData(confirmedData.rankHistory),
       designator: confirmedData.designator || '2300',
       currentBillet: confirmedData.currentBillet || '',
       educationLevel: confirmedData.hasMedicalSchool ? 'MD' : 'Undergrad',

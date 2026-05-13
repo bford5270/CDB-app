@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, DocumentRecord } from '../utils/supabaseClient';
+import { supabase, DocumentRecord, extractDocumentYear, sortDocumentsByRecency } from '../utils/supabaseClient';
 import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
 
 // ============================================================================
@@ -15,45 +15,6 @@ interface Message {
 
 interface ResourcesQAProps {
   className?: string;
-}
-
-// ============================================================================
-// YEAR DETECTION UTILITIES
-// ============================================================================
-
-/**
- * Extract a document year from the filename or file path.
- * Recognizes patterns like: FY26, FY2026, 2025-catalog, fy25, etc.
- * Falls back to the upload date year if nothing is found.
- */
-function extractDocumentYear(doc: DocumentRecord): number {
-  const text = `${doc.name} ${doc.file_path}`.toUpperCase();
-
-  // FY26, FY25, FY2026, FY2025
-  const fyTwoDigit = text.match(/FY(\d{2})\b/);
-  if (fyTwoDigit) return 2000 + parseInt(fyTwoDigit[1]);
-
-  const fyFourDigit = text.match(/FY(20\d{2})\b/);
-  if (fyFourDigit) return parseInt(fyFourDigit[1]);
-
-  // Standalone 4-digit year: 2024, 2025, 2026, 2027
-  const fullYear = text.match(/\b(202[4-9]|203\d)\b/);
-  if (fullYear) return parseInt(fullYear[1]);
-
-  // Fall back to upload date
-  return new Date(doc.created_at).getFullYear();
-}
-
-/**
- * Sort documents so the most recent year is first.
- * Within the same year, most recently uploaded is first.
- */
-function sortDocumentsByRecency(docs: DocumentRecord[]): DocumentRecord[] {
-  return [...docs].sort((a, b) => {
-    const yearDiff = extractDocumentYear(b) - extractDocumentYear(a);
-    if (yearDiff !== 0) return yearDiff;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
 }
 
 // ============================================================================

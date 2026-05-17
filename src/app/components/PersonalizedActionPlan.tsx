@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, BookOpen, Award, Calendar, ExternalLink, Mail, Phone, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Target, TrendingUp, CheckCircle } from 'lucide-react';
 import type { ParsedOfficerData } from './VerifyParsedData';
-import { loadSupabaseDocuments } from '../utils/supabaseClient';
+import { loadReferenceDocuments } from '../utils/documentsClient';
 
 interface PersonalizedActionPlanProps {
   officerData: ParsedOfficerData;
@@ -56,8 +56,6 @@ async function loadCourseCatalog() {
     return null;
   }
 }
-
-const loadReferenceDocuments = loadSupabaseDocuments;
 
 export function PersonalizedActionPlan({ officerData }: PersonalizedActionPlanProps) {
   const [recommendations, setRecommendations] = useState<AIRecommendations | null>(null);

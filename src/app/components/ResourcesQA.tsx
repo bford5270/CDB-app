@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, DocumentRecord, extractDocumentYear, sortDocumentsByRecency } from '../utils/supabaseClient';
+import {
+  DocumentRecord,
+  extractDocumentYear,
+  sortDocumentsByRecency,
+  listDocuments,
+  createDocument,
+  deleteDocument
+} from '../utils/documentsClient';
 import { extractTextFromPDF as extractPDFText, isPDF } from '../utils/pdfUtils';
 
 // ============================================================================
@@ -86,25 +93,11 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
   async function loadDocuments() {
     setIsLoadingDocs(true);
     try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        // Give actionable guidance for the most common Supabase configuration issues
-        if (error.code === '42P01') {
-          throw new Error('The "documents" table does not exist in Supabase. Run the setup SQL in your Supabase dashboard.');
-        }
-        if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
-          throw new Error('Supabase Row Level Security is blocking access. Add an anon read policy on the "documents" table.');
-        }
-        throw error;
-      }
-      setDocuments(data || []);
+      const data = await listDocuments();
+      setDocuments(data);
     } catch (err) {
       console.error('Error loading documents:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load documents from Supabase');
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
     } finally {
       setIsLoadingDocs(false);
     }
@@ -126,44 +119,19 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
         const file = files[i];
         setUploadProgress(`Uploading ${file.name} (${i + 1}/${files.length})...`);
 
-        // 1. Extract text from file
+        // 1. Extract text from file (only the text is stored, not the raw file)
         setUploadProgress(`Extracting text from ${file.name}...`);
         const extractedText = await extractTextFromFile(file);
 
-        // 2. Upload file to Supabase Storage
+        // 2. Save the document to Notion via the API
+        setUploadProgress(`Saving ${file.name}...`);
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `uploads/${fileName}`;
-
-        setUploadProgress(`Uploading ${file.name} to storage...`);
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, file);
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          if (uploadError.message?.includes('bucket') || uploadError.statusCode === 404) {
-            throw new Error(`Storage bucket "documents" not found. Create it in your Supabase dashboard under Storage.`);
-          }
-          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-        }
-
-        // 3. Save document record to database
-        setUploadProgress(`Saving ${file.name} to database...`);
-        const { error: dbError } = await supabase
-          .from('documents')
-          .insert({
-            name: file.name,
-            file_path: filePath,
-            file_type: file.type || fileExt,
-            file_size: file.size,
-            extracted_text: extractedText || null
-          });
-
-        if (dbError) {
-          console.error('Database error:', dbError);
-          throw new Error(`Failed to save ${file.name}: ${dbError.message}`);
-        }
+        await createDocument({
+          name: file.name,
+          fileType: file.type || fileExt || '',
+          fileSize: file.size,
+          text: extractedText || ''
+        });
       }
 
       setUploadProgress('Upload complete!');
@@ -190,17 +158,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
     if (!confirm(`Delete "${doc.name}"?`)) return;
 
     try {
-      // Delete from storage
-      await supabase.storage.from('documents').remove([doc.file_path]);
-      
-      // Delete from database
-      const { error } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', doc.id);
-      
-      if (error) throw error;
-      
+      await deleteDocument(doc.id);
       await loadDocuments();
     } catch (err) {
       console.error('Delete error:', err);

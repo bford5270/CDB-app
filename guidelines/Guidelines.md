@@ -1,61 +1,60 @@
-**Add your own guidelines here**
-<!--
+# System Guidelines
 
-System Guidelines
-
-Use this file to provide the AI with rules and guidelines you want it to follow.
-This template outlines a few examples of things you can add. You can add your own sections and format it to suit your needs
-
-TIP: More context isn't always better. It can confuse the LLM. Try and add the most important rules you need
+Rules for the AI to follow when working on this app. These were reverse-engineered
+from the existing Claude-generated UI so future changes stay visually consistent.
+Keep additions short and high-signal.
 
 # General guidelines
 
-Any general rules you want the AI to follow.
-For example:
-
-* Only use absolute positioning when necessary. Opt for responsive and well structured layouts that use flexbox and grid by default
-* Refactor code as you go to keep code clean
-* Keep file sizes small and put helper functions and components in their own files.
-
---------------
+* Stack: React + TypeScript, Vite, Tailwind CSS v4. UI primitives live in
+  `src/app/components/ui/*` (Radix-based) — reuse them instead of hand-rolling.
+  Icons: `lucide-react` for structural UI; emoji only as small inline markers
+  (tabs, file types, status ticks).
+* Use responsive, well-structured layouts with flexbox/grid. Only use absolute
+  positioning when genuinely necessary.
+* Keep files small. Put helper functions and sub-components in their own files
+  (e.g. data access in `src/app/utils/*`, serverless logic in `api/*`).
+* Refactor as you go to keep code clean. No secrets in client code — anything
+  requiring a secret token goes through an `api/*` serverless function.
 
 # Design system guidelines
-Rules for how the AI should make generations look like your company's design system
 
-Additionally, if you select a design system to use in the prompt box, you can reference
-your design system's components, tokens, variables and components.
-For example:
+## Color
+* Primary brand color is **blue**. Primary actions and active states use
+  `bg-blue-600`, hover `bg-blue-700`. Accent text `text-blue-600` / `text-blue-900`.
+* Page background: `bg-gradient-to-br from-slate-50 to-blue-50`. App header bar:
+  `bg-gradient-to-r from-blue-900 to-blue-800` with white text.
+* Neutrals: headings `text-gray-900`, body/secondary `text-gray-700`/`text-gray-500`,
+  borders `border-gray-200`/`border-gray-300`, subtle fills `bg-gray-50`/`bg-gray-100`.
+* Semantic blocks (always `*-50` bg + `*-200` border + readable `*-700/800` text):
+  errors → red, info/tips → blue, disclaimers/warnings → yellow. Success is shown
+  with a green check (✓), not a filled block.
 
-* Use a base font-size of 14px
-* Date formats should always be in the format “Jun 10”
-* The bottom toolbar should only ever have a maximum of 4 items
-* Never use the floating action button with the bottom toolbar
-* Chips should always come in sets of 3 or more
-* Don't use a dropdown if there are 2 or fewer options
+## Surfaces
+* Cards/panels: white background, `rounded-xl`, `border border-gray-200`,
+  `shadow-sm` (or `shadow-lg` for the primary content card).
+* Inner controls, inputs, and callout boxes: `rounded-lg`.
+* Standard page width is `max-w-7xl mx-auto px-6`; section padding `py-4`–`py-8`;
+  stacks use `space-y-2`/`space-y-4`, related items `gap-2`/`gap-3`.
 
-You can also create sub sections and add more specific details
-For example:
+## Typography
+* Base text is small. Body = `text-sm`, meta/captions = `text-xs`,
+  section headings = `font-medium text-gray-900`, larger headings =
+  `font-semibold`, page title = `text-3xl font-bold`.
 
+## Buttons
+One primary action per section.
 
-## Button
-The Button component is a fundamental interactive element in our design system, designed to trigger actions or navigate
-users through the application. It provides visual feedback and clear affordances to enhance user experience.
+* **Primary** — main action: `px-6 py-3 bg-blue-600 text-white rounded-lg
+  font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed
+  transition-colors`. Compact variant: `px-4 py-2 ... text-sm font-medium`.
+* **Secondary** — supporting/back action: `px-6 py-3 border border-gray-300
+  text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors`.
+* Directional/affordance buttons may carry a trailing `lucide-react` icon
+  sized `w-5 h-5`.
 
-### Usage
-Buttons should be used for important actions that users need to take, such as form submissions, confirming choices,
-or initiating processes. They communicate interactivity and should have clear, action-oriented labels.
-
-### Variants
-* Primary Button
-  * Purpose : Used for the main action in a section or page
-  * Visual Style : Bold, filled with the primary brand color
-  * Usage : One primary button per section to guide users toward the most important action
-* Secondary Button
-  * Purpose : Used for alternative or supporting actions
-  * Visual Style : Outlined with the primary color, transparent background
-  * Usage : Can appear alongside a primary button for less important actions
-* Tertiary Button
-  * Purpose : Used for the least important actions
-  * Visual Style : Text-only with no border, using primary color
-  * Usage : For actions that should be available but not emphasized
--->
+## Feedback & motion
+* Loading state is a ring spinner:
+  `animate-spin h-N w-N border-2 border-blue-600 border-t-transparent rounded-full`.
+* Interactive elements get `transition-colors` (or `transition-all` for
+  multi-property changes). No abrupt state flips.

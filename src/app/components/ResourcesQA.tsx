@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { NotionDocument, extractDocumentYear, sortDocumentsByRecency } from '../utils/notionClient';
 import { extractTextFromPDF, isPDF } from '../utils/pdfUtils';
@@ -17,9 +17,12 @@ interface ResourcesQAProps {
 }
 
 export function ResourcesQA({ className = '' }: ResourcesQAProps) {
-  const [documents, setDocuments] = useState<NotionDocument[]>([]);
+  const [notionDocs, setNotionDocs] = useState<NotionDocument[]>([]);
+  const [staticDocs, setStaticDocs] = useState<NotionDocument[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
   const [docsError, setDocsError] = useState<string | null>(null);
+
+  const documents = useMemo(() => [...staticDocs, ...notionDocs], [staticDocs, notionDocs]);
 
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,22 +38,54 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { loadDocuments(); }, []);
+  useEffect(() => {
+    setIsLoadingDocs(true);
+    Promise.all([loadNotionDocs(), loadStaticDocs()]).finally(() => setIsLoadingDocs(false));
+  }, []);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  async function loadDocuments() {
-    setIsLoadingDocs(true);
+  async function loadNotionDocs() {
     setDocsError(null);
     try {
       const res = await fetch('/api/docs');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load documents');
-      setDocuments(data.documents || []);
+      setNotionDocs(data.documents || []);
     } catch (err) {
       setDocsError(err instanceof Error ? err.message : 'Failed to load documents');
-    } finally {
-      setIsLoadingDocs(false);
     }
+  }
+
+  async function loadStaticDocs() {
+    try {
+      const res = await fetch('/api/static-docs');
+      if (!res.ok) return;
+      const { files } = await res.json() as { files: { name: string; url: string }[] };
+      if (!files?.length) return;
+
+      const results = await Promise.allSettled(
+        files.map(async ({ name, url }) => {
+          const fileRes = await fetch(url);
+          if (!fileRes.ok) throw new Error(`Failed to fetch ${name}`);
+          const blob = await fileRes.blob();
+          const file = new File([blob], `${name}.pdf`, { type: 'application/pdf' });
+          const text = await extractTextFromPDF(file);
+          return { id: `static-${name}`, name, text, updatedAt: new Date().toISOString() } as NotionDocument;
+        })
+      );
+
+      setStaticDocs(
+        results
+          .filter((r): r is PromiseFulfilledResult<NotionDocument> => r.status === 'fulfilled')
+          .map(r => r.value)
+      );
+    } catch {
+      // static docs are best-effort — fail silently
+    }
+  }
+
+  async function loadDocuments() {
+    await loadNotionDocs();
   }
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -324,7 +359,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           {isLoadingDocs ? (
             <div className="text-center py-8">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto" />
-              <p className="text-sm text-gray-500 mt-2">Loading from Notion…</p>
+              <p className="text-sm text-gray-500 mt-2">Loading documents…</p>
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-6 text-gray-500">
@@ -348,7 +383,10 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
                         {new Date(doc.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ Indexed</span>
+                    {doc.id.startsWith('static-')
+                      ? <span className="text-xs text-indigo-600 font-medium flex-shrink-0">📎 Built-in</span>
+                      : <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ Indexed</span>
+                    }
                   </div>
                 );
               })}
@@ -358,7 +396,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           {/* Footer */}
           <div className="flex items-center justify-between pt-1">
             <p className="text-xs text-gray-400">
-              Documents are stored in Notion. Delete pages there to remove them.
+              Built-in docs load from GitHub. Uploaded docs are stored in Notion.
             </p>
             <button
               onClick={loadDocuments}

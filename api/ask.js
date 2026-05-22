@@ -3,6 +3,46 @@
 //   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR
 //   2. (default) Q&A against uploaded reference documents
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+function buildCoursesKnowledge() {
+  try {
+    const raw = readFileSync(join(process.cwd(), 'public', 'fy26-courses.json'), 'utf8');
+    const d = JSON.parse(raw);
+    const lines = [
+      `=== FY26 NAVMED COURSE CATALOG (MEDICAL CORPS) — STRUCTURED DATA ===`,
+      `Source: ${d.source} | Updated: ${d.lastUpdated}`,
+      `Career Planner POC: ${d.pocCareerPlanner.name} | ${d.pocCareerPlanner.email}`,
+      '',
+      'COURSES:',
+    ];
+    for (const c of d.courses) {
+      lines.push(`• ${c.name} [${c.id}]: target rank ${(c.targetRank || []).join('/')} | ${c.requirement || ''}`.slice(0, 180));
+      if (c.cin) lines.push(`  CIN: ${c.cin}`);
+      if (c.contributesToAQD) lines.push(`  → Contributes to AQD: ${c.contributesToAQD}`);
+      if (c.status) lines.push(`  STATUS: ${c.status}`);
+    }
+    lines.push('', 'AQD PATHWAYS:');
+    for (const [code, aqd] of Object.entries(d.aqds)) {
+      lines.push(`• ${code} — ${aqd.name}: ${aqd.description}`);
+      const reqs = Object.entries(aqd.requirements).map(([k, v]) => `${k}: ${v}`).join(' | ');
+      lines.push(`  Reqs: ${reqs}`);
+    }
+    lines.push('', 'CAREER MILESTONES BY RANK:');
+    for (const [rank, m] of Object.entries(d.careerMilestones)) {
+      lines.push(`• ${rank} (${m.typicalYears} yrs): ${m.focus.join(', ')}`);
+      lines.push(`  Recommended: ${m.recommendedCourses.join(', ')}`);
+    }
+    return lines.join('\n');
+  } catch (e) {
+    console.warn('Could not load FY26 courses:', e.message);
+    return '';
+  }
+}
+
+const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
+
 function scrubPII(text) {
   if (!text) return '';
   return text
@@ -175,8 +215,12 @@ export default async function handler(req, res) {
     const question = scrubPII(rawQuestion);
     const context = scrubPII(rawContext);
 
+    const coursesSupplement = FY26_COURSES_KNOWLEDGE
+      ? '\n\n## EMBEDDED STRUCTURED DATA — FY26 NAVMED COURSE CATALOG\n\nUse this as authoritative course/AQD data. It supplements (does not replace) uploaded catalog documents.\n\n' + FY26_COURSES_KNOWLEDGE
+      : '';
+
     const systemPrompt = 'You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).\n\n'
-      + 'Your ONLY job is to extract and present information from the uploaded reference documents. You are NOT a general advisor.\n\n'
+      + 'Your ONLY job is to extract and present information from the uploaded reference documents and the embedded structured data below. You are NOT a general advisor.\n\n'
       + '## ABSOLUTE REQUIREMENTS:\n\n'
       + 'NEVER GIVE GENERIC ADVICE. Always answer from the documents with specific citations.\n\n'
       + 'Format citations as: "According to [Document Name] [Year]: \'[quoted text]\'\"\n\n'
@@ -197,7 +241,8 @@ export default async function handler(req, res) {
       + '- Use "consider" / "you may want to" rather than "you must" unless the doc explicitly requires it\n\n'
       + (documentCount > 0
         ? 'You have access to ' + documentCount + ' document(s), ordered most-recent-year first. Prefer the newest year when making recommendations.'
-        : 'No documents uploaded yet. Cannot answer without source materials.');
+        : 'No documents uploaded yet. Use the embedded FY26 course catalog data above to answer course-related questions.')
+      + coursesSupplement;
 
     let userMessage = question;
     if (context && context.trim()) {

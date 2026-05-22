@@ -5,6 +5,7 @@ import { DocumentParser } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
+import { CDBChecklist } from './components/CDBChecklist';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
@@ -12,6 +13,7 @@ import type { OfficerData } from './components/OfficerDataForm';
 
 export default function App() {
   const [step, setStep] = useState(1);
+  const [analysisTab, setAnalysisTab] = useState<'checklist' | 'analysis'>('checklist');
 
   // Scroll to top on initial load
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function App() {
       clearanceLevel: data.clearanceLevel || '',
       clearanceDate: data.clearanceDate || '',
       boardCertified: data.boardCertified,
-      certificationCode: data.certificationCode || (data.boardCertified === true ? 'J' : data.boardCertified === false ? 'K' : null),
+      certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
       aqds: data.aqds,
       fitrepAverage: data.fitrepAverage || 0,
       fitrepCount: data.fitrepCount || 0,
@@ -237,7 +239,37 @@ export default function App() {
           {/* Step 3: Career Analysis */}
           {step === 3 && confirmedData && (
             <>
-              <AnalysisResults officerData={getOfficerDataForAnalysis()!} />
+              {/* Tab bar */}
+              <div className="flex border-b border-gray-200 mb-6">
+                <button
+                  onClick={() => setAnalysisTab('checklist')}
+                  className={`px-5 py-2.5 text-sm font-medium transition-colors ${
+                    analysisTab === 'checklist'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  CDB Checklist
+                </button>
+                <button
+                  onClick={() => setAnalysisTab('analysis')}
+                  className={`px-5 py-2.5 text-sm font-medium transition-colors ${
+                    analysisTab === 'analysis'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Record Analysis
+                </button>
+              </div>
+
+              {analysisTab === 'checklist' && (
+                <CDBChecklist officerData={confirmedData} />
+              )}
+              {analysisTab === 'analysis' && (
+                <AnalysisResults officerData={getOfficerDataForAnalysis()!} />
+              )}
+
               <div className="mt-8 flex justify-between">
                 <button
                   onClick={() => setStep(2)}

@@ -3,6 +3,14 @@
 //   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR
 //   2. (default) Q&A against uploaded reference documents
 
+function scrubPII(text) {
+  if (!text) return '';
+  return text
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN REDACTED]')
+    .replace(/\b\d{3} \d{2} \d{4}\b/g, '[SSN REDACTED]')
+    .replace(/\b(DODID|EDIPI|EDI-PI)[:\s]+\d{10}\b/gi, '[DOD ID REDACTED]');
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -37,9 +45,9 @@ export default async function handler(req, res) {
       }
 
       const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + odc.substring(0, 8000));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + osr.substring(0, 6000));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + psr.substring(0, 10000));
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(odc.substring(0, 8000)));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(osr.substring(0, 6000)));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(psr.substring(0, 10000)));
       const docContext = sections.join('\n\n');
 
       const parseSystemPrompt = [
@@ -133,11 +141,14 @@ export default async function handler(req, res) {
     // =========================================================================
     // MODE 2: Q&A
     // =========================================================================
-    const { question, context, documentCount } = body;
+    const { question: rawQuestion, context: rawContext, documentCount } = body;
 
-    if (!question) {
+    if (!rawQuestion) {
       return res.status(400).json({ error: 'Question is required' });
     }
+
+    const question = scrubPII(rawQuestion);
+    const context = scrubPII(rawContext);
 
     const systemPrompt = 'You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).\n\n'
       + 'Your ONLY job is to extract and present information from the uploaded reference documents. You are NOT a general advisor.\n\n'

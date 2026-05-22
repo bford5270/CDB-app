@@ -11,6 +11,9 @@
     },
     "api/docs.js": {
       "maxDuration": 30
+    },
+    "api/upload-doc.js": {
+      "maxDuration": 30
     }
   }
 }

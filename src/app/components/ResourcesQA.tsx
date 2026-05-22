@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { NotionDocument, extractDocumentYear, sortDocumentsByRecency } from '../utils/notionClient';
+import { extractTextFromPDF, isPDF } from '../utils/pdfUtils';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
+
+type UploadStatus = 'idle' | 'extracting' | 'saving' | 'done' | 'error';
 
 interface ResourcesQAProps {
   className?: string;
@@ -23,7 +27,13 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
 
   const [activeTab, setActiveTab] = useState<'qa' | 'documents'>('qa');
 
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadFileName, setUploadFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadDocuments(); }, []);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -42,6 +52,55 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
       setIsLoadingDocs(false);
     }
   }
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    setUploadFileName(file.name);
+    setUploadError(null);
+    setUploadStatus('extracting');
+
+    try {
+      let text: string;
+      if (isPDF(file)) {
+        text = await extractTextFromPDF(file);
+      } else {
+        text = await file.text();
+      }
+
+      setUploadStatus('saving');
+
+      const res = await fetch('/api/upload-doc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: file.name.replace(/\.[^.]+$/, ''),
+          text,
+          fileType: file.type || (isPDF(file) ? 'application/pdf' : 'text/plain'),
+          fileSize: file.size,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      setUploadStatus('done');
+      await loadDocuments();
+
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadFileName(null);
+      }, 2500);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+      setUploadStatus('error');
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  }, [handleFileUpload]);
 
   async function handleAskQuestion() {
     if (!question.trim() || isAsking) return;
@@ -123,7 +182,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
                 <p className="text-sm mt-1">
                   {documents.length > 0
                     ? `Ask questions — ${documents.length} reference doc${documents.length !== 1 ? 's' : ''} loaded`
-                    : 'Reference library is loading or not yet configured.'}
+                    : 'Upload reference documents in the library tab to get started.'}
                 </p>
                 {docsError && (
                   <p className="text-xs mt-2 text-amber-600">{docsError}</p>
@@ -184,23 +243,75 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
       {/* Documents Tab */}
       {activeTab === 'documents' && (
         <div className="p-4 space-y-4">
-          {/* Notion info banner */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-            <div className="text-2xl">📓</div>
-            <div>
-              <p className="font-medium text-blue-900 text-sm">Reference Library via Notion</p>
-              <p className="text-xs text-blue-700 mt-1">
-                Documents are managed in your Notion database. Add, edit, or remove pages there
-                — they will appear here automatically on next load.
-              </p>
-              <button
-                onClick={loadDocuments}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium underline"
-              >
-                Refresh library
-              </button>
-            </div>
+
+          {/* Upload zone */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onClick={() => uploadStatus === 'idle' && fileInputRef.current?.click()}
+            className={`border-2 rounded-lg p-5 text-center transition-all cursor-pointer ${
+              isDragging
+                ? 'border-blue-500 bg-blue-50'
+                : uploadStatus === 'done'
+                ? 'border-green-400 bg-green-50 cursor-default'
+                : uploadStatus === 'error'
+                ? 'border-red-400 bg-red-50 cursor-default'
+                : uploadStatus !== 'idle'
+                ? 'border-blue-400 bg-blue-50 cursor-default'
+                : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+            }`}
+          >
+            {uploadStatus === 'idle' && (
+              <>
+                <Upload className="w-7 h-7 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-700">Click or drag a PDF to add to the library</p>
+                <p className="text-xs text-gray-500 mt-1">PDF and text files supported</p>
+              </>
+            )}
+            {uploadStatus === 'extracting' && (
+              <div className="flex items-center justify-center gap-2 text-blue-700">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Extracting text from {uploadFileName}…</span>
+              </div>
+            )}
+            {uploadStatus === 'saving' && (
+              <div className="flex items-center justify-center gap-2 text-blue-700">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Saving to Notion library…</span>
+              </div>
+            )}
+            {uploadStatus === 'done' && (
+              <div className="flex items-center justify-center gap-2 text-green-700">
+                <CheckCircle className="w-5 h-5" />
+                <span className="text-sm font-medium">{uploadFileName} added to library</span>
+              </div>
+            )}
+            {uploadStatus === 'error' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2 text-red-700">
+                  <AlertCircle className="w-5 h-5" />
+                  <span className="text-sm">{uploadError || 'Upload failed'}</span>
+                </div>
+                <button
+                  onClick={e => { e.stopPropagation(); setUploadStatus('idle'); setUploadError(null); }}
+                  className="text-xs text-red-600 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) { handleFileUpload(file); e.target.value = ''; }
+            }}
+          />
 
           {/* Error state */}
           {docsError && (
@@ -213,22 +324,19 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           {isLoadingDocs ? (
             <div className="text-center py-8">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto" />
-              <p className="text-sm text-gray-500 mt-2">Loading from Notion...</p>
+              <p className="text-sm text-gray-500 mt-2">Loading from Notion…</p>
             </div>
           ) : documents.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p className="font-medium">No documents found</p>
-              <p className="text-sm mt-1">Add pages to your Notion reference database to get started.</p>
+            <div className="text-center py-6 text-gray-500">
+              <p className="font-medium">No documents yet</p>
+              <p className="text-sm mt-1">Upload a PDF above to get started.</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[360px] overflow-y-auto">
+            <div className="space-y-2 max-h-[320px] overflow-y-auto">
               {sortDocumentsByRecency(documents).map(doc => {
                 const year = extractDocumentYear(doc);
                 return (
-                  <div
-                    key={doc.id}
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-                  >
+                  <div key={doc.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <span className="text-xl">📄</span>
                     <div className="overflow-hidden flex-1">
                       <p className="font-medium text-sm text-gray-900 truncate">{doc.name}</p>
@@ -246,6 +354,19 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
               })}
             </div>
           )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-xs text-gray-400">
+              Documents are stored in Notion. Delete pages there to remove them.
+            </p>
+            <button
+              onClick={loadDocuments}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       )}
     </div>

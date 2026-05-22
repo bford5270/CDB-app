@@ -214,6 +214,16 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       }
 
       const data: ExtractedOfficerData = await response.json();
+
+      // Override rank with date-computed value from rankHistory.
+      // Claude reads the rank label off the document which may be stale if the
+      // officer promoted after the ODC was printed.
+      const todayStr = new Date().toISOString().split('T')[0];
+      const computedRank = data.rankHistory
+        .filter(rh => rh.date <= todayStr)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]?.rank;
+      if (computedRank) data.rank = computedRank;
+
       setExtracted(data);
       setStatus('done');
     } catch (err) {
@@ -438,10 +448,10 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
               <dt className="text-gray-500">Board Certification</dt>
               <dd>
                 {extracted.boardCertified === true && (
-                  <span className="text-green-700 font-medium">✓ Certified (J Code)</span>
+                  <span className="text-green-700 font-medium">✓ Certified (K Code)</span>
                 )}
                 {extracted.boardCertified === false && (
-                  <span className="text-yellow-700 font-medium">Not Certified (K Code)</span>
+                  <span className="text-yellow-700 font-medium">Not Certified (J Code)</span>
                 )}
                 {extracted.boardCertified === null && (
                   <span className="text-gray-400">Not detected</span>

@@ -8,6 +8,12 @@ export interface DocStatus {
   psr: boolean;
 }
 
+export interface DocMeta {
+  odc?: { name: string; size: number; uploadedAt: string } | null;
+  osr?: { name: string; size: number; uploadedAt: string } | null;
+  psr?: { name: string; size: number; uploadedAt: string } | null;
+}
+
 interface ActionItem {
   title: string;
   detail: string;
@@ -108,42 +114,69 @@ function deriveActions(data: ParsedOfficerData): ActionItem[] {
     });
   }
 
-  // Sort high → medium → low, cap at 4
   const order = { high: 0, medium: 1, low: 2 };
-  return actions.sort((a, b) => order[a.priority] - order[b.priority]).slice(0, 4);
+  return actions.sort((a, b) => order[a.priority] - order[b.priority]).slice(0, 3);
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SourceDocsPanel({ docStatus }: { docStatus: DocStatus }) {
-  const docs = [
-    { key: 'odc' as const, label: 'Officer Data Card (ODC)', desc: 'Rank, AQDs, clearance, designator' },
-    { key: 'osr' as const, label: 'Officer Summary Record (OSR)', desc: 'Education, service schools, quals' },
-    { key: 'psr' as const, label: 'Performance Summary Record (PSR)', desc: 'FITREP history, promo recs' },
+function SourceDocsPanel({ docStatus, docMeta, fitrepCount }: { docStatus: DocStatus; docMeta?: DocMeta; fitrepCount: number }) {
+  const docs: { key: keyof DocStatus; label: string; desc: string }[] = [
+    { key: 'odc', label: 'Officer Data Card (ODC)', desc: 'Rank, AQDs, clearance, designator' },
+    { key: 'osr', label: 'Officer Summary Record (OSR)', desc: 'Education, service schools, quals' },
+    { key: 'psr', label: 'Performance Summary Record (PSR)', desc: 'FITREP history, promo recs' },
   ];
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(0)} KB`;
 
   return (
     <div className="bg-white p-5">
       <div className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">Source documents</div>
       <div className="space-y-0">
-        {docs.map(d => (
-          <div key={d.key} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-            <span className="text-base">📄</span>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-800">{d.label}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{d.desc}</div>
+        {docs.map(d => {
+          const meta = docMeta?.[d.key];
+          return (
+            <div key={d.key} className="flex items-center gap-3 py-2.5 border-b border-gray-50">
+              <span className="text-base">📄</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-gray-800">{d.label}</div>
+                {meta ? (
+                  <div className="text-xs text-gray-400 mt-0.5 truncate">
+                    {meta.name} · {formatSize(meta.size)} · {formatDate(meta.uploadedAt)}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 mt-0.5">{d.desc}</div>
+                )}
+              </div>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                style={docStatus[d.key]
+                  ? { background: '#DCFCE7', color: '#166534' }
+                  : { background: '#F1F5F9', color: '#94A3B8' }}>
+                {docStatus[d.key] ? 'Parsed' : 'Not uploaded'}
+              </span>
             </div>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-              style={docStatus[d.key]
-                ? { background: '#DCFCE7', color: '#166534' }
-                : { background: '#F1F5F9', color: '#94A3B8' }
-              }
-            >
-              {docStatus[d.key] ? 'Parsed' : 'Not uploaded'}
-            </span>
+          );
+        })}
+        {/* FITREP packet row */}
+        <div className="flex items-center gap-3 py-2.5">
+          <span className="text-base">📋</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-gray-800">FITREP Packet</div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              {fitrepCount > 0 ? `${fitrepCount} report${fitrepCount !== 1 ? 's' : ''} indexed` : 'Extracted from PSR'}
+            </div>
           </div>
-        ))}
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+            style={fitrepCount > 0
+              ? { background: '#DBEAFE', color: '#1E40AF' }
+              : { background: '#F1F5F9', color: '#94A3B8' }}>
+            {fitrepCount > 0 ? `Indexed · ${fitrepCount}` : 'No data'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -156,8 +189,8 @@ function FitrepPanel({ data }: { data: ParsedOfficerData }) {
   const p  = Math.max(0, total - ep - mp);
 
   const traitPct = data.fitrepAverage ? (data.fitrepAverage / 5) * 100 : 0;
-  // Estimate peer avg tick at ~4.0/5.0 = 80%
-  const peerTick = 80;
+  const rscaPct = data.rscaAverage ? (data.rscaAverage / 5) * 100 : 0;
+  const peerTick = 80; // ~4.0/5.0
 
   const cells = [
     ...Array(ep).fill('ep'),
@@ -173,7 +206,7 @@ function FitrepPanel({ data }: { data: ParsedOfficerData }) {
       <div className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-4">FITREP trajectory</div>
 
       {/* Trait avg bar */}
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="flex items-center gap-2 mb-1.5">
           <span className="text-xs text-gray-500 w-20 flex-shrink-0">Trait avg</span>
           <div className="flex-1 h-2 bg-gray-100 rounded-sm relative overflow-visible">
@@ -186,20 +219,42 @@ function FitrepPanel({ data }: { data: ParsedOfficerData }) {
         </div>
       </div>
 
+      {/* RSCA bar */}
+      <div className="mb-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-xs text-gray-500 w-20 flex-shrink-0">RSCA</span>
+          <div className="flex-1 h-2 bg-gray-100 rounded-sm relative overflow-visible">
+            {data.rscaAverage ? (
+              <div className="h-full rounded-sm" style={{ width: `${rscaPct}%`, background: '#94A3B8' }} />
+            ) : (
+              <div className="h-full rounded-sm" style={{ width: '0%', background: '#94A3B8' }} />
+            )}
+            <div className="absolute top-[-3px] w-0.5 h-[14px] rounded-sm" style={{ left: `${peerTick}%`, background: GOLD }} />
+          </div>
+          <span className="text-xs font-medium w-9 text-right text-gray-500">
+            {data.rscaAverage ? data.rscaAverage.toFixed(2) : '—'}
+          </span>
+        </div>
+      </div>
+
       {/* EP/MP sparkline */}
       {total > 0 && (
         <div className="mt-3">
-          <div className="flex flex-wrap gap-1 mb-1">
+          <div className="flex flex-wrap gap-1 mb-0.5">
             {cells.map((type, i) => (
-              <div
-                key={i}
-                className="rounded-sm"
-                style={{
-                  width: '20px', height: '14px',
-                  background: type === 'ep' ? NAVY : type === 'mp' ? '#94A3B8' : '#E2E8F0',
-                }}
-                title={type.toUpperCase()}
-              />
+              <div key={i} className="flex flex-col items-center" style={{ width: '20px' }}>
+                <div
+                  className="rounded-sm"
+                  style={{
+                    width: '20px', height: '14px',
+                    background: type === 'ep' ? NAVY : type === 'mp' ? '#94A3B8' : '#E2E8F0',
+                  }}
+                  title={type.toUpperCase()}
+                />
+                <span style={{ fontSize: 9, color: '#94A3B8', lineHeight: '1.2', marginTop: 1 }}>
+                  {type.toUpperCase()}
+                </span>
+              </div>
             ))}
           </div>
           <div className="flex items-center gap-3 mt-2">
@@ -303,7 +358,7 @@ function RecommendedActionsPanel({
     p === 'high' ? GOLD : p === 'medium' ? '#F59E0B' : '#CBD5E1';
 
   const btnLabel = (s: ActionItem['section']) =>
-    s === 'checklist' ? 'View checklist →' : s === 'qa' ? 'Ask Q&A →' : 'See analysis →';
+    s === 'checklist' ? 'View checklist →' : s === 'qa' ? 'Open CDB Q&A →' : 'Step-by-step →';
 
   return (
     <div className="bg-white p-5">
@@ -340,15 +395,16 @@ function RecommendedActionsPanel({
 interface DashboardPanelProps {
   officerData: ParsedOfficerData;
   docStatus: DocStatus;
+  docMeta?: DocMeta;
   onSectionClick?: (section: 'checklist' | 'analysis' | 'qa') => void;
 }
 
-export function DashboardPanel({ officerData, docStatus, onSectionClick }: DashboardPanelProps) {
+export function DashboardPanel({ officerData, docStatus, docMeta, onSectionClick }: DashboardPanelProps) {
   return (
     <div className="mb-6 space-y-px" style={{ background: '#E2E8F0' }}>
       {/* Row 1: Docs + FITREP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px">
-        <SourceDocsPanel docStatus={docStatus} />
+        <SourceDocsPanel docStatus={docStatus} docMeta={docMeta} fitrepCount={officerData.fitrepCount || 0} />
         <FitrepPanel data={officerData} />
       </div>
 

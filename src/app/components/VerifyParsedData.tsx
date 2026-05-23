@@ -24,6 +24,7 @@ export interface ParsedOfficerData {
   
   // From PSR
   fitrepAverage: number;
+  rscaAverage?: number;
   fitrepCount: number;
   earlyPromotes: number;
   mustPromotes: number;

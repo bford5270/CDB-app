@@ -6,6 +6,7 @@ export interface UploadedDocument {
   file: File;
   text: string;
   status: 'pending' | 'processing' | 'success' | 'error';
+  uploadedAt?: string;
   error?: string;
 }
 
@@ -58,6 +59,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
           file,
           text,
           status: 'success' as const,
+          uploadedAt: new Date().toISOString(),
         },
       };
 

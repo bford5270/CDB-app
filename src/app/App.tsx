@@ -69,6 +69,7 @@ export default function App() {
     clearanceDate?: string;
     certificationCode?: 'J' | 'K' | null;
     fitrepAverage?: number;
+    rscaAverage?: number;
     fitrepCount?: number;
     earlyPromotes?: number;
     mustPromotes?: number;
@@ -104,6 +105,7 @@ export default function App() {
       certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
       aqds: data.aqds,
       fitrepAverage: data.fitrepAverage || 0,
+      rscaAverage: data.rscaAverage || 0,
       fitrepCount: data.fitrepCount || 0,
       earlyPromotes: data.earlyPromotes || 0,
       mustPromotes: data.mustPromotes || 0,
@@ -176,6 +178,12 @@ export default function App() {
     odc: documents.odc?.status === 'success',
     osr: documents.osr?.status === 'success',
     psr: documents.psr?.status === 'success',
+  };
+
+  const docMeta = {
+    odc: documents.odc?.status === 'success' ? { name: documents.odc.file.name, size: documents.odc.file.size, uploadedAt: documents.odc.uploadedAt || new Date().toISOString() } : null,
+    osr: documents.osr?.status === 'success' ? { name: documents.osr.file.name, size: documents.osr.file.size, uploadedAt: documents.osr.uploadedAt || new Date().toISOString() } : null,
+    psr: documents.psr?.status === 'success' ? { name: documents.psr.file.name, size: documents.psr.file.size, uploadedAt: documents.psr.uploadedAt || new Date().toISOString() } : null,
   };
 
   return (
@@ -440,6 +448,7 @@ export default function App() {
                   <DashboardPanel
                     officerData={confirmedData}
                     docStatus={docStatus}
+                    docMeta={docMeta}
                     onSectionClick={(section) => {
                       if (section === 'checklist') setAnalysisTab('checklist');
                       if (section === 'analysis') setAnalysisTab('analysis');

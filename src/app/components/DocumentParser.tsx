@@ -32,6 +32,7 @@ export interface ExtractedOfficerData {
   hasMedicalSchool: boolean;
 
   fitrepAverage: number;
+  rscaAverage: number;
   fitrepCount: number;
   earlyPromotes: number;
   mustPromotes: number;
@@ -78,6 +79,7 @@ interface DocumentParserProps {
     clearanceDate?: string;
     certificationCode?: 'J' | 'K' | null;
     fitrepAverage?: number;
+    rscaAverage?: number;
     fitrepCount?: number;
     earlyPromotes?: number;
     mustPromotes?: number;
@@ -289,6 +291,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       clearanceDate: extracted.clearanceDate,
       certificationCode: extracted.certificationCode,
       fitrepAverage: extracted.fitrepAverage,
+      rscaAverage: extracted.rscaAverage,
       fitrepCount: extracted.fitrepCount,
       earlyPromotes: extracted.earlyPromotes,
       mustPromotes: extracted.mustPromotes,

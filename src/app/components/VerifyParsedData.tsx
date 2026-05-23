@@ -326,12 +326,12 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                     checked={data.boardCertified === true}
                     onChange={() => {
                       updateField('boardCertified', true);
-                      updateField('certificationCode', 'J');
+                      updateField('certificationCode', 'K');
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
                   <span className="text-sm">
-                    <span className="font-medium">J Code</span> - Board Certified
+                    <span className="font-medium">K Code</span> - Board Certified
                   </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -341,21 +341,21 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                     checked={data.boardCertified === false}
                     onChange={() => {
                       updateField('boardCertified', false);
-                      updateField('certificationCode', 'K');
+                      updateField('certificationCode', 'J');
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
                   <span className="text-sm">
-                    <span className="font-medium">K Code</span> - Not Board Certified
+                    <span className="font-medium">J Code</span> - Board Eligible
                   </span>
                 </label>
               </div>
               {data.certificationCode && (
                 <div className={`mt-2 p-3 rounded-lg ${
-                  data.certificationCode === 'J' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
+                  data.certificationCode === 'K' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
                 }`}>
                   <p className="text-sm">
-                    {data.certificationCode === 'J' 
+                    {data.certificationCode === 'K'
                       ? '✓ Board certified physicians are competitive for promotion boards.'
                       : '⚠️ Board certification is typically expected by O4. Consider timeline for certification.'}
                   </p>

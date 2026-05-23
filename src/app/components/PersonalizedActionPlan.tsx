@@ -494,7 +494,7 @@ function buildOfficerSummary(data: ParsedOfficerData): string {
     `Current Rank: ${data.currentRank || 'Unknown'}`,
     `Designator: ${data.designator || 'Unknown'}`,
     `Security Clearance: ${data.clearanceLevel || 'Not specified'}`,
-    `Board Certification: ${data.boardCertified === true ? 'Yes (J Code)' : data.boardCertified === false ? 'No (K Code)' : 'Unknown'}`,
+    `Board Certification: ${data.boardCertified === true ? 'Yes (K Code)' : data.boardCertified === false ? 'No (J Code - Board Eligible)' : 'Unknown'}`,
     `Current AQDs: ${data.aqds.length > 0 ? data.aqds.join(', ') : 'None'}`,
     `FITREP Trait Average: ${data.fitrepAverage || 'Unknown'}`,
     `Total FITREPs: ${data.fitrepCount || 'Unknown'}`,

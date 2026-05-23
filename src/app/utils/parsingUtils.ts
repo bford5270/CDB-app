@@ -428,7 +428,7 @@ export function extractAQDsFromODC(text: string): AQDEntry[] {
 
 /**
  * Extract board certification status from ODC
- * K = Board Certified, J = Not Board Certified
+ * K = Board Certified, J = Board Eligible, T = In Training
  * Pattern: Usually appears as part of specialty code like "16Q0K" or "16Q0J"
  */
 export function extractBoardCertification(text: string): boolean | undefined {

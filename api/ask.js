@@ -46,9 +46,30 @@ const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
 function scrubPII(text) {
   if (!text) return '';
   return text
+    // SSN — hyphenated, spaced, and bare 9-digit forms
     .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN REDACTED]')
     .replace(/\b\d{3} \d{2} \d{4}\b/g, '[SSN REDACTED]')
-    .replace(/\b(DODID|EDIPI|EDI-PI)[:\s]+\d{10}\b/gi, '[DOD ID REDACTED]');
+    .replace(/\b(SSN|Social Security)[:\s#]+\d{9}\b/gi, '[SSN REDACTED]')
+    // DOD ID / EDIPI
+    .replace(/\b(DODID|EDIPI|EDI-PI|DOD\s+ID)[:\s]+\d{10}\b/gi, '[DOD ID REDACTED]')
+    // Date of birth when explicitly labeled
+    .replace(/\b(DOB|Date\s+of\s+Birth|Birth\s+Date|Born)[:\s]+[\d\/\-\.]+/gi, '[DOB REDACTED]')
+    // US phone numbers (various formats)
+    .replace(/\b(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, '[PHONE REDACTED]')
+    // Email addresses
+    .replace(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g, '[EMAIL REDACTED]')
+    // IPv4 addresses
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]')
+    // Credit / debit card numbers (13-19 digits, possibly spaced or hyphenated)
+    .replace(/\b(?:\d{4}[-\s]?){3}\d{1,4}\b/g, '[CARD REDACTED]')
+    // Bank routing/account patterns (ABA routing: 9-digit starting with 0-3)
+    .replace(/\b(routing|account|acct|RTN)[:\s#]+\d{9,17}\b/gi, '[ACCOUNT REDACTED]')
+    // Passport numbers (US format: letter(s) + 6-9 digits — but only when labeled)
+    .replace(/\b(passport|PASSNO)[:\s#]+[A-Z]{0,2}\d{6,9}\b/gi, '[PASSPORT REDACTED]')
+    // Home/personal addresses — street numbers followed by street keywords
+    .replace(/\b\d{1,6}\s+[A-Za-z0-9\s]{3,30}\b(Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Place|Pl|Way|Circle|Cir)\b/gi, '[ADDRESS REDACTED]')
+    // Zip codes when labeled
+    .replace(/\b(ZIP|Zip Code|Postal Code)[:\s]+\d{5}(-\d{4})?\b/gi, '[ZIP REDACTED]');
 }
 
 export default async function handler(req, res) {

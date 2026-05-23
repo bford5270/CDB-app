@@ -265,21 +265,61 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
         </div>
       </div>
 
+      {/* PII warning — prominent, accurate */}
+      <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <p className="text-sm font-semibold text-amber-900 mb-2">
+              Review your documents for sensitive information before uploading
+            </p>
+            <p className="text-xs text-amber-800 mb-3">
+              The text extracted from your PDFs is sent to an AI model for parsing.
+              The following are <strong>automatically redacted</strong> before transmission:
+            </p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3">
+              {[
+                'Social Security Numbers (SSN)',
+                'DOD ID / EDIPI numbers',
+                'Phone numbers',
+                'Email addresses',
+                'Dates of birth (when labeled)',
+                'Credit / debit card numbers',
+                'Home street addresses',
+                'IP addresses',
+              ].map(item => (
+                <div key={item} className="flex items-center gap-1.5 text-xs text-amber-800">
+                  <span className="text-green-600 font-bold">✓</span>
+                  {item}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs font-semibold text-amber-900 mb-1">
+              You should manually verify and remove before uploading:
+            </p>
+            <ul className="text-xs text-amber-800 space-y-0.5 ml-3 list-disc">
+              <li>Any classified or FOUO material beyond your own record</li>
+              <li>Third-party personnel information (other officers' data)</li>
+              <li>Medical diagnosis codes or clinical notes unrelated to career records</li>
+              <li>Financial account numbers or banking details</li>
+            </ul>
+            <p className="text-xs text-amber-700 mt-3 border-t border-amber-200 pt-2">
+              <strong>Data handling:</strong> PDF files are parsed locally in your browser. Extracted text is
+              transmitted over HTTPS to an AI parsing service, then discarded. No documents or personal data are
+              stored by this application.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Tips */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-900 font-medium mb-2">📋 Tips for best results:</p>
         <ul className="text-xs text-blue-800 space-y-1 ml-4 list-disc">
-          <li>
-            <strong>ODC (Officer Data Card)</strong> is most important for rank dates and AQDs
-          </li>
-          <li>
-            <strong>OSR (Officer Summary Record)</strong> provides education and special qualifications
-          </li>
-          <li>
-            <strong>PSR (Performance Summary Report)</strong> enables FITREP trend analysis
-          </li>
-          <li>You can upload any combination - the system works with whatever you provide</li>
-          <li>Files are processed locally in your browser - no data is sent to external servers</li>
+          <li><strong>ODC (Officer Data Card)</strong> is most important for rank dates and AQDs</li>
+          <li><strong>OSR (Officer Summary Record)</strong> provides education and special qualifications</li>
+          <li><strong>PSR (Performance Summary Report)</strong> enables FITREP trend analysis</li>
+          <li>You can upload any combination — the system works with whatever you provide</li>
         </ul>
       </div>
 
@@ -303,14 +343,6 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
         />
       </div>
 
-      {/* Privacy notice */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <p className="text-xs text-gray-600">
-          <strong>🔒 Privacy:</strong> All document processing happens locally in your browser.
-          Your files are never uploaded to any server. Personal identifying information (SSN, name)
-          is not stored or transmitted.
-        </p>
-      </div>
     </div>
   );
 }

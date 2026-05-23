@@ -167,18 +167,10 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
   onParsedDataAccepted,
   onSkip,
 }) => {
-  const [status, setStatus] = useState<'parsing' | 'done' | 'error'>('parsing');
+  const [status, setStatus] = useState<'confirm' | 'parsing' | 'done' | 'error'>('confirm');
   const [extracted, setExtracted] = useState<ExtractedOfficerData | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [docsAnalyzed, setDocsAnalyzed] = useState<string[]>([]);
-
-  // ============================================================================
-  // AUTO-PARSE ON MOUNT
-  // ============================================================================
-
-  useEffect(() => {
-    parseAllDocuments();
-  }, []);
 
   async function parseAllDocuments() {
     setStatus('parsing');
@@ -252,6 +244,120 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       mustPromotes: extracted.mustPromotes,
       promotables: extracted.promotables,
     });
+  }
+
+  // ============================================================================
+  // CONFIRM SCREEN — PII acknowledgment before sending to AI
+  // ============================================================================
+
+  if (status === 'confirm') {
+    const readyDocs: Array<{ key: 'odc' | 'osr' | 'psr'; label: string }> = [
+      { key: 'odc', label: 'Officer Data Card (ODC)' },
+      { key: 'osr', label: 'Officer Summary Record (OSR)' },
+      { key: 'psr', label: 'Performance Summary Record (PSR)' },
+    ].filter(d => uploadedDocuments[d.key]?.status === 'success') as Array<{ key: 'odc' | 'osr' | 'psr'; label: string }>;
+
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Ready to Analyze</h2>
+          <p className="text-gray-500 mt-1">
+            Before sending your documents to the AI, confirm you've reviewed them for sensitive information.
+          </p>
+        </div>
+
+        {/* Documents queued */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <p className="text-sm font-semibold text-gray-700 mb-3">Documents queued for analysis:</p>
+          <div className="space-y-2">
+            {readyDocs.map(d => (
+              <div key={d.key} className="flex items-center gap-2 text-sm text-gray-800">
+                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <span className="font-medium">{d.label}</span>
+                <span className="text-gray-400 text-xs ml-auto">
+                  {(uploadedDocuments[d.key]?.text?.length ?? 0).toLocaleString()} chars
+                </span>
+              </div>
+            ))}
+            {readyDocs.length === 0 && (
+              <p className="text-sm text-gray-400">No documents uploaded.</p>
+            )}
+          </div>
+        </div>
+
+        {/* PII warning */}
+        <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
+            <div className="space-y-3">
+              <p className="text-sm font-bold text-amber-900">
+                Confirm you've reviewed these documents before proceeding
+              </p>
+              <p className="text-xs text-amber-800">
+                Extracted text is transmitted to an AI model over HTTPS. The following are
+                <strong> automatically redacted</strong> before transmission:
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {[
+                  'Social Security Numbers (SSN)',
+                  'DOD ID / EDIPI numbers',
+                  'Phone numbers',
+                  'Email addresses',
+                  'Dates of birth (when labeled)',
+                  'Credit / debit card numbers',
+                  'Home street addresses',
+                  'IP addresses',
+                ].map(item => (
+                  <div key={item} className="flex items-center gap-1.5 text-xs text-amber-800">
+                    <span className="text-green-600 font-bold">✓</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-amber-200 pt-3">
+                <p className="text-xs font-semibold text-amber-900 mb-1.5">
+                  You are responsible for removing before proceeding:
+                </p>
+                <ul className="text-xs text-amber-800 space-y-0.5 ml-3 list-disc">
+                  <li>Any classified or FOUO material beyond your own record</li>
+                  <li>Third-party personnel information (other officers' data)</li>
+                  <li>Medical diagnoses or clinical notes unrelated to career records</li>
+                  <li>Financial account numbers or banking details</li>
+                </ul>
+              </div>
+              <p className="text-xs text-amber-700 border-t border-amber-200 pt-2">
+                <strong>Data handling:</strong> PDFs are parsed locally in your browser. Extracted text is sent over
+                HTTPS to the AI parsing service, then discarded. Nothing is stored by this application.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-between items-center">
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:text-gray-700 text-sm"
+            >
+              <SkipForward className="w-4 h-4" />
+              Skip — Enter Manually
+            </button>
+          )}
+          <button
+            onClick={parseAllDocuments}
+            disabled={readyDocs.length === 0}
+            className="ml-auto flex items-center gap-2 px-6 py-3 bg-blue-700 text-white rounded-lg font-semibold hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            I've reviewed my documents — Analyze Now
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+      </div>
+    );
   }
 
   // ============================================================================

@@ -7,6 +7,7 @@ import type { RankDate } from './RankHistoryForm';
 // Types
 export interface ParsedOfficerData {
   // From ODC/OSR parsing
+  name?: string;
   rankHistory: RankDate[];
   currentRank: string;
   
@@ -86,6 +87,7 @@ const COMMON_AQDS = [
 
 export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: VerifyParsedDataProps) {
   const [data, setData] = useState<ParsedOfficerData>({
+    name: parsedData.name || '',
     rankHistory: parsedData.rankHistory || [],
     currentRank: parsedData.currentRank || '',
     clearanceLevel: parsedData.clearanceLevel || '',
@@ -217,6 +219,16 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
         />
         {expandedSections.rank && (
           <div className="p-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Officer Name</label>
+              <input
+                type="text"
+                value={data.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+                placeholder="e.g. Brian S. Ford"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Current Rank</label>

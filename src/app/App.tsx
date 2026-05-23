@@ -57,6 +57,7 @@ export default function App() {
   };
 
   const handleParsedDataAccepted = (data: {
+    name?: string;
     rankHistory: RankDate[];
     boardCertified: boolean | null;
     hasUndergrad: boolean;
@@ -82,7 +83,19 @@ export default function App() {
       if (validRanks.length > 0) currentRank = validRanks[0].rank;
     }
 
+    // Format "FORD BRIAN S" → "Brian S. Ford"
+    const formatName = (raw?: string): string => {
+      if (!raw) return '';
+      const parts = raw.trim().split(/\s+/);
+      if (parts.length < 2) return raw;
+      const last = parts[0];
+      const first = parts[1];
+      const mi = parts[2] ? ` ${parts[2].replace(/\.?$/, '')}.` : '';
+      return `${first.charAt(0) + first.slice(1).toLowerCase()}${mi} ${last.charAt(0) + last.slice(1).toLowerCase()}`;
+    };
+
     setParsedData({
+      name: formatName(data.name),
       rankHistory: data.rankHistory,
       currentRank,
       clearanceLevel: data.clearanceLevel || '',
@@ -215,11 +228,16 @@ export default function App() {
             />
             <div className="flex-1 min-w-0">
               <div className="text-white font-medium text-base leading-snug">
-                {confirmedData.currentRank || 'MC Officer'}
-                {confirmedData.designator ? ` · ${confirmedData.designator}` : ''}
+                {confirmedData.name
+                  ? `${confirmedData.currentRank ? confirmedData.currentRank + ' ' : ''}${confirmedData.name}, MC, USN`
+                  : `${confirmedData.currentRank || 'MC Officer'}${confirmedData.designator ? ` · ${confirmedData.designator}` : ''}`
+                }
               </div>
               <div className="text-sm truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                {confirmedData.currentBillet || 'Medical Corps Officer'}
+                {confirmedData.name
+                  ? `${confirmedData.currentRank ? confirmedData.currentRank : ''}${confirmedData.designator ? ` · ${confirmedData.designator}` : ''}`
+                  : confirmedData.currentBillet || 'Medical Corps Officer'
+                }
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">

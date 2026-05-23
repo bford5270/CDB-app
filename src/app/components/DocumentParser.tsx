@@ -66,6 +66,7 @@ export interface ExtractedOfficerData {
 interface DocumentParserProps {
   uploadedDocuments: UploadedDocuments;
   onParsedDataAccepted: (data: {
+    name?: string;
     rankHistory: Array<{ rank: string; date: string }>;
     boardCertified: boolean | null;
     hasUndergrad: boolean;
@@ -276,6 +277,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
   function handleAccept() {
     if (!extracted) return;
     onParsedDataAccepted({
+      name: extracted.name ?? undefined,
       rankHistory: extracted.rankHistory,
       boardCertified: extracted.boardCertified,
       hasUndergrad: extracted.hasUndergrad,

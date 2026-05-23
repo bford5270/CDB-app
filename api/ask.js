@@ -314,7 +314,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
+          max_tokens: 8192,
           system: parseSystemPrompt,
           messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]
         })
@@ -330,14 +330,29 @@ export default async function handler(req, res) {
       }
 
       const parseData = await parseRes.json();
-      const rawText = (parseData.content && parseData.content[0] && parseData.content[0].text) || '';
-      const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+      const rawText = (parseData.content?.[0]?.text) || '';
+      const stopReason = parseData.stop_reason || '';
+      console.log('Parse raw response (first 600):', rawText.substring(0, 600));
+      if (stopReason === 'max_tokens') {
+        console.warn('Response truncated at max_tokens — JSON may be incomplete');
+      }
+
+      // Strip code fences, then find outermost { } to handle preamble/postamble text
+      let jsonText = rawText
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+      }
 
       try {
         const parsed = validateParsed(JSON.parse(jsonText));
         return res.status(200).json(parsed);
       } catch (e) {
-        console.error('JSON parse error:', e, rawText.substring(0, 300));
+        console.error('JSON parse error:', e.message, '\nRaw (first 800):', rawText.substring(0, 800));
         return res.status(422).json({ error: 'AI returned invalid JSON' });
       }
     }

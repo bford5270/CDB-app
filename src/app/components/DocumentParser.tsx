@@ -101,41 +101,77 @@ function confidenceBadge(level: 'high' | 'medium' | 'low') {
 
 const AQD_TITLES: Record<string, string> = {
   // Warfare qualifications
-  FMF: 'Fleet Marine Force',
-  SW: 'Surface Warfare',
-  AW: 'Aviation Warfare',
-  SS: 'Submarine Warfare',
-  EXW: 'Explosive Ordnance Disposal',
-  SCW: 'Special Warfare Combatant-Craft',
-  CW: 'Coastal Warfare',
-  // Administrative / joint
-  JS7: 'Joint Staff',
-  // Medical subspecialties (common MC codes)
-  '62D': 'Internal Medicine',
-  '62G': 'General Internal Medicine',
-  '62H': 'Physical Medicine & Rehab',
-  '62K': 'Anesthesiology',
-  '62L': 'Radiology',
-  '62M': 'Pathology',
-  '62N': 'Neurology',
-  '62P': 'Psychiatry',
-  '62R': 'Urology',
-  '62S': 'Orthopedic Surgery',
-  '62T': 'Otolaryngology',
-  '62U': 'Ophthalmology',
-  '62V': 'Dermatology',
-  '62W': 'OB/GYN',
-  '62X': 'Pediatrics',
-  '67A': 'General Surgery',
-  '67B': 'Thoracic Surgery',
-  '67C': 'Neurosurgery',
-  '67D': 'Plastic Surgery',
-  '6OC': 'Operational Medicine',
-  '6OD': 'Diving Medicine',
-  '6OE': 'Hyperbaric Medicine',
-  '6OF': 'Undersea Medicine',
-  '6OG': 'Flight Surgery',
-  '6OH': 'Emergency Medicine',
+  LA7: 'Surface Warfare Medical Dept Officer',
+  BX2: 'Fleet Marine Force Warfare Officer',
+  // Joint / JPME
+  JS7: 'JPME Phase I',
+  JS8: 'JPME Phase II',
+  // Individual Augmentation
+  U6O: 'Operations Individual Augmentee',
+  U4M: 'Fleet/Division Staff Medical IA',
+  U6M: 'Other Medical IA',
+  J3M: 'Combatant Commander Medical IA',
+  J4M: 'Fleet/Division Staff Medical IA (Joint)',
+  J5M: 'Joint Task Force Medical IA',
+  J6M: 'Other Medical IA (Joint)',
+  // Special
+  BT1: 'Static-Line Parachutist',
+  QK1: 'Naval Special Warfare Experience',
+  DZQ: 'Joint Air Operations / Aviation Safety Officer',
+  // Aviation medicine (6A series)
+  '6AA': 'Aviation Medical Examiner',
+  '6AB': 'General Flight Surgeon',
+  '6AC': 'Naval Aviator/NFO Aeromedical Officer',
+  '6AE': 'Naval Aviator/Pilot Aeromedical Officer',
+  '6AG': 'Aerospace Medicine / Preventive Medicine',
+  // Field / FMF / Surface (6F series)
+  '6FA': 'Marine Corps Medical Dept Officer (FMF)',
+  '6FC': 'FMF Medical Logistics Officer',
+  '6FD': 'Surface Experienced Medical Officer',
+  '6FE': 'Senior Marine Corps Medical Officer',
+  // Contingency / Operational (6O series)
+  '6OB': 'Shipboard Assignment',
+  '6OC': 'Hospital Ship Assignment',
+  '6OE': 'En-route Care / CCATT',
+  '6OF': 'Forward Deployable Preventive Medicine Unit',
+  '6OH': 'Humanitarian Assistance / Disaster Relief',
+  '6OI': 'Professional Filler System',
+  '6OJ': 'Associate Medical Officer',
+  '6ON': 'Medical Regulator',
+  '6OR': 'CATF/CLF Surgeon',
+  '6OS': 'SERE Certified Medical Officer',
+  '6OT': 'C4 Trained Plus',
+  '6OU': 'Fleet Hospital Assignment',
+  '6OW': 'Trauma Team Trained Officer',
+  // Emergency Medicine (6P series)
+  '6PD': 'Emergency Medicine',
+  '6PE': 'Emergency Medicine Subspecialty',
+  '6PF': 'Pediatric Emergency Medicine',
+  '6PG': 'Emergency Medicine Ultrasound',
+  '6PH': 'Emergency Medicine Toxicology',
+  // Family Practice
+  '6QF': 'Family Practice with Obstetrics',
+  // Undersea / Dive Medicine (6U series)
+  '6UD': 'Diver Medical Officer',
+  '6UE': 'Undersea Medicine',
+  // Preventive / Occupational Medicine (6K series)
+  '6KE': 'Preventive Medicine',
+  '6KL': 'Occupational Medicine',
+  '6KM': 'Environmental Medicine',
+  // Executive / Admin (67 series)
+  '67A': 'Executive Medicine',
+  '67B': 'Expeditionary Medicine',
+  '67G': 'Managed Care Coordinator',
+  // Academic / Faculty (6Z series)
+  '6ZA': 'Instructor',
+  '6ZB': 'Assistant Professor',
+  '6ZC': 'Associate Professor',
+  '6ZD': 'Full Professor',
+  '6ZE': 'Medical Ethicist',
+  '6ZF': 'Researcher',
+  '6ZG': 'Residency Program Director',
+  // Graduate education
+  '68I': 'Health Care Management Master\'s Degree',
 };
 
 const PROMO_REC_LABELS: Record<string, string> = {

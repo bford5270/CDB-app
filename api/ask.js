@@ -43,6 +43,73 @@ function buildCoursesKnowledge() {
 
 const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
 
+// Strip OCR garbage before sending to Claude.
+// PSR PDFs especially produce lines that are >60% box-drawing characters.
+function cleanDocumentText(text, docType) {
+  if (!text) return '';
+  // Remove null bytes and non-printable control characters (common in bad OCR)
+  let cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
+  if (docType === 'psr') {
+    // Drop lines that are mostly non-alphanumeric (table borders, form boxes)
+    const lines = cleaned.split('\n');
+    cleaned = lines
+      .map(line => {
+        if (line.length < 4) return line;
+        const usable = (line.match(/[a-zA-Z0-9 .,\/\-:()]/g) || []).length;
+        return usable / line.length < 0.45 ? '' : line;
+      })
+      .reduce((acc, line, i, arr) => {
+        // Collapse consecutive blank lines to one
+        if (line === '' && i > 0 && arr[i - 1] === '') return acc;
+        acc.push(line);
+        return acc;
+      }, [])
+      .join('\n');
+  }
+  // Normalize excessive whitespace
+  return cleaned
+    .replace(/\t/g, ' ')
+    .replace(/ {4,}/g, '   ')
+    .replace(/\n{5,}/g, '\n\n\n');
+}
+
+// Post-parse validation: remove impossible rank dates and backward progressions,
+// and normalize the two-letter clearance code to a human-readable level.
+function validateParsed(parsed) {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+
+  const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT'];
+
+  if (Array.isArray(parsed.rankHistory)) {
+    parsed.rankHistory = parsed.rankHistory
+      .filter(e => e && e.rank && e.date && typeof e.date === 'string')
+      .map(e => ({ ...e, rank: e.rank.toUpperCase().trim() }))
+      .filter(e => RANK_ORDER.includes(e.rank))
+      .filter(e => {
+        const year = parseInt(e.date.substring(0, 4), 10);
+        return !isNaN(year) && year >= 1995 && year <= 2033;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      // Remove backward progressions (keep only strictly ascending rank entries)
+      .reduce((acc, entry) => {
+        const maxIdx = acc.length > 0 ? RANK_ORDER.indexOf(acc[acc.length - 1].rank) : -1;
+        if (RANK_ORDER.indexOf(entry.rank) > maxIdx) acc.push(entry);
+        return acc;
+      }, []);
+  }
+
+  // Normalize two-letter clearance codes (e.g. "SS" → "Secret")
+  if (parsed.clearanceLevel) {
+    const cl = parsed.clearanceLevel.toUpperCase().replace(/\s/g, '');
+    if (/^S/.test(cl) || cl === 'SS') parsed.clearanceLevel = 'Secret';
+    else if (/^(T|TS)/.test(cl) || cl === 'TT') parsed.clearanceLevel = 'Top Secret';
+    else if (/^V/.test(cl) || cl === 'VV' || cl.includes('SCI')) parsed.clearanceLevel = 'Top Secret';
+    else if (cl === 'N' || cl === 'NONE') parsed.clearanceLevel = 'None';
+  }
+
+  return parsed;
+}
+
 function scrubPII(text) {
   if (!text) return '';
   return text
@@ -106,9 +173,9 @@ export default async function handler(req, res) {
       }
 
       const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(odc.substring(0, 8000)));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(osr.substring(0, 6000)));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(psr.substring(0, 10000)));
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 12000)));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 8000)));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 12000)));
       const docContext = sections.join('\n\n');
 
       const today = new Date().toISOString().split('T')[0];
@@ -119,13 +186,31 @@ export default async function handler(req, res) {
         'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
         `TODAY'S DATE: ${today}`,
         '',
-        '=== RANK DETERMINATION (CRITICAL) ===',
-        'Navy officer rank order (low to high): ENS(O1) → LTJG(O2) → LT(O3) → LCDR(O4) → CDR(O5) → CAPT(O6).',
-        'Medical Corps officers almost always progress ENS→LTJG→LT→LCDR→CDR→CAPT in that order. Backwards progression is EXTREMELY RARE and only happens during inter-corps transfers or early-career training anomalies. If you see apparent backwards progression in the document, it is almost certainly a parsing error — do NOT include it.',
-        'Extract the full rankHistory. DOR dates appear in MMDDYY format on the ODC — convert to YYYY-MM-DD.',
-        `Then set "rank" to the CURRENT rank: find the most recent rankHistory entry whose date is ON OR BEFORE today (${today}).`,
-        'Do NOT copy the rank label from the document header — the ODC may have been printed before a recent promotion.',
-        'Example: if rankHistory shows LCDR DOR 2020-10-01 and CDR DOR 2026-01-01, and today is 2026-05-22, rank = "CDR".',
+        '=== RANK EXTRACTION — CONSERVATIVE, CRITICAL ===',
+        'Navy rank order (O1→O6): ENS → LTJG → LT → LCDR → CDR → CAPT.',
+        '',
+        'KEY FACT: Medical Corps (MC) physicians receive DIRECT COMMISSIONS. Most commission as LT (O-3) or',
+        'LCDR (O-4) — skipping ENS and LTJG entirely. Do NOT add ENS or LTJG to rankHistory unless you find',
+        'an EXPLICIT date labeled for that rank in the document. Never infer or fill in missing intermediate ranks.',
+        '',
+        'CONSERVATIVE EXTRACTION RULES (follow all four):',
+        '1. Only add a rank to rankHistory if BOTH (a) the exact rank abbreviation appears in the document AND',
+        '   (b) a 6-digit DOR date is directly adjacent to or clearly labeled for that exact rank.',
+        '2. Do NOT infer ranks. If the document shows only LT and CDR with dates, rankHistory has only LT and CDR.',
+        '3. The ODC contains dozens of 6-digit numbers: PEBD, PRD, EAOS, clearance dates, report numbers, UIC codes.',
+        '   A number is NOT a DOR date unless it is clearly associated with a specific rank abbreviation.',
+        '4. If you are uncertain whether a date belongs to a rank entry or another field, omit it.',
+        '',
+        'DATE FORMAT: DOR dates on the ODC are 6-digit MMDDYY. Convert to YYYY-MM-DD using 20YY.',
+        '  "010924" → 2024-01-09  |  "090118" → 2018-09-01  |  "052808" → 2008-05-28',
+        'PLAUSIBILITY: Valid commission/DOR years are 2000–2032. If the converted year falls outside this range,',
+        'the digits you read are NOT a DOR — do not include that entry.',
+        '',
+        'CLEARANCE DATE: The ODC clearance date is in MMYY format (4 digits) → convert to YYYY-MM.',
+        '  "0520" → 2020-05  |  "1118" → 2018-11  |  "0612" → 2012-06',
+        '',
+        `SET "rank" = current rank: find the most recent rankHistory entry whose date ≤ today (${today}).`,
+        'Example: rankHistory has LCDR 2021-10-01 and CDR 2025-10-01; today is 2026-05-23 → rank = "CDR".',
         '',
         '=== AQD EXTRACTION (STRICT) ===',
         'ONLY extract AQD codes that appear in a dedicated AQD or "Additional Qualification Designator" section of the ODC (Block 72 or equivalent).',
@@ -169,8 +254,8 @@ export default async function handler(req, res) {
         '',
         '=== OTHER ODC FIELDS ===',
         'designator: 4-digit code (e.g. 2100, 2300). yearGroup: 2-digit YG.',
-        'security clearance: two-letter code like SS/VV/TT where first letter = eligibility, second = level.',
-        '  S=Secret, T=Top Secret, V=TS/SCI. clearanceDate in MMYY format → YYYY-MM.',
+        'clearanceLevel: the two-letter clearance eligibility/level code from the ODC — return it as-is (e.g., "SS", "TT", "VV"). Do NOT try to expand it here.',
+        'clearanceDate: 4-digit MMYY → YYYY-MM (see format examples above).',
         '',
         'FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.',
         '',
@@ -226,8 +311,8 @@ export default async function handler(req, res) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 6000,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8000,
           system: parseSystemPrompt,
           messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]
         })
@@ -247,7 +332,7 @@ export default async function handler(req, res) {
       const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
 
       try {
-        const parsed = JSON.parse(jsonText);
+        const parsed = validateParsed(JSON.parse(jsonText));
         return res.status(200).json(parsed);
       } catch (e) {
         console.error('JSON parse error:', e, rawText.substring(0, 300));

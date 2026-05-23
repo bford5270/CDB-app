@@ -358,7 +358,7 @@ export default function App() {
               </div>
 
               {/* Upload form */}
-              <div className="p-8">
+              <div className="p-6">
                 <DocumentUpload onDocumentsChange={handleDocumentsUploaded} />
                 <div className="mt-8 flex items-center justify-between">
                   {!canProceedFromUpload && (
@@ -386,7 +386,7 @@ export default function App() {
 
           {/* ── Step 1b: Parser ── */}
           {step === 1 && showParser && (
-            <div className="p-8">
+            <div className="p-6">
               <DocumentParser
                 uploadedDocuments={documents}
                 onParsedDataAccepted={handleParsedDataAccepted}
@@ -397,7 +397,7 @@ export default function App() {
 
           {/* ── Steps 2–4 ── */}
           {step >= 2 && (
-            <div className="p-8">
+            <div className="p-6">
 
               {/* Step 2: Verify Parsed Data */}
               {step === 2 && (

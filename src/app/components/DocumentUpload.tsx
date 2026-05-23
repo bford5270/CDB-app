@@ -120,121 +120,103 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
     const doc = documents[type];
     const inputId = `file-upload-${type}`;
 
+    const NAVY = '#1B365D';
+    const GOLD = '#FFC72C';
+
     return (
       <div
-        className={`border-2 rounded-lg p-5 transition-all ${
-          doc?.status === 'success'
-            ? 'border-green-400 bg-green-50'
-            : doc?.status === 'error'
-            ? 'border-red-400 bg-red-50'
-            : doc?.status === 'processing'
-            ? 'border-blue-400 bg-blue-50'
-            : 'border-gray-300 bg-white hover:border-blue-500'
-        }`}
+        className="rounded transition-all"
+        style={{
+          border: `1px solid ${
+            doc?.status === 'success' ? '#86EFAC'
+            : doc?.status === 'error' ? '#FCA5A5'
+            : doc?.status === 'processing' ? NAVY
+            : '#CBD5E1'
+          }`,
+          background: doc?.status === 'success' ? '#F0FDF4'
+            : doc?.status === 'error' ? '#FEF2F2'
+            : '#fff',
+        }}
         onDrop={(e) => handleDrop(type, e)}
         onDragOver={handleDragOver}
       >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-start gap-3">
+        {/* Header row */}
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #F1F5F9' }}>
+          <div className="flex items-center gap-2.5">
             {doc?.status === 'success' ? (
-              <CheckCircle className="w-6 h-6 flex-shrink-0 mt-1 text-green-600" />
+              <CheckCircle style={{ width: 16, height: 16, color: '#16A34A', flexShrink: 0 }} />
             ) : doc?.status === 'error' ? (
-              <AlertCircle className="w-6 h-6 flex-shrink-0 mt-1 text-red-600" />
+              <AlertCircle style={{ width: 16, height: 16, color: '#DC2626', flexShrink: 0 }} />
             ) : doc?.status === 'processing' ? (
-              <Loader2 className="w-6 h-6 flex-shrink-0 mt-1 text-blue-600 animate-spin" />
+              <Loader2 style={{ width: 16, height: 16, color: NAVY, flexShrink: 0 }} className="animate-spin" />
             ) : (
-              <FileText className="w-6 h-6 flex-shrink-0 mt-1 text-gray-400" />
+              <FileText style={{ width: 16, height: 16, color: '#94A3B8', flexShrink: 0 }} />
             )}
-            <div>
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                {title}
-                {required && (
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                    Recommended
-                  </span>
-                )}
-              </h3>
-              <p className="text-sm text-gray-500">{description}</p>
-            </div>
+            <span className="text-sm font-semibold text-gray-800">{title}</span>
+            {required && (
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={{ background: 'rgba(27,54,93,0.08)', color: NAVY }}>
+                Recommended
+              </span>
+            )}
           </div>
-          {doc && (
-            <button
-              onClick={() => handleClear(type)}
-              className="text-gray-400 hover:text-red-600 transition-colors p-1"
-              title="Remove file"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400">{description}</span>
+            {doc && (
+              <button onClick={() => handleClear(type)} className="text-gray-300 hover:text-red-500 transition-colors" title="Remove">
+                <X style={{ width: 14, height: 14 }} />
+              </button>
+            )}
+          </div>
         </div>
 
-        {doc?.status === 'success' ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100 px-3 py-2 rounded-md">
-              <CheckCircle className="w-4 h-4" />
-              <span className="font-medium">{doc.file.name}</span>
-              <span className="text-green-600">
-                ({(doc.file.size / 1024).toFixed(1)} KB • {doc.text.length.toLocaleString()} chars extracted)
-              </span>
+        {/* Body */}
+        <div className="px-4 py-3">
+          {doc?.status === 'success' ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs" style={{ color: '#16A34A' }}>
+                <CheckCircle style={{ width: 13, height: 13 }} />
+                <span className="font-medium">{doc.file.name}</span>
+                <span className="text-gray-400 ml-auto">{(doc.file.size / 1024).toFixed(1)} KB · {doc.text.length.toLocaleString()} chars</span>
+              </div>
+              <div className="overflow-y-auto rounded" style={{ maxHeight: 64, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '6px 8px' }}>
+                <pre className="text-xs text-gray-500 whitespace-pre-wrap font-mono leading-relaxed">
+                  {doc.text.substring(0, 200)}{doc.text.length > 200 ? '…' : ''}
+                </pre>
+              </div>
             </div>
-            <div className="max-h-24 overflow-y-auto bg-white p-3 rounded-md border border-green-200">
-              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                {doc.text.substring(0, 300)}{doc.text.length > 300 ? '...' : ''}
-              </pre>
+          ) : doc?.status === 'error' ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-red-600">
+                <AlertCircle style={{ width: 13, height: 13 }} />
+                <span>{doc.error}</span>
+              </div>
+              <label htmlFor={inputId} className="text-xs cursor-pointer" style={{ color: NAVY }}>Try again →</label>
+              <input id={inputId} type="file" accept=".pdf,.txt" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(type, f); }} />
             </div>
-          </div>
-        ) : doc?.status === 'error' ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-100 px-3 py-2 rounded-md">
-              <AlertCircle className="w-4 h-4" />
-              <span>Failed to process: {doc.error}</span>
+          ) : doc?.status === 'processing' ? (
+            <div className="flex items-center gap-2 text-xs" style={{ color: NAVY }}>
+              <Loader2 style={{ width: 13, height: 13 }} className="animate-spin" />
+              <span>Processing {doc.file.name}…</span>
             </div>
-            <label
-              htmlFor={inputId}
-              className="block text-center py-2 text-sm text-red-600 hover:text-red-700 cursor-pointer"
-            >
-              Try uploading again
-            </label>
-            <input
-              id={inputId}
-              type="file"
-              accept=".pdf,.txt"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileSelect(type, file);
-              }}
-            />
-          </div>
-        ) : doc?.status === 'processing' ? (
-          <div className="flex items-center gap-3 text-sm text-blue-700 bg-blue-100 px-3 py-3 rounded-md">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Processing {doc.file.name}...</span>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <label
-              htmlFor={inputId}
-              className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
-            >
-              <Upload className="w-8 h-8 text-gray-400 mb-2" />
-              <span className="text-sm font-medium text-gray-700">
-                Click to upload or drag and drop
-              </span>
-              <span className="text-xs text-gray-500 mt-1">PDF files supported</span>
-            </label>
-            <input
-              id={inputId}
-              type="file"
-              accept=".pdf,.txt"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileSelect(type, file);
-              }}
-            />
-          </div>
-        )}
+          ) : (
+            <>
+              <label
+                htmlFor={inputId}
+                className="flex flex-col items-center justify-center rounded cursor-pointer transition-colors"
+                style={{ padding: '20px 0', border: '1.5px dashed #CBD5E1' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = NAVY; (e.currentTarget as HTMLElement).style.background = 'rgba(27,54,93,0.03)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#CBD5E1'; (e.currentTarget as HTMLElement).style.background = ''; }}
+              >
+                <Upload style={{ width: 20, height: 20, color: '#94A3B8', marginBottom: 6 }} />
+                <span className="text-sm font-medium text-gray-600">Click to upload or drag and drop</span>
+                <span className="text-xs text-gray-400 mt-1">PDF or TXT</span>
+              </label>
+              <input id={inputId} type="file" accept=".pdf,.txt" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(type, f); }} />
+            </>
+          )}
+        </div>
       </div>
     );
   };
@@ -242,105 +224,67 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
   const uploadedCount = Object.values(documents).filter(d => d?.status === 'success').length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Officer Records</h2>
-        <p className="text-gray-600">
-          Upload your official Navy personnel documents (PDF format). The system will automatically
-          extract rank history, AQDs, education, and FITREP data for career analysis.
+    <div className="space-y-4">
+
+      {/* Progress indicator */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Documents uploaded</span>
+        <div className="flex-1 h-1.5 rounded-full" style={{ background: '#E2E8F0' }}>
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${(uploadedCount / 3) * 100}%`, background: '#1B365D' }}
+          />
+        </div>
+        <span className="text-xs font-semibold" style={{ color: '#1B365D' }}>{uploadedCount} / 3</span>
+      </div>
+
+      {/* PII warning — navy/gold themed */}
+      <div style={{ background: '#1B365D', borderRadius: 6, borderLeft: '4px solid #FFC72C', padding: '14px 16px' }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: '#FFC72C' }}>
+          Review documents before uploading — extracted text is sent to the AI parser
+        </p>
+        <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.65)' }}>
+          The following are <strong style={{ color: 'rgba(255,255,255,0.85)' }}>automatically redacted</strong> before transmission:
+        </p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mb-3">
+          {['SSN', 'DOD ID / EDIPI', 'Phone numbers', 'Email addresses',
+            'Dates of birth', 'Credit card numbers', 'Home addresses', 'IP addresses'
+          ].map(item => (
+            <div key={item} className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              <span style={{ color: '#4ADE80', fontWeight: 700 }}>✓</span>{item}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>Manually verify and remove:</p>
+        <ul className="text-xs ml-3 list-disc space-y-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          <li>Classified or FOUO material beyond your own record</li>
+          <li>Third-party personnel information</li>
+          <li>Medical diagnoses unrelated to career records</li>
+          <li>Financial account numbers</li>
+        </ul>
+        <p className="text-xs mt-3 pt-2" style={{ color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          PDFs are parsed locally in your browser. Extracted text is sent over HTTPS then discarded. Nothing is stored.
         </p>
       </div>
 
-      {/* Progress indicator */}
-      <div className="bg-gray-100 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Documents uploaded</span>
-          <span className="text-sm font-semibold text-blue-600">{uploadedCount} of 3</span>
-        </div>
-        <div className="w-full bg-gray-300 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(uploadedCount / 3) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* PII warning — prominent, accurate */}
-      <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
-          <div>
-            <p className="text-sm font-semibold text-amber-900 mb-2">
-              Review your documents for sensitive information before uploading
-            </p>
-            <p className="text-xs text-amber-800 mb-3">
-              The text extracted from your PDFs is sent to an AI model for parsing.
-              The following are <strong>automatically redacted</strong> before transmission:
-            </p>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3">
-              {[
-                'Social Security Numbers (SSN)',
-                'DOD ID / EDIPI numbers',
-                'Phone numbers',
-                'Email addresses',
-                'Dates of birth (when labeled)',
-                'Credit / debit card numbers',
-                'Home street addresses',
-                'IP addresses',
-              ].map(item => (
-                <div key={item} className="flex items-center gap-1.5 text-xs text-amber-800">
-                  <span className="text-green-600 font-bold">✓</span>
-                  {item}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs font-semibold text-amber-900 mb-1">
-              You should manually verify and remove before uploading:
-            </p>
-            <ul className="text-xs text-amber-800 space-y-0.5 ml-3 list-disc">
-              <li>Any classified or FOUO material beyond your own record</li>
-              <li>Third-party personnel information (other officers' data)</li>
-              <li>Medical diagnosis codes or clinical notes unrelated to career records</li>
-              <li>Financial account numbers or banking details</li>
-            </ul>
-            <p className="text-xs text-amber-700 mt-3 border-t border-amber-200 pt-2">
-              <strong>Data handling:</strong> PDF files are parsed locally in your browser. Extracted text is
-              transmitted over HTTPS to an AI parsing service, then discarded. No documents or personal data are
-              stored by this application.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tips */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900 font-medium mb-2">📋 Tips for best results:</p>
-        <ul className="text-xs text-blue-800 space-y-1 ml-4 list-disc">
-          <li><strong>ODC (Officer Data Card)</strong> is most important for rank dates and AQDs</li>
-          <li><strong>OSR (Officer Summary Record)</strong> provides education and special qualifications</li>
-          <li><strong>PSR (Performance Summary Report)</strong> enables FITREP trend analysis</li>
-          <li>You can upload any combination — the system works with whatever you provide</li>
+      {/* Tips — compact, navy-tinted */}
+      <div className="rounded px-4 py-3" style={{ background: 'rgba(27,54,93,0.05)', border: '1px solid rgba(27,54,93,0.12)' }}>
+        <p className="text-xs font-semibold mb-1.5" style={{ color: '#1B365D' }}>Tips for best results</p>
+        <ul className="text-xs text-gray-500 space-y-0.5 ml-3 list-disc">
+          <li><strong className="text-gray-700">ODC</strong> — rank dates, AQDs, clearance, designator</li>
+          <li><strong className="text-gray-700">OSR</strong> — education and special qualifications</li>
+          <li><strong className="text-gray-700">PSR</strong> — FITREP history and trend analysis</li>
         </ul>
       </div>
 
       {/* Upload boxes */}
-      <div className="grid gap-4">
-        <FileUploadBox
-          type="odc"
-          title="Officer Data Card (ODC)"
-          description="Contains promotion history, AQDs, and designator information"
-          required
-        />
-        <FileUploadBox
-          type="osr"
-          title="Officer Summary Record (OSR)"
-          description="Contains education, special qualifications, and duty history"
-        />
-        <FileUploadBox
-          type="psr"
-          title="Performance Summary Report (PSR)"
-          description="Contains FITREP history for performance trend analysis"
-        />
+      <div className="grid gap-2">
+        <FileUploadBox type="odc" title="Officer Data Card (ODC)"
+          description="Rank, AQDs, clearance, designator" required />
+        <FileUploadBox type="osr" title="Officer Summary Record (OSR)"
+          description="Education, quals, duty history" />
+        <FileUploadBox type="psr" title="Performance Summary Report (PSR)"
+          description="FITREP history and trends" />
       </div>
 
     </div>

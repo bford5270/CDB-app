@@ -8,6 +8,7 @@ import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
 import { CDBChecklist } from './components/CDBChecklist';
 import { lookupPromo, zoneStatus, NEXT_RANK } from './components/CDBChecklist';
 import { DashboardPanel } from './components/DashboardPanel';
+import { DocSwapPanel } from './components/DocSwapPanel';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
@@ -187,6 +188,7 @@ export default function App() {
   };
 
   return (
+    <>
     <div className="min-h-screen" style={{ background: '#E8ECF1' }}>
 
       {/* ── Top navigation bar ── */}
@@ -578,5 +580,14 @@ export default function App() {
         </div>
       </div>
     </div>
+
+    {showDocSwap && (
+      <DocSwapPanel
+        documents={documents}
+        onDocumentsChange={handleDocumentsUploaded}
+        onClose={() => setShowDocSwap(false)}
+      />
+    )}
+    </>
   );
 }

@@ -7,6 +7,52 @@ import {
   Shield, BookOpen, TrendingUp, Star,
 } from 'lucide-react';
 import type { ParsedOfficerData } from './VerifyParsedData';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import coursesJson from '../../../public/fy26-courses.json';
+
+// ─── FY26 session lookup helpers ────────────────────────────────────────────
+
+function fmtRange(start: string, end: string): string {
+  const s = new Date(start + 'T12:00:00');
+  const e = new Date(end + 'T12:00:00');
+  const mo = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  const dy = (d: Date) => d.getDate();
+  return mo(s) === mo(e)
+    ? `${mo(s)} ${dy(s)}–${dy(e)}`
+    : `${mo(s)} ${dy(s)} – ${mo(e)} ${dy(e)}`;
+}
+
+function fy26Sessions(courseId: string, maxPerLoc = 4): string {
+  const today = new Date();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const courses = (coursesJson as any).courses as any[];
+  const course = courses.find((c: any) => c.id === courseId);
+  if (!course) return '';
+  if (course.status?.includes('ON PAUSE')) return ' [ON PAUSE — check NMLPDC for updates]';
+  if (!course.sessions?.length) return '';
+
+  const locLines: string[] = [];
+  for (const sess of course.sessions) {
+    const loc: string = sess.location;
+    if (!sess.dates?.length) {
+      if (sess.cdp) locLines.push(`  ${loc} (CDP ${sess.cdp})`);
+      continue;
+    }
+    const upcoming = (sess.dates as any[])
+      .filter((d: any) => d.start && d.start !== 'TBD' && new Date(d.start + 'T00:00:00') >= today)
+      .sort((a: any, b: any) => a.start.localeCompare(b.start));
+    if (!upcoming.length) continue;
+    const shown = upcoming.slice(0, maxPerLoc);
+    const extra = upcoming.length - shown.length;
+    const ranges = shown.map((d: any) => {
+      const tag = d.virtual ? ' (virt)' : '';
+      return fmtRange(d.start, d.end) + tag;
+    });
+    const plus = extra > 0 ? ` +${extra} more` : '';
+    locLines.push(`  ${loc}: ${ranges.join(', ')}${plus}`);
+  }
+  return locLines.length ? '\nFY26 sessions:\n' + locLines.join('\n') : '';
+}
 
 // Promotion timeline (Schofer Promo Prep, May 2023 ed.)
 // DOR range is for CURRENT rank; board/fitrep cols are for NEXT-rank selection board.
@@ -31,46 +77,60 @@ export const NEXT_RANK: Record<string, string> = {
 };
 const IZ_RATES: Record<string, string> = { o4: '88–91%', o5: '40–57%', o6: '34–67%' };
 
-// FY26 NAVMED course milestones by rank
+// FY26 NAVMED course milestones by rank — session dates appended dynamically
 const RANK_COURSES: Record<string, { required: string[]; recommended: string[] }> = {
   LT: {
     required: [
-      'DIVOLC — Division Officer Leadership Course (service school per MILPERSMAN 1301-906; CDPs: 20XD/26KG/26M5)',
+      'DIVOLC — Division Officer Leadership Course (service school per MILPERSMAN 1301-906)' + fy26Sessions('divolc'),
       'BROC — Basic Readiness Officer Course (4-unit self-paced online via Navy E-Learning; prereq for AROC)',
     ],
-    recommended: ['SWMDOIC — if pursuing Surface Warfare medical qualification (CIN B-6A-2301, 2 weeks San Diego)'],
+    recommended: [
+      'SWMDOIC — Surface Warfare Medical Dept Officer Indoctrination Course (CIN B-6A-2301, 2 weeks San Diego)' + fy26Sessions('swmdoic'),
+    ],
   },
   LTJG: {
-    required: ['DIVOLC (service school required per MILPERSMAN 1301-906)', 'BROC (online via Navy E-Learning)'],
+    required: [
+      'DIVOLC — service school required per MILPERSMAN 1301-906' + fy26Sessions('divolc'),
+      'BROC — online via Navy E-Learning',
+    ],
     recommended: [],
   },
   ENS: {
-    required: ['DIVOLC (service school required per MILPERSMAN 1301-906)', 'BROC (online via Navy E-Learning)'],
+    required: [
+      'DIVOLC — service school required per MILPERSMAN 1301-906' + fy26Sessions('divolc'),
+      'BROC — online via Navy E-Learning',
+    ],
     recommended: [],
   },
   LCDR: {
-    required: ['ILC — Intermediate Leadership Course (replaces DHLC; CIN H-7C-0104; register at least 5 wks in advance)'],
+    required: [
+      'ILC — Intermediate Leadership Course (CIN H-7C-0104; register at least 5 wks in advance)' + fy26Sessions('ilc'),
+    ],
     recommended: [
-      'HCM — Healthcare Management Course (JMESI, virtual; for first-time clinical supervisors)',
-      'IESC — Intermediate Executive Skills Course (JMESI; contributes to 67A Executive Medicine AQD)',
+      'HCM — Healthcare Management Course (JMESI, virtual; for first-time clinical supervisors)' + fy26Sessions('hcm'),
+      'IESC — Intermediate Executive Skills Course (JMESI; contributes to 67A Executive Medicine AQD)' + fy26Sessions('iesc'),
       'JPME I — Fleet Seminar Program or Naval Command and Staff Online (apply Apr–May; required for 67B AQD)',
     ],
   },
   CDR: {
-    required: ['SLC — Senior Leadership Course (CIN H-7C-0107; prereq: ILC)'],
+    required: [
+      'SLC — Senior Leadership Course (CIN H-7C-0107; prereq: ILC)' + fy26Sessions('slc'),
+    ],
     recommended: [
-      'IESC if not yet complete (required for 67A AQD pathway)',
+      'IESC if not yet complete (required for 67A AQD pathway)' + fy26Sessions('iesc'),
       'NMQSLA — Navy Medicine Quality, Safety & Leadership Academy (mandated for command/milestone billets per BUMEDINST 1410.1)',
-      'SLLC — Senior Leader Legal Course (for incoming COs/XOs; CIN S-5F-0011)',
+      'SLLC — Senior Leader Legal Course (for incoming COs/XOs; CIN S-5F-0011)' + fy26Sessions('sllc'),
       'MedXellence — 40-hr CE at USU Bethesda (self-nominate; rising MHS executives)',
     ],
   },
   CAPT: {
-    required: ["Capstone for MHS Leaders (Corps Chief's Office nomination only; 7 seats/class; contributes to 67A AQD)"],
+    required: [
+      "Capstone for MHS Leaders (Corps Chief's Office nomination only; 7 seats/class; contributes to 67A AQD)" + fy26Sessions('capstone'),
+    ],
     recommended: [
       'NMQSLA if not yet complete',
       'NSLS — Navy Senior Leadership Seminar (2 total Navy Med seats; nomination via MC Career Planner)',
-      'IAIFHL — Interagency Institute for Federal Health Leaders (nomination required; 2 weeks in DC; 11 Navy Med seats across all Corps)',
+      'IAIFHL — Interagency Institute for Federal Health Leaders (nomination required; 2 weeks in DC; 11 Navy Med seats across all Corps)' + fy26Sessions('iaifhl'),
     ],
   },
 };

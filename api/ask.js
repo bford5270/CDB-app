@@ -345,16 +345,36 @@ export default async function handler(req, res) {
         console.warn('Response truncated at max_tokens — JSON may be incomplete');
       }
 
-      // Strip code fences, then find outermost { } to handle preamble/postamble text
+      // Strip code fences, then extract the outermost JSON object using brace-matching.
+      // lastIndexOf('}') is unsafe: if Claude adds text after the JSON (even another {}),
+      // it returns the wrong position and breaks JSON.parse.
       let jsonText = rawText
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
-      const firstBrace = jsonText.indexOf('{');
-      const lastBrace = jsonText.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+
+      // Walk the string tracking depth and string state to find the true closing brace.
+      function extractJsonObject(text) {
+        const start = text.indexOf('{');
+        if (start === -1) return null;
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+        for (let i = start; i < text.length; i++) {
+          const ch = text[i];
+          if (escaped) { escaped = false; continue; }
+          if (ch === '\\' && inString) { escaped = true; continue; }
+          if (ch === '"') { inString = !inString; continue; }
+          if (!inString) {
+            if (ch === '{') depth++;
+            else if (ch === '}' && --depth === 0) return text.substring(start, i + 1);
+          }
+        }
+        return null;
       }
+
+      const extracted = extractJsonObject(jsonText);
+      if (extracted) jsonText = extracted;
 
       try {
         const parsed = validateParsed(JSON.parse(jsonText));

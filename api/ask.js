@@ -237,6 +237,7 @@ export default async function handler(req, res) {
         '  Executive/Admin: 67A (Executive Medicine), 67B (Expeditionary Medicine), 67G (Managed Care Coordinator)',
         '  Academic/Faculty: 6ZA (Instructor), 6ZB (Assistant Professor), 6ZC (Associate Professor), 6ZD (Full Professor), 6ZE (Medical Ethicist), 6ZF (Researcher), 6ZG (Residency Program Director)',
         '  Graduate Education: 68I (Health Care Management Masters Degree)',
+        '  Faculty/Milestone: 62D (Faculty Development Fellowship), 680 (Milestone Eligible)',
         '  Surgical subspecialties: 6BG, 6BH, 6BI, 6BJ, 6BK, 6BL (Anesthesia), 6CD-6CM (Surgery), 6DD-6DG (Neurology/Neurosurgery)',
         '  OB/GYN: 6EF-6EK, Ophthalmology: 6GA-6GK, Ortho: 6HD-6HL, ENT: 6ID-6II, Urology: 6JD-6JI',
         '  Pathology: 6MA-6MM, Dermatology: 6ND-6NH, Neurology: 6TD/6TF/6TG, Pediatrics: 6VF-6VW, Psychiatry: 6XD-6XN, Radiology: 6YD-6YK',

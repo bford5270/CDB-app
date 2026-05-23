@@ -181,6 +181,9 @@ const AQD_TITLES: Record<string, string> = {
   '6ZG': 'Residency Program Director',
   // Graduate education
   '68I': 'Health Care Management Master\'s Degree',
+  // Faculty / milestone
+  '62D': 'Faculty Development Fellowship',
+  '680': 'Milestone Eligible',
 };
 
 const PROMO_REC_LABELS: Record<string, string> = {

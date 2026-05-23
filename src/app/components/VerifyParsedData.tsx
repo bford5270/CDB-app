@@ -165,14 +165,12 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
       className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
     >
       <div className="flex items-center gap-3">
-        <Icon className={`w-5 h-5 ${
-          status === 'complete' ? 'text-green-600' :
-          status === 'warning' ? 'text-yellow-600' :
-          'text-gray-400'
-        }`} />
+        <Icon className="w-5 h-5" style={{
+          color: status === 'complete' ? '#16A34A' : status === 'warning' ? '#D97706' : '#9CA3AF'
+        }} />
         <span className="font-semibold text-gray-900">{title}</span>
-        {status === 'complete' && <CheckCircle className="w-4 h-4 text-green-500" />}
-        {status === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+        {status === 'complete' && <CheckCircle className="w-4 h-4" style={{ color: '#16A34A' }} />}
+        {status === 'warning' && <AlertTriangle className="w-4 h-4" style={{ color: '#D97706' }} />}
       </div>
       {expandedSections[section] ? (
         <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -193,14 +191,15 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
 
       {/* Warnings */}
       {data.warnings.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="rounded-lg p-4"
+          style={{ background: 'rgba(255,199,44,0.08)', border: '1px solid rgba(255,199,44,0.4)' }}>
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 mt-0.5" style={{ color: '#D97706' }} />
             <div>
-              <h3 className="font-semibold text-yellow-800">Parsing Notes</h3>
+              <h3 className="font-semibold" style={{ color: '#1B365D' }}>Parsing Notes</h3>
               <ul className="mt-2 space-y-1">
                 {data.warnings.map((warning, i) => (
-                  <li key={i} className="text-sm text-yellow-700">• {warning}</li>
+                  <li key={i} className="text-sm" style={{ color: '#92620A' }}>• {warning}</li>
                 ))}
               </ul>
             </div>
@@ -224,7 +223,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 <select
                   value={data.currentRank}
                   onChange={(e) => updateField('currentRank', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 >
                   <option value="">Select Rank</option>
                   {RANK_OPTIONS.map(rank => (
@@ -237,7 +236,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 <select
                   value={data.designator}
                   onChange={(e) => updateField('designator', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 >
                   {DESIGNATOR_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -279,7 +278,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 <select
                   value={data.clearanceLevel}
                   onChange={(e) => updateField('clearanceLevel', e.target.value as ParsedOfficerData['clearanceLevel'])}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 >
                   <option value="">Not Specified</option>
                   <option value="Secret">Secret</option>
@@ -293,12 +292,12 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   type="date"
                   value={data.clearanceDate}
                   onChange={(e) => updateField('clearanceDate', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
             </div>
             {!data.clearanceLevel && (
-              <p className="mt-2 text-sm text-yellow-600">
+              <p className="mt-2 text-sm" style={{ color: '#D97706' }}>
                 ⚠️ Clearance level not detected. Some senior billets require Top Secret clearance.
               </p>
             )}
@@ -328,7 +327,8 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                       updateField('boardCertified', true);
                       updateField('certificationCode', 'K');
                     }}
-                    className="w-4 h-4 text-blue-600"
+                    className="w-4 h-4"
+                    style={{ accentColor: '#1B365D' }}
                   />
                   <span className="text-sm">
                     <span className="font-medium">K Code</span> - Board Certified
@@ -343,7 +343,8 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                       updateField('boardCertified', false);
                       updateField('certificationCode', 'J');
                     }}
-                    className="w-4 h-4 text-blue-600"
+                    className="w-4 h-4"
+                    style={{ accentColor: '#1B365D' }}
                   />
                   <span className="text-sm">
                     <span className="font-medium">J Code</span> - Board Eligible
@@ -381,17 +382,17 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
               {COMMON_AQDS.map(aqd => (
                 <label
                   key={aqd.code}
-                  className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                    data.aqds.includes(aqd.code)
-                      ? 'bg-blue-50 border-blue-300'
-                      : 'bg-white border-gray-200 hover:bg-gray-50'
-                  }`}
+                  className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors"
+                  style={data.aqds.includes(aqd.code)
+                    ? { background: 'rgba(27,54,93,0.06)', border: '1px solid rgba(27,54,93,0.25)' }
+                    : { background: '#fff', border: '1px solid #E2E8F0' }}
                 >
                   <input
                     type="checkbox"
                     checked={data.aqds.includes(aqd.code)}
                     onChange={() => toggleAQD(aqd.code)}
-                    className="w-4 h-4 text-blue-600 rounded"
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: '#1B365D' }}
                   />
                   <div>
                     <span className="font-medium text-sm">{aqd.code}</span>
@@ -401,7 +402,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
               ))}
             </div>
             {data.aqds.length === 0 && (
-              <p className="mt-3 text-sm text-yellow-600">
+              <p className="mt-3 text-sm" style={{ color: '#D97706' }}>
                 ⚠️ No AQDs detected. Warfare qualifications (FMF, SW, etc.) strengthen operational credibility.
               </p>
             )}
@@ -430,7 +431,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   value={data.fitrepAverage || ''}
                   onChange={(e) => updateField('fitrepAverage', parseFloat(e.target.value) || 0)}
                   placeholder="e.g., 4.85"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
               <div>
@@ -440,7 +441,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   min="0"
                   value={data.fitrepCount || ''}
                   onChange={(e) => updateField('fitrepCount', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
               <div>
@@ -450,7 +451,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   min="0"
                   value={data.earlyPromotes || ''}
                   onChange={(e) => updateField('earlyPromotes', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
               <div>
@@ -460,24 +461,24 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   min="0"
                   value={data.mustPromotes || ''}
                   onChange={(e) => updateField('mustPromotes', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
             </div>
             {data.fitrepAverage > 0 && (
-              <div className={`mt-4 p-3 rounded-lg ${
-                data.fitrepAverage >= 4.5 ? 'bg-green-50' : 
-                data.fitrepAverage >= 4.0 ? 'bg-yellow-50' : 'bg-red-50'
-              }`}>
-                <p className={`text-sm ${
-                  data.fitrepAverage >= 4.5 ? 'text-green-800' : 
-                  data.fitrepAverage >= 4.0 ? 'text-yellow-800' : 'text-red-800'
-                }`}>
-                  {data.fitrepAverage >= 4.5 
-                    ? '✓ Strong trait average - competitive for promotion.'
-                    : data.fitrepAverage >= 4.0 
-                    ? '⚠️ Solid trait average - consider ways to strengthen record.'
-                    : '⚠️ Below typical competitive range - discuss with mentor.'}
+              <div className="mt-4 p-3 rounded-lg" style={
+                data.fitrepAverage >= 4.5 ? { background: '#F0FDF4', border: '1px solid #BBF7D0' } :
+                data.fitrepAverage >= 4.0 ? { background: 'rgba(255,199,44,0.08)', border: '1px solid rgba(255,199,44,0.4)' } :
+                { background: '#FEF2F2', border: '1px solid #FECACA' }
+              }>
+                <p className="text-sm" style={{
+                  color: data.fitrepAverage >= 4.5 ? '#166534' : data.fitrepAverage >= 4.0 ? '#92620A' : '#991B1B'
+                }}>
+                  {data.fitrepAverage >= 4.5
+                    ? '✓ Strong trait average — competitive for promotion.'
+                    : data.fitrepAverage >= 4.0
+                    ? '⚠️ Solid trait average — consider ways to strengthen record.'
+                    : '⚠️ Below typical competitive range — discuss with mentor.'}
                 </p>
               </div>
             )}
@@ -502,7 +503,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 value={data.currentBillet}
                 onChange={(e) => updateField('currentBillet', e.target.value)}
                 placeholder="e.g., Department Head, Family Medicine"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
               />
             </div>
 
@@ -514,7 +515,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   min="0"
                   value={data.deployments}
                   onChange={(e) => updateField('deployments', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
               <div>
@@ -524,7 +525,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                   min="0"
                   value={data.operationalTours}
                   onChange={(e) => updateField('operationalTours', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
                 />
               </div>
             </div>
@@ -573,7 +574,8 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
         <button
           onClick={() => onDataConfirmed(data)}
           disabled={!canProceed}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="px-6 py-3 text-white rounded-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          style={{ background: canProceed ? '#1B365D' : undefined }}
         >
           Continue to Analysis
           <CheckCircle className="w-5 h-5" />

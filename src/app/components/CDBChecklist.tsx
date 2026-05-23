@@ -93,11 +93,14 @@ interface Section {
   items: CheckItem[];
 }
 
+const NAVY = '#1B365D';
+const GOLD = '#FFC72C';
+
 function StatusIcon({ status }: { status: Status }) {
-  if (status === 'good') return <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />;
-  if (status === 'warning') return <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />;
-  if (status === 'issue') return <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />;
-  return <HelpCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />;
+  if (status === 'good') return <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#16A34A' }} />;
+  if (status === 'warning') return <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#D97706' }} />;
+  if (status === 'issue') return <XCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#DC2626' }} />;
+  return <HelpCircle className="w-5 h-5 flex-shrink-0" style={{ color: NAVY, opacity: 0.45 }} />;
 }
 
 function sectionStatus(items: CheckItem[]): Status {
@@ -480,7 +483,8 @@ export function CDBChecklist({ officerData }: { officerData: ParsedOfficerData }
             </span>
           )}
           {warnCount > 0 && (
-            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold"
+              style={{ background: `rgba(255,199,44,0.18)`, color: NAVY }}>
               {warnCount} warning{warnCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -501,8 +505,8 @@ export function CDBChecklist({ officerData }: { officerData: ParsedOfficerData }
               className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
-                <Icon className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <span className="text-xs font-semibold text-blue-500 uppercase tracking-wide">{section.stepLabel}</span>
+                <Icon className="w-5 h-5 flex-shrink-0" style={{ color: NAVY }} />
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: NAVY, opacity: 0.55 }}>{section.stepLabel}</span>
                 <span className="font-semibold text-gray-900">{section.title}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -521,8 +525,9 @@ export function CDBChecklist({ officerData }: { officerData: ParsedOfficerData }
                         <p className="font-medium text-sm text-gray-900">{item.label}</p>
                         <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{item.detail}</p>
                         {item.action && (
-                          <div className="mt-2 rounded bg-blue-50 border border-blue-100 px-3 py-2">
-                            <p className="text-xs text-blue-800 leading-relaxed">{item.action}</p>
+                          <div className="mt-2 rounded px-3 py-2"
+                            style={{ background: 'rgba(27,54,93,0.05)', border: '1px solid rgba(27,54,93,0.12)' }}>
+                            <p className="text-xs leading-relaxed" style={{ color: NAVY }}>{item.action}</p>
                           </div>
                         )}
                       </div>
@@ -536,12 +541,13 @@ export function CDBChecklist({ officerData }: { officerData: ParsedOfficerData }
       })}
 
       {officerData.warnings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-sm font-semibold text-amber-800 mb-2">Parser-flagged warnings</p>
+        <div className="rounded-lg p-4"
+          style={{ background: `rgba(255,199,44,0.08)`, border: `1px solid rgba(255,199,44,0.4)` }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: NAVY }}>Parser-flagged warnings</p>
           <ul className="space-y-1">
             {officerData.warnings.map((w, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-amber-700">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#92620A' }}>
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
                 {w}
               </li>
             ))}

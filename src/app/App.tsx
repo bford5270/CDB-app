@@ -340,25 +340,52 @@ export default function App() {
         >
 
           {/* ── Dark metric strip (step 3) ── */}
-          {step === 3 && confirmedData && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: '#1B365D' }}>
-              {[
-                { val: confirmedData.fitrepCount || 0, label: 'FITREPs', color: '#E8ECF3' },
-                { val: epMpRate !== null ? `${epMpRate}%` : '—', label: 'EP + MP Rate', color: '#E8ECF3' },
-                { val: confirmedData.earlyPromotes || 0, label: 'Early Promotes', color: '#FFC72C' },
-                { val: confirmedData.fitrepAverage ? confirmedData.fitrepAverage.toFixed(2) : '—', label: 'Trait Avg', color: '#E8ECF3' },
-              ].map(({ val, label, color }) => (
-                <div key={label} className="px-5 py-5" style={{ background: '#122745', borderLeft: '3px solid #FFC72C' }}>
-                  <div style={{ fontSize: 28, fontWeight: 500, color, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
-                    {val}
+          {step === 3 && confirmedData && (() => {
+            const docsUploaded = [documents.odc, documents.osr, documents.psr].filter(d => d?.status === 'success').length;
+            const boardReadiness = (() => {
+              const code = confirmedData.certificationCode;
+              if (code === 'K') return { text: 'Strong', color: '#4ADE80' };
+              if (code === 'J') return { text: 'Competitive', color: '#FFC72C' };
+              if (code === 'T') return { text: 'In Training', color: '#94A3B8' };
+              return { text: '—', color: '#94A3B8' };
+            })();
+            const metrics = [
+              {
+                sublabel: 'DOCUMENTS UPLOADED',
+                val: String(docsUploaded),
+                valColor: '#E8ECF3',
+              },
+              {
+                sublabel: `FITREPS${epMpRate !== null ? ` · ${epMpRate}% EP+MP` : ''}`,
+                val: String(confirmedData.fitrepCount || 0),
+                valColor: '#E8ECF3',
+              },
+              {
+                sublabel: 'EARLY PROMOTES',
+                val: String(confirmedData.earlyPromotes || 0),
+                valColor: '#FFC72C',
+              },
+              {
+                sublabel: 'BOARD READINESS',
+                val: boardReadiness.text,
+                valColor: boardReadiness.color,
+              },
+            ];
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: '#1B365D' }}>
+                {metrics.map(({ sublabel, val, valColor }) => (
+                  <div key={sublabel} className="px-5 py-4" style={{ background: '#122745', borderLeft: '3px solid #FFC72C' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,199,44,0.7)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 6 }}>
+                      {sublabel}
+                    </div>
+                    <div style={{ fontSize: 26, fontWeight: 500, color: valColor, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+                      {val}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 500 }}>
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
 
           {/* ── Step 1a: Upload (hero + form) ── */}
           {step === 1 && !showParser && (

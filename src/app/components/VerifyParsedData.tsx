@@ -5,23 +5,34 @@ import { CheckCircle, AlertTriangle, Edit2, Save, X, ChevronDown, ChevronUp, Shi
 import type { RankDate } from './RankHistoryForm';
 
 // Types
+export interface FitrepEntry {
+  payGrade?: string;
+  station?: string;
+  startDate: string;
+  endDate: string;
+  individualAverage?: number;
+  rsAverage?: number;
+  promotionRec?: string;
+  reportType?: string;
+}
+
 export interface ParsedOfficerData {
   // From ODC/OSR parsing
   name?: string;
   rankHistory: RankDate[];
   currentRank: string;
-  
+
   // From OSR
   clearanceLevel: 'Secret' | 'Top Secret' | 'None' | '';
   clearanceDate: string;
-  
+
   // From ODC - Board Certification
   boardCertified: boolean | null;
-  certificationCode: 'J' | 'K' | null; // J = Board Certified, K = Not Board Certified
-  
+  certificationCode: 'J' | 'K' | null; // K = Board Certified, J = Board Eligible
+
   // From ODC - AQDs
   aqds: string[];
-  
+
   // From PSR
   fitrepAverage: number;
   rscaAverage?: number;
@@ -29,11 +40,14 @@ export interface ParsedOfficerData {
   earlyPromotes: number;
   mustPromotes: number;
   promotables: number;
-  
+  fitreps?: FitrepEntry[];
+  psrTrend?: string;
+  psrIssues?: string[];
+
   // Education (parsed)
   hasUndergrad: boolean;
   hasMedicalSchool: boolean;
-  
+
   // Manual entry required
   designator: string;
   currentBillet: string;
@@ -42,7 +56,7 @@ export interface ParsedOfficerData {
   jointDuty: boolean;
   commandTour: boolean;
   jpmeComplete: boolean;
-  
+
   // Warnings from parsing
   warnings: string[];
 }
@@ -76,14 +90,21 @@ const DESIGNATOR_OPTIONS = [
 ];
 
 const COMMON_AQDS = [
-  { code: 'FMF', name: 'Fleet Marine Force' },
-  { code: 'SW', name: 'Surface Warfare' },
-  { code: 'AW', name: 'Aviation Warfare' },
-  { code: 'SS', name: 'Submarine Warfare' },
-  { code: 'EXW', name: 'Expeditionary Warfare' },
+  { code: 'LA7', name: 'Surface Warfare (SWMDO)' },
+  { code: 'BX2', name: 'FMF Warfare (FMFWO)' },
+  { code: 'AW5', name: 'Aviation Warfare' },
+  { code: 'JS7', name: 'JPME Phase I' },
+  { code: 'JS8', name: 'JPME Phase II' },
   { code: '67A', name: 'Executive Medicine' },
   { code: '67B', name: 'Expeditionary Medicine' },
   { code: '67G', name: 'Managed Care' },
+  { code: '6FA', name: 'FMF Medical Officer' },
+  { code: '6FD', name: 'Surface Experienced' },
+  { code: '6OW', name: 'Trauma Team Trained' },
+  { code: '6ZG', name: 'Residency Program Dir.' },
+  { code: '68I', name: 'HCM Master\'s Degree' },
+  { code: '62D', name: 'Faculty Dev. Fellowship' },
+  { code: '680', name: 'Milestone Eligible' },
 ];
 
 export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: VerifyParsedDataProps) {
@@ -414,9 +435,33 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
                 </label>
               ))}
             </div>
+            {/* Detected AQDs not in the checkbox list */}
+            {(() => {
+              const commonCodes = new Set(COMMON_AQDS.map(a => a.code));
+              const extras = data.aqds.filter(c => !commonCodes.has(c));
+              if (extras.length === 0) return null;
+              return (
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E2E8F0' }}>
+                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Detected from documents</p>
+                  <div className="flex flex-wrap gap-2">
+                    {extras.map(code => (
+                      <label key={code} className="flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer text-xs"
+                        style={data.aqds.includes(code)
+                          ? { background: 'rgba(27,54,93,0.06)', border: '1px solid rgba(27,54,93,0.25)', color: '#1B365D' }
+                          : { background: '#fff', border: '1px solid #E2E8F0', color: '#64748B' }}>
+                        <input type="checkbox" checked={data.aqds.includes(code)}
+                          onChange={() => toggleAQD(code)} className="w-3.5 h-3.5"
+                          style={{ accentColor: '#1B365D' }} />
+                        <span className="font-semibold">{code}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             {data.aqds.length === 0 && (
               <p className="mt-3 text-sm" style={{ color: '#D97706' }}>
-                ⚠️ No AQDs detected. Warfare qualifications (FMF, SW, etc.) strengthen operational credibility.
+                ⚠️ No AQDs detected. Upload ODC with a populated Block 72.
               </p>
             )}
           </div>

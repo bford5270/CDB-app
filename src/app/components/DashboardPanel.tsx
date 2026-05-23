@@ -205,34 +205,30 @@ function FitrepPanel({ data }: { data: ParsedOfficerData }) {
     <div className="bg-white p-5">
       <div className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-4">FITREP trajectory</div>
 
-      {/* Trait avg bar */}
+      {/* RSCA bar — first per mockup */}
       <div className="mb-2">
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs text-gray-500 w-20 flex-shrink-0">Trait avg</span>
+          <span className="text-xs text-gray-500 w-20 flex-shrink-0">RSCA</span>
           <div className="flex-1 h-2 bg-gray-100 rounded-sm relative overflow-visible">
-            <div className="h-full rounded-sm" style={{ width: `${traitPct}%`, background: NAVY }} />
+            <div className="h-full rounded-sm" style={{ width: `${rscaPct}%`, background: NAVY }} />
             <div className="absolute top-[-3px] w-0.5 h-[14px] rounded-sm" style={{ left: `${peerTick}%`, background: GOLD }} />
           </div>
           <span className="text-xs font-medium w-9 text-right" style={{ color: NAVY }}>
-            {data.fitrepAverage ? data.fitrepAverage.toFixed(2) : '—'}
+            {data.rscaAverage ? data.rscaAverage.toFixed(2) : '—'}
           </span>
         </div>
       </div>
 
-      {/* RSCA bar */}
+      {/* Trait avg bar — second */}
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs text-gray-500 w-20 flex-shrink-0">RSCA</span>
+          <span className="text-xs text-gray-500 w-20 flex-shrink-0">Trait avg</span>
           <div className="flex-1 h-2 bg-gray-100 rounded-sm relative overflow-visible">
-            {data.rscaAverage ? (
-              <div className="h-full rounded-sm" style={{ width: `${rscaPct}%`, background: '#94A3B8' }} />
-            ) : (
-              <div className="h-full rounded-sm" style={{ width: '0%', background: '#94A3B8' }} />
-            )}
+            <div className="h-full rounded-sm" style={{ width: `${traitPct}%`, background: '#94A3B8' }} />
             <div className="absolute top-[-3px] w-0.5 h-[14px] rounded-sm" style={{ left: `${peerTick}%`, background: GOLD }} />
           </div>
           <span className="text-xs font-medium w-9 text-right text-gray-500">
-            {data.rscaAverage ? data.rscaAverage.toFixed(2) : '—'}
+            {data.fitrepAverage ? data.fitrepAverage.toFixed(2) : '—'}
           </span>
         </div>
       </div>
@@ -282,6 +278,115 @@ function FitrepPanel({ data }: { data: ParsedOfficerData }) {
 
       {total === 0 && (
         <p className="text-xs text-gray-400">No FITREP data parsed — upload PSR to populate</p>
+      )}
+    </div>
+  );
+}
+
+function FitrepCoverageTimeline({ data }: { data: ParsedOfficerData }) {
+  const NAVY = '#1B365D';
+  const GOLD = '#FFC72C';
+
+  const fitreps = (data.fitreps || []).filter(
+    f => f.startDate && f.endDate && f.reportType !== 'NOB'
+  );
+  if (fitreps.length === 0) return null;
+
+  const parseDate = (s: string) => new Date(s).getTime();
+  const sorted = [...fitreps].sort((a, b) => parseDate(a.startDate) - parseDate(b.startDate));
+
+  const earliest = parseDate(sorted[0].startDate);
+  const latest = parseDate(sorted[sorted.length - 1].endDate);
+  const totalMs = Math.max(latest - earliest, 1);
+
+  const toLabel = (ts: number) => {
+    const d = new Date(ts);
+    return `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+  };
+
+  const recColor = (rec: string) => {
+    if (rec === 'EP') return NAVY;
+    if (rec === 'MP') return '#64748B';
+    if (rec === 'P')  return '#CBD5E1';
+    return '#FCA5A5';
+  };
+
+  // Find gaps > 45 days between consecutive FITREPs
+  const gaps: { start: number; end: number }[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const gapStart = parseDate(sorted[i - 1].endDate);
+    const gapEnd   = parseDate(sorted[i].startDate);
+    if (gapEnd - gapStart > 45 * 24 * 60 * 60 * 1000) {
+      gaps.push({ start: gapStart, end: gapEnd });
+    }
+  }
+
+  return (
+    <div className="bg-white p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-medium uppercase tracking-wider text-gray-500">FITREP coverage</div>
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 10, background: NAVY, borderRadius: 2 }}></span>EP</span>
+          <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 10, background: '#64748B', borderRadius: 2 }}></span>MP</span>
+          <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 10, background: '#CBD5E1', borderRadius: 2 }}></span>P</span>
+          {gaps.length > 0 && <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 10, background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 2 }}></span>Gap</span>}
+        </div>
+      </div>
+
+      {/* Timeline track */}
+      <div className="relative" style={{ height: 28 }}>
+        <div className="absolute inset-0 rounded" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }} />
+
+        {/* FITREP blocks */}
+        {sorted.map((f, i) => {
+          const left = ((parseDate(f.startDate) - earliest) / totalMs) * 100;
+          const width = Math.max(((parseDate(f.endDate) - parseDate(f.startDate)) / totalMs) * 100, 0.5);
+          return (
+            <div
+              key={i}
+              title={`${f.promotionRec || '?'} · ${f.station || ''} · ${f.startDate} – ${f.endDate}`}
+              className="absolute top-0 bottom-0 rounded-sm"
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                background: recColor(f.promotionRec || ''),
+                opacity: 0.85,
+                cursor: 'default',
+              }}
+            />
+          );
+        })}
+
+        {/* Gap markers */}
+        {gaps.map((g, i) => {
+          const left = ((g.start - earliest) / totalMs) * 100;
+          const width = Math.max(((g.end - g.start) / totalMs) * 100, 0.5);
+          return (
+            <div
+              key={`gap-${i}`}
+              title={`Coverage gap: ${toLabel(g.start)} – ${toLabel(g.end)}`}
+              className="absolute top-0 bottom-0"
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                background: 'rgba(252,211,77,0.45)',
+                border: '1px solid #FCD34D',
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Year labels */}
+      <div className="flex justify-between mt-1" style={{ fontSize: 9, color: '#94A3B8' }}>
+        <span>{toLabel(earliest)}</span>
+        <span>{toLabel(latest)}</span>
+      </div>
+
+      {gaps.length > 0 && (
+        <p className="mt-2 text-xs" style={{ color: '#D97706' }}>
+          ⚠ {gaps.length} coverage gap{gaps.length > 1 ? 's' : ''} detected — board members may ask about uncovered periods.
+        </p>
       )}
     </div>
   );
@@ -408,10 +513,13 @@ export function DashboardPanel({ officerData, docStatus, docMeta, onSectionClick
         <FitrepPanel data={officerData} />
       </div>
 
-      {/* Row 2: Career milestones */}
+      {/* Row 2: FITREP coverage timeline */}
+      <FitrepCoverageTimeline data={officerData} />
+
+      {/* Row 3: Career milestones */}
       <MilestonesTimeline data={officerData} />
 
-      {/* Row 3: Recommended actions */}
+      {/* Row 4: Recommended actions */}
       <RecommendedActionsPanel data={officerData} onSectionClick={onSectionClick} />
     </div>
   );

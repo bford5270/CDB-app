@@ -75,6 +75,8 @@ export default function App() {
     earlyPromotes?: number;
     mustPromotes?: number;
     promotables?: number;
+    fitreps?: import('./components/VerifyParsedData').FitrepEntry[];
+    psrTrend?: string;
   }) => {
     let currentRank = '';
     if (data.rankHistory.length > 0) {
@@ -111,6 +113,8 @@ export default function App() {
       earlyPromotes: data.earlyPromotes || 0,
       mustPromotes: data.mustPromotes || 0,
       promotables: data.promotables || 0,
+      fitreps: data.fitreps || [],
+      psrTrend: data.psrTrend,
       hasUndergrad: data.hasUndergrad,
       hasMedicalSchool: data.hasMedicalSchool,
       warnings: [...data.warnings, ...data.psrIssues],
@@ -341,47 +345,52 @@ export default function App() {
           }}
         >
 
-          {/* ── Dark metric strip (step 3) ── */}
+          {/* ── Metric grid (step 3) ── */}
           {step === 3 && confirmedData && (() => {
             const docsUploaded = [documents.odc, documents.osr, documents.psr].filter(d => d?.status === 'success').length;
             const boardReadiness = (() => {
               const code = confirmedData.certificationCode;
-              if (code === 'K') return { text: 'Strong', color: '#4ADE80' };
-              if (code === 'J') return { text: 'Competitive', color: '#FFC72C' };
-              if (code === 'T') return { text: 'In Training', color: '#94A3B8' };
-              return { text: '—', color: '#94A3B8' };
+              if (code === 'K') return { text: 'Strong', valColor: '#16A34A', subColor: '#86EFAC' };
+              if (code === 'J') return { text: 'Competitive', valColor: '#1B365D', subColor: '#94A3B8' };
+              if (code === 'T') return { text: 'In Training', valColor: '#94A3B8', subColor: '#94A3B8' };
+              return { text: '—', valColor: '#94A3B8', subColor: '#94A3B8' };
             })();
             const metrics = [
               {
-                sublabel: 'DOCUMENTS UPLOADED',
+                col: 'DOCUMENTS',
                 val: String(docsUploaded),
-                valColor: '#E8ECF3',
+                sub: ['ODC', 'OSR', 'PSR'].filter((_, i) => [documents.odc, documents.osr, documents.psr][i]?.status === 'success').join(', ') || 'None uploaded',
+                valColor: '#1B365D',
               },
               {
-                sublabel: `FITREPS${epMpRate !== null ? ` · ${epMpRate}% EP+MP` : ''}`,
+                col: 'FITREPS',
                 val: String(confirmedData.fitrepCount || 0),
-                valColor: '#E8ECF3',
+                sub: epMpRate !== null ? `${epMpRate}% EP+MP` : 'No data',
+                valColor: '#1B365D',
               },
               {
-                sublabel: 'EARLY PROMOTES',
+                col: 'TOP BLOCKS',
                 val: String(confirmedData.earlyPromotes || 0),
+                sub: confirmedData.fitrepCount ? `${Math.round((confirmedData.earlyPromotes || 0) / confirmedData.fitrepCount * 100)}% EP rate` : 'No data',
                 valColor: '#FFC72C',
               },
               {
-                sublabel: 'BOARD READINESS',
+                col: 'BOARD READINESS',
                 val: boardReadiness.text,
-                valColor: boardReadiness.color,
+                sub: confirmedData.certificationCode === 'K' ? 'No critical gaps' : confirmedData.certificationCode === 'J' ? 'Board eligible' : 'See checklist',
+                valColor: boardReadiness.valColor,
               },
             ];
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: '#1B365D' }}>
-                {metrics.map(({ sublabel, val, valColor }) => (
-                  <div key={sublabel} className="px-5 py-4" style={{ background: '#122745', borderLeft: '3px solid #FFC72C' }}>
-                    <div style={{ fontSize: 10, color: 'rgba(255,199,44,0.7)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 6 }}>
-                      {sublabel}
-                    </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: '#E2E8F0' }}>
+                {metrics.map(({ col, val, sub, valColor }) => (
+                  <div key={col} className="px-5 py-4" style={{ background: '#fff' }}>
                     <div style={{ fontSize: 26, fontWeight: 500, color: valColor, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
                       {val}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 3 }}>{sub}</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                      {col}
                     </div>
                   </div>
                 ))}

@@ -43,6 +43,23 @@ function buildCoursesKnowledge() {
 
 const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
 
+function buildAQDReference() {
+  try {
+    const raw = readFileSync(join(process.cwd(), 'public', 'aqd-master-list.json'), 'utf8');
+    const d = JSON.parse(raw);
+    const lines = ['=== MASTER AQD REFERENCE LIST ==='];
+    for (const [code, name] of Object.entries(d.aqds)) {
+      lines.push(`  ${code}: ${name}`);
+    }
+    return lines.join('\n');
+  } catch (e) {
+    console.warn('Could not load AQD master list:', e.message);
+    return '';
+  }
+}
+
+const AQD_REFERENCE = buildAQDReference();
+
 // Strip OCR garbage before sending to Claude.
 // PSR PDFs especially produce lines that are >60% box-drawing characters.
 function cleanDocumentText(text, docType) {
@@ -223,31 +240,9 @@ export default async function handler(req, res) {
         '  - Rank abbreviations (LT, LCDR, CDR, ENS, LTJG), report types (RG, CC, AT, TR), and station codes are NOT AQDs',
         '  - Designator codes (2100, 2300, etc.) are NOT AQDs',
         '  - Specialty codes like "16Q0K" are board certification codes, NOT AQDs',
-        'VALID Medical Corps AQD codes (from NOOCS Manual Vol 1 Part D — Health Care Services 6-series):',
-        '  Aviation medicine: 6AA (Aviation Medical Examiner), 6AB (General Flight Surgeon), 6AC (Naval Aviator/NFO Aeromedical), 6AE (Naval Aviator/Pilot Aeromedical), 6AG (Aerospace Medicine/Preventive Med)',
-        '  Field/Operational (FMF/Surface): 6FA (Marine Corps Medical Dept Officer/FMF), 6FC (FMF Medical Logistics), 6FD (Surface Experienced Medical Officer), 6FE (Senior Marine Corps Medical Officer)',
-        '  Contingency/Operational: 6OB (Shipboard Assignment), 6OC (Hospital Ship Assignment), 6OE (En-route Care/CCATT), 6OF (Forward Deployable Preventive Med Unit)',
-        '  Contingency cont: 6OH (Humanitarian Assistance/Disaster Relief), 6OI (Professional Filler System), 6OJ (Associate Medical Officer), 6ON (Medical Regulator)',
-        '  Contingency cont: 6OR (CATF/CLF Surgeon), 6OS (SERE Certified Medical Officer), 6OT (C4 Trained Plus), 6OU (Fleet Hospital Assignment), 6OW (Trauma Team Trained Officer)',
-        '  Emergency Medicine: 6PD (Emergency Medicine General), 6PE (Emergency Medicine Subspecialty), 6PF (Pediatric Emergency Medicine), 6PG (Emergency Medicine Ultrasound), 6PH (Emergency Medicine Toxicology)',
-        '  Family Practice: 6QF (Family Practice with Obstetrics)',
-        '  Internal Medicine subspecialties: 6RF, 6RG, 6RH, 6RI, 6RK, 6RL, 6RM, 6RN, 6RO, 6RP, 6RQ, 6RR, 6RS, 6RT, 6RV, 6RW',
-        '  Undersea/Dive Medicine: 6UD (Diver Medical Officer), 6UE (Undersea Medicine), 6UF, 6UG, 6UM',
-        '  Preventive/Occupational Medicine: 6KE, 6KL, 6KM',
-        '  Executive/Admin: 67A (Executive Medicine), 67B (Expeditionary Medicine), 67G (Managed Care Coordinator)',
-        '  Academic/Faculty: 6ZA (Instructor), 6ZB (Assistant Professor), 6ZC (Associate Professor), 6ZD (Full Professor), 6ZE (Medical Ethicist), 6ZF (Researcher), 6ZG (Residency Program Director)',
-        '  Graduate Education: 68I (Health Care Management Masters Degree)',
-        '  Faculty/Milestone: 62D (Faculty Development Fellowship), 680 (Milestone Eligible)',
-        '  Surgical subspecialties: 6BG, 6BH, 6BI, 6BJ, 6BK, 6BL (Anesthesia), 6CD-6CM (Surgery), 6DD-6DG (Neurology/Neurosurgery)',
-        '  OB/GYN: 6EF-6EK, Ophthalmology: 6GA-6GK, Ortho: 6HD-6HL, ENT: 6ID-6II, Urology: 6JD-6JI',
-        '  Pathology: 6MA-6MM, Dermatology: 6ND-6NH, Neurology: 6TD/6TF/6TG, Pediatrics: 6VF-6VW, Psychiatry: 6XD-6XN, Radiology: 6YD-6YK',
-        'VALID non-Medical-Corps AQDs that MC officers may also hold (from Schofer Promo Prep, non-medical section):',
-        '  Warfare qualifications: LA7 (Surface Warfare Medical Dept Officer), BX2 (Fleet Marine Force Warfare Officer)',
-        '  Individual Augmentation — Intra-Service: U6O (Operations IA), U4M (Fleet/Division Staff Medical IA), U6M (Other Medical IA)',
-        '  Individual Augmentation — Interservice/Coalition: J3M (Combatant Cmdr Medical IA), J4M (Fleet/Div Staff Medical IA), J5M (Joint Task Force Medical IA), J6M (Other Medical IA)',
-        '  Special: BT1 (Static-Line Parachutist), QK1 (Naval Special Warfare Experience), DZQ (Joint Air Operations/Aviation Safety Officer)',
-        '  Joint/JPME: JS7 (JPME Phase I), JS8 (JPME Phase II)',
+        'Use the MASTER AQD REFERENCE LIST below to validate and name codes. If a code appears in the AQD section of the ODC but is not in the master list, include it anyway — do not silently drop it.',
         'If the document has no clear AQD section, return [].',
+        AQD_REFERENCE,
         '',
         '=== BOARD CERTIFICATION ===',
         'Look for a specialty code where the LAST character is K or J (e.g. "16Q0K" or "16Q0J").',
@@ -270,6 +265,15 @@ export default async function handler(req, res) {
         'From PSR: each FITREP has pay grade, from/to dates, station, reporting senior, 5 trait scores (1-5),',
         'individual average, RS cumulative average (the "R/S CUM" column — typically 3.5–4.5), RS count (# of officers',
         'at that pay grade the reporting senior has reported on), promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
+        '',
+        'PROMOTION RECOMMENDATION ENCODING — CRITICAL:',
+        'Each FITREP row encodes the promotion recommendation as five side-by-side columns in this fixed order: EP | MP | P | PR | SP.',
+        'Exactly ONE column contains an "X" (or "x"); the remaining four contain "0" (or "O", "o" — OCR variants of zero).',
+        'The column that has the X is the actual promotion recommendation.',
+        'Column mapping: column 1 = EP, column 2 = MP, column 3 = P, column 4 = PR, column 5 = SP.',
+        'Example: "0 X 0 0 0" → MP.  "X 0 0 0 0" → EP.  "0 0 X 0 0" → P.  "0 0 0 X 0" → PR.  "0 0 0 0 X" → SP.',
+        'Do NOT default to P when the column is ambiguous — read the X position carefully.',
+        'NOB (Not Observed) reports have no X/0 pattern; identify them by the report type column.',
         'rscaAverage: compute the simple average of all rsAverage values across graded FITREPs (exclude NOB reports).',
         '',
         'PSR ANALYSIS RULES:',

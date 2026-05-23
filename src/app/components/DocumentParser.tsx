@@ -84,6 +84,8 @@ interface DocumentParserProps {
     earlyPromotes?: number;
     mustPromotes?: number;
     promotables?: number;
+    fitreps?: Array<{ payGrade?: string; station?: string; startDate: string; endDate: string; individualAverage?: number; rsAverage?: number; promotionRec?: string; reportType?: string }>;
+    psrTrend?: string;
   }) => void;
   onSkip?: () => void;
   // Legacy props kept for compatibility
@@ -112,12 +114,16 @@ function confidenceBadge(level: 'high' | 'medium' | 'low') {
 
 
 const AQD_TITLES: Record<string, string> = {
-  // Warfare qualifications
-  LA7: 'Surface Warfare Medical Dept Officer',
-  BX2: 'Fleet Marine Force Warfare Officer',
-  // Joint / JPME
+  // Warfare / joint qualifications
+  LA7: 'Surface Warfare Medical Dept Officer (SWMDO)',
+  BX2: 'Fleet Marine Force Warfare Officer (FMFWO)',
+  AW5: 'Aviation Warfare Medical Dept Officer',
+  IW5: 'Information Warfare Medical Dept Officer',
+  SW5: 'Surface Warfare Medical Dept Officer (alt)',
   JS7: 'JPME Phase I',
   JS8: 'JPME Phase II',
+  JP1: 'Joint Qualified Officer (JQO)',
+  JP2: 'Joint Specialty Officer (JSO)',
   // Individual Augmentation
   U6O: 'Operations Individual Augmentee',
   U4M: 'Fleet/Division Staff Medical IA',
@@ -163,9 +169,29 @@ const AQD_TITLES: Record<string, string> = {
   '6PH': 'Emergency Medicine Toxicology',
   // Family Practice
   '6QF': 'Family Practice with Obstetrics',
+  // Internal Medicine subspecialties (6R series)
+  '6RF': 'Rheumatology',
+  '6RG': 'Hematology/Oncology',
+  '6RH': 'Endocrinology/Metabolism',
+  '6RI': 'Nephrology',
+  '6RK': 'Gastroenterology',
+  '6RL': 'Pulmonary/Critical Care Medicine',
+  '6RM': 'Cardiology',
+  '6RN': 'Infectious Diseases',
+  '6RO': 'Allergy/Immunology',
+  '6RP': 'Geriatric Medicine',
+  '6RQ': 'General Internal Medicine',
+  '6RR': 'Clinical Pharmacology',
+  '6RS': 'Medical Oncology',
+  '6RT': 'Critical Care Medicine',
+  '6RV': 'Sleep Medicine',
+  '6RW': 'Hospitalist',
   // Undersea / Dive Medicine (6U series)
   '6UD': 'Diver Medical Officer',
   '6UE': 'Undersea Medicine',
+  '6UF': 'Undersea/Dive Medicine — Subspecialty',
+  '6UG': 'Undersea Medicine — Senior',
+  '6UM': 'Undersea Medical Officer (UMO)',
   // Preventive / Occupational Medicine (6K series)
   '6KE': 'Preventive Medicine',
   '6KL': 'Occupational Medicine',
@@ -187,6 +213,145 @@ const AQD_TITLES: Record<string, string> = {
   // Faculty / milestone
   '62D': 'Faculty Development Fellowship',
   '680': 'Milestone Eligible',
+  // Surgical (6B/6C series)
+  '6BG': 'General Surgery',
+  '6BH': 'Colorectal Surgery',
+  '6BI': 'Vascular Surgery',
+  '6BJ': 'Thoracic Surgery',
+  '6BK': 'Pediatric Surgery',
+  '6BL': 'Anesthesiology',
+  '6BM': 'Pain Management / Regional Anesthesia',
+  '6BN': 'Critical Care Anesthesia',
+  '6CD': 'Plastic/Reconstructive Surgery',
+  '6CE': 'Burn Surgery',
+  '6CF': 'Hand Surgery',
+  '6CG': 'Surgical Oncology',
+  '6CH': 'Transplant Surgery',
+  '6CM': 'Trauma Surgery / Acute Care Surgery',
+  // Neurology / Neurosurgery (6D series)
+  '6DD': 'Neurology',
+  '6DE': 'Child Neurology',
+  '6DF': 'Neurodevelopmental Disabilities',
+  '6DG': 'Neurosurgery',
+  // OB/GYN (6E series)
+  '6EF': 'Obstetrics and Gynecology',
+  '6EG': 'Maternal-Fetal Medicine',
+  '6EH': 'Reproductive Endocrinology/Infertility',
+  '6EI': 'Gynecologic Oncology',
+  '6EJ': 'Female Pelvic Medicine',
+  '6EK': 'Urogynecology',
+  // Ophthalmology (6G series)
+  '6GA': 'Ophthalmology',
+  '6GB': 'Oculoplastics/Orbit Surgery',
+  '6GC': 'Cornea/External Disease',
+  '6GD': 'Glaucoma',
+  '6GE': 'Retina/Vitreous',
+  '6GF': 'Neuro-Ophthalmology',
+  '6GG': 'Pediatric Ophthalmology',
+  // Orthopaedics (6H series)
+  '6HD': 'Orthopedic Surgery',
+  '6HE': 'Orthopedic Trauma',
+  '6HF': 'Spine Surgery',
+  '6HG': 'Total Joint Replacement',
+  '6HH': 'Sports Medicine Orthopaedics',
+  '6HI': 'Pediatric Orthopaedics',
+  '6HJ': 'Hand/Upper Extremity',
+  '6HK': 'Foot/Ankle Surgery',
+  '6HL': 'Orthopedic Oncology',
+  // ENT (6I series)
+  '6ID': 'Otolaryngology (ENT)',
+  '6IE': 'Head and Neck Surgery',
+  '6IF': 'Facial Plastic Surgery',
+  '6IG': 'Rhinology',
+  '6IH': 'Laryngology',
+  '6II': 'Audiology/Cochlear Implants',
+  // Urology (6J series)
+  '6JD': 'Urology',
+  '6JE': 'Urologic Oncology',
+  '6JF': 'Endourology/Stone Disease',
+  '6JG': 'Female Urology',
+  '6JH': 'Pediatric Urology',
+  '6JI': 'Andrology/Male Infertility',
+  // Pathology (6M series)
+  '6MA': 'Anatomic Pathology',
+  '6MB': 'Clinical Pathology',
+  '6MC': 'Forensic Pathology',
+  '6MD': 'Neuropathology',
+  '6ME': 'Hematopathology',
+  '6MF': 'Cytopathology',
+  '6MG': 'Surgical Pathology',
+  '6MH': 'Molecular Genetic Pathology',
+  '6MI': 'Transfusion Medicine',
+  '6MJ': 'Medical Microbiology',
+  '6MK': 'Chemical Pathology',
+  '6ML': 'Dermatopathology',
+  '6MM': 'Pediatric Pathology',
+  // Dermatology (6N series)
+  '6ND': 'Dermatology',
+  '6NE': 'Dermatopathology',
+  '6NF': 'Procedural Dermatology',
+  '6NG': 'Pediatric Dermatology',
+  '6NH': 'Cosmetic Dermatology',
+  // Neurology clinical (6T series)
+  '6TD': 'Neurology (Clinical)',
+  '6TF': 'Epilepsy',
+  '6TG': 'Vascular Neurology',
+  // Pediatrics (6V series)
+  '6VF': 'Pediatrics',
+  '6VG': 'Pediatric Critical Care',
+  '6VH': 'Neonatology',
+  '6VI': 'Pediatric Cardiology',
+  '6VJ': 'Pediatric Hematology/Oncology',
+  '6VK': 'Pediatric Infectious Diseases',
+  '6VL': 'Pediatric Endocrinology',
+  '6VM': 'Pediatric Gastroenterology',
+  '6VN': 'Pediatric Nephrology',
+  '6VO': 'Pediatric Neurology',
+  '6VP': 'Pediatric Pulmonology',
+  '6VQ': 'Pediatric Rheumatology',
+  '6VR': 'Adolescent Medicine',
+  '6VS': 'Developmental/Behavioral Pediatrics',
+  '6VT': 'Pediatric Emergency Medicine',
+  '6VW': 'Pediatric Hospital Medicine',
+  // Psychiatry (6X series)
+  '6XD': 'Psychiatry',
+  '6XE': 'Child/Adolescent Psychiatry',
+  '6XF': 'Geriatric Psychiatry',
+  '6XG': 'Addiction Psychiatry',
+  '6XH': 'Forensic Psychiatry',
+  '6XI': 'Consultation-Liaison Psychiatry',
+  '6XJ': 'Sleep Medicine (Psychiatry)',
+  '6XK': 'Neuropsychiatry',
+  '6XL': 'Emergency Psychiatry',
+  '6XM': 'Pain Medicine (Psychiatry)',
+  '6XN': 'Community Psychiatry',
+  // Radiology (6Y series)
+  '6YD': 'Diagnostic Radiology',
+  '6YE': 'Neuroradiology',
+  '6YF': 'Interventional Radiology',
+  '6YG': 'Pediatric Radiology',
+  '6YH': 'Musculoskeletal Radiology',
+  '6YI': 'Breast Imaging',
+  '6YJ': 'Nuclear Medicine',
+  '6YK': 'Radiation Oncology',
+  // Leadership / academic (2-series)
+  '2D1': 'Medical Department Head',
+  '2D2': 'Medical Officer in Charge (OIC)',
+  '2P3': 'Assistant Professor (2-series)',
+  '2P4': 'Associate Professor (2-series)',
+  '2P5': 'Professor (2-series)',
+  G1A: 'GME Program Director',
+  // Research / operational / other
+  '6XP': 'Principal Investigator',
+  '6XR': 'Researcher',
+  BM1: 'Operational Medicine',
+  BM2: 'Combat Casualty Care',
+  PH1: 'Public Health Officer',
+  D7A: 'Flight Surgeon (Basic)',
+  D7B: 'Senior Flight Surgeon',
+  D6A: 'Undersea Medical Officer (UMO)',
+  D6B: 'Dive Medical Officer (DMO)',
+  BC1: 'Board Certified (Clinical Specialty)',
 };
 
 const PROMO_REC_LABELS: Record<string, string> = {
@@ -296,6 +461,8 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       earlyPromotes: extracted.earlyPromotes,
       mustPromotes: extracted.mustPromotes,
       promotables: extracted.promotables,
+      fitreps: extracted.fitreps,
+      psrTrend: extracted.psrTrend,
     });
   }
 

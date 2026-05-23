@@ -6,6 +6,8 @@ import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyPar
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
 import { CDBChecklist } from './components/CDBChecklist';
+import { lookupPromo, zoneStatus, NEXT_RANK } from './components/CDBChecklist';
+import { DashboardPanel } from './components/DashboardPanel';
 import ResourcesQA from './components/ResourcesQA';
 import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
@@ -140,6 +142,28 @@ export default function App() {
     ? Math.round(((confirmedData.earlyPromotes || 0) + (confirmedData.mustPromotes || 0)) / confirmedData.fitrepCount * 100)
     : null;
 
+  // Zone badge: find the DOR for current rank, compute zone status
+  const zoneLabel = (() => {
+    if (!confirmedData) return null;
+    const rank = confirmedData.currentRank;
+    const dorEntry = confirmedData.rankHistory?.find((r: RankDate) => r.rank === rank);
+    if (!rank || !dorEntry) return null;
+    const p = lookupPromo(rank, dorEntry.date);
+    if (!p) return null;
+    const zone = zoneStatus(rank, dorEntry.date);
+    const nextRank = NEXT_RANK[rank.toUpperCase()] || '';
+    if (zone === 'in-zone') return `In zone · FY${p.fy} ${nextRank}`;
+    if (zone === 'below-zone') return `Below zone · FY${p.fy} ${nextRank}`;
+    if (zone === 'above-zone') return `Above zone · ${nextRank}`;
+    return null;
+  })();
+
+  const docStatus = {
+    odc: documents.odc?.status === 'success',
+    osr: documents.osr?.status === 'success',
+    psr: documents.psr?.status === 'success',
+  };
+
   return (
     <div className="min-h-screen" style={{ background: '#E8ECF1' }}>
 
@@ -190,14 +214,24 @@ export default function App() {
                 {confirmedData.currentBillet || 'Medical Corps Officer'}
               </div>
             </div>
-            {confirmedData.boardCertified !== null && confirmedData.boardCertified !== undefined && (
-              <div
-                className="border text-xs font-medium px-3 py-1.5 rounded-sm whitespace-nowrap flex-shrink-0"
-                style={{ borderColor: '#FFC72C', background: 'rgba(255,199,44,0.15)', color: '#FFC72C' }}
-              >
-                {confirmedData.boardCertified ? 'Board Certified' : 'Board Eligible'}
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+              {zoneLabel && (
+                <div
+                  className="border text-xs font-medium px-3 py-1.5 rounded-sm whitespace-nowrap"
+                  style={{ borderColor: '#FFC72C', background: 'rgba(255,199,44,0.15)', color: '#FFC72C' }}
+                >
+                  {zoneLabel}
+                </div>
+              )}
+              {confirmedData.boardCertified !== null && confirmedData.boardCertified !== undefined && (
+                <div
+                  className="border text-xs font-medium px-3 py-1.5 rounded-sm whitespace-nowrap"
+                  style={{ borderColor: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+                >
+                  {confirmedData.boardCertified ? 'Board Certified' : 'Board Eligible'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -339,6 +373,21 @@ export default function App() {
             {/* Step 3: Career Analysis */}
             {step === 3 && confirmedData && (
               <>
+                <DashboardPanel
+                  officerData={confirmedData}
+                  docStatus={docStatus}
+                  onSectionClick={(section) => {
+                    if (section === 'checklist') setAnalysisTab('checklist');
+                    if (section === 'analysis') setAnalysisTab('analysis');
+                    // 'qa' — scroll down to ResourcesQA
+                    if (section === 'qa') {
+                      setTimeout(() => {
+                        document.querySelector('[data-qa-section]')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 50);
+                    }
+                  }}
+                />
+
                 <div className="flex border-b border-gray-200 mb-6">
                   <button
                     onClick={() => setAnalysisTab('checklist')}
@@ -417,7 +466,7 @@ export default function App() {
         </div>
 
         {/* CDB Reference Q&A */}
-        <div className="mt-6">
+        <div className="mt-6" data-qa-section>
           <ResourcesQA />
         </div>
 

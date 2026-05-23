@@ -10,7 +10,7 @@ import type { ParsedOfficerData } from './VerifyParsedData';
 
 // Promotion timeline (Schofer Promo Prep, May 2023 ed.)
 // DOR range is for CURRENT rank; board/fitrep cols are for NEXT-rank selection board.
-const PROMO_TABLE = [
+export const PROMO_TABLE = [
   { fy: 24, start: '2017-10-01', end: '2018-09-30', o4: { board: 'MAY 2023', fitrep: 'JAN 2023' }, o5: { board: 'MAY 2023', fitrep: 'OCT 2022' }, o6: { board: 'FEB 2023', fitrep: 'APR 2022' } },
   { fy: 25, start: '2018-10-01', end: '2019-09-30', o4: { board: 'MAY 2024', fitrep: 'JAN 2024' }, o5: { board: 'MAY 2024', fitrep: 'OCT 2023' }, o6: { board: 'FEB 2024', fitrep: 'APR 2023' } },
   { fy: 26, start: '2019-10-01', end: '2020-09-30', o4: { board: 'MAY 2025', fitrep: 'JAN 2025' }, o5: { board: 'MAY 2025', fitrep: 'OCT 2024' }, o6: { board: 'FEB 2025', fitrep: 'APR 2024' } },
@@ -21,12 +21,12 @@ const PROMO_TABLE = [
   { fy: 31, start: '2024-10-01', end: '2025-09-30', o4: { board: 'MAY 2030', fitrep: 'JAN 2030' }, o5: { board: 'MAY 2030', fitrep: 'OCT 2029' }, o6: { board: 'FEB 2030', fitrep: 'APR 2029' } },
 ];
 
-const RANK_COL: Record<string, 'o4' | 'o5' | 'o6'> = {
+export const RANK_COL: Record<string, 'o4' | 'o5' | 'o6'> = {
   ENS: 'o4', LTJG: 'o4', LT: 'o4',
   LCDR: 'o5',
   CDR: 'o6',
 };
-const NEXT_RANK: Record<string, string> = {
+export const NEXT_RANK: Record<string, string> = {
   ENS: 'LTJG', LTJG: 'LT', LT: 'LCDR', LCDR: 'CDR', CDR: 'CAPT',
 };
 const IZ_RATES: Record<string, string> = { o4: '88–91%', o5: '40–57%', o6: '34–67%' };
@@ -112,7 +112,7 @@ function warnHas(warnings: string[], ...keywords: string[]): boolean {
   return keywords.some(k => w.includes(k.toLowerCase()));
 }
 
-function lookupPromo(rank: string, dor: string) {
+export function lookupPromo(rank: string, dor: string) {
   const col = RANK_COL[rank.toUpperCase()];
   if (!col) return null;
   const row = PROMO_TABLE.find(r => dor >= r.start && dor <= r.end);
@@ -127,7 +127,7 @@ function parseMonthYear(s: string): Date | null {
   return new Date(parseInt(y), MONTHS[m], 1);
 }
 
-function zoneStatus(rank: string, dor: string): 'below-zone' | 'in-zone' | 'above-zone' | 'unknown' {
+export function zoneStatus(rank: string, dor: string): 'below-zone' | 'in-zone' | 'above-zone' | 'unknown' {
   const p = lookupPromo(rank, dor);
   if (!p) return 'unknown';
   const boardDate = parseMonthYear(p.board);

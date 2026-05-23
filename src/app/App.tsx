@@ -46,6 +46,7 @@ export default function App() {
     psr: null,
   });
   const [showParser, setShowParser] = useState(false);
+  const [showDocSwap, setShowDocSwap] = useState(false);
   const [parsedData, setParsedData] = useState<Partial<ParsedOfficerData>>({});
   const [confirmedData, setConfirmedData] = useState<ParsedOfficerData | null>(null);
 
@@ -180,19 +181,26 @@ export default function App() {
             <div>
               <div className="text-white font-medium text-sm leading-tight">Career Development Board</div>
               <div className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                Navy Medical Corps
+                Navy Medical Corps{confirmedData?.designator ? ` · ${confirmedData.designator}` : ''}
               </div>
             </div>
             <div className="flex-1" />
-            {confirmedData && (
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+            {step >= 3 && (
+              <button
+                onClick={() => setShowDocSwap(true)}
+                className="text-xs font-semibold px-3 py-1.5 rounded mr-3 flex-shrink-0 transition-opacity hover:opacity-80"
                 style={{ background: '#FFC72C', color: '#1B365D' }}
-                title={confirmedData.currentRank || 'MC'}
               >
-                {confirmedData.currentRank?.substring(0, 2) || 'MC'}
-              </div>
+                Upload docs
+              </button>
             )}
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+              style={{ background: '#FFC72C', color: '#1B365D' }}
+              title={confirmedData?.currentRank || 'MC'}
+            >
+              {confirmedData?.currentRank?.substring(0, 2) || 'MC'}
+            </div>
           </div>
         </div>
       </div>

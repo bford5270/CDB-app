@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Anchor, ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
@@ -11,14 +11,33 @@ import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
 import type { OfficerData } from './components/OfficerDataForm';
 
+function MCDevice({ size = 24, color = '#FFC72C' }: { size?: number; color?: string }) {
+  const sw = size <= 18 ? 7 : size <= 28 ? 4 : 2.5;
+  return (
+    <svg width={Math.round(size * 0.625)} height={size} viewBox="0 0 100 160" fill="none">
+      <path d="M50 30 C42 22 26 14 16 8 C14 16 18 24 28 28 Z" fill={color} stroke={color} strokeWidth={sw} strokeLinejoin="round"/>
+      <path d="M50 30 C58 22 74 14 84 8 C86 16 82 24 72 28 Z" fill={color} stroke={color} strokeWidth={sw} strokeLinejoin="round"/>
+      <circle cx="50" cy="38" r="10" fill="none" stroke={color} strokeWidth={sw}/>
+      <line x1="50" y1="48" x2="50" y2="146" stroke={color} strokeWidth={sw} strokeLinecap="round"/>
+      <path d="M50 52 C30 64 70 76 50 88 C30 100 70 112 50 124" stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+      <path d="M50 52 C70 64 30 76 50 88 C70 100 30 112 50 124" stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+      <line x1="24" y1="120" x2="76" y2="120" stroke={color} strokeWidth={sw} strokeLinecap="round"/>
+      <circle cx="24" cy="120" r="5.5" fill={color}/>
+      <circle cx="76" cy="120" r="5.5" fill={color}/>
+      <path d="M50 146 Q28 140 24 126" stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+      <path d="M50 146 Q72 140 76 126" stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function App() {
   const [step, setStep] = useState(1);
   const [analysisTab, setAnalysisTab] = useState<'checklist' | 'analysis'>('checklist');
 
-  // Scroll to top on initial load
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
   const [documents, setDocuments] = useState<UploadedDocuments>({
     odc: null,
     osr: null,
@@ -51,21 +70,15 @@ export default function App() {
     mustPromotes?: number;
     promotables?: number;
   }) => {
-    // Determine current rank from rank history
-    // Only consider promotions where the date of rank is on or before today
     let currentRank = '';
     if (data.rankHistory.length > 0) {
       const today = new Date().toISOString().split('T')[0];
       const validRanks = data.rankHistory
         .filter(entry => entry.date <= today)
-        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
-
-      if (validRanks.length > 0) {
-        currentRank = validRanks[0].rank;
-      }
+        .sort((a, b) => b.date.localeCompare(a.date));
+      if (validRanks.length > 0) currentRank = validRanks[0].rank;
     }
 
-    // Convert parsed data to unified format
     setParsedData({
       rankHistory: data.rankHistory,
       currentRank,
@@ -83,7 +96,6 @@ export default function App() {
       hasMedicalSchool: data.hasMedicalSchool,
       warnings: [...data.warnings, ...data.psrIssues],
     });
-    
     setStep(2);
   };
 
@@ -97,10 +109,8 @@ export default function App() {
     setStep(3);
   };
 
-  // Convert ParsedOfficerData to OfficerData for AnalysisResults
   const getOfficerDataForAnalysis = (): OfficerData | null => {
     if (!confirmedData) return null;
-
     return {
       rankHistoryData: calculateRankData(confirmedData.rankHistory),
       designator: confirmedData.designator || '2300',
@@ -126,56 +136,113 @@ export default function App() {
     { number: 4, name: 'Action Plan', description: 'AI recommendations', icon: Sparkles },
   ];
 
+  const epMpRate = confirmedData?.fitrepCount
+    ? Math.round(((confirmedData.earlyPromotes || 0) + (confirmedData.mustPromotes || 0)) / confirmedData.fitrepCount * 100)
+    : null;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-3">
-            <Anchor className="w-8 h-8" />
-            <div>
-              <h1 className="text-3xl font-bold">Navy Medical Corps Career Development Board</h1>
-              <p className="text-blue-100 mt-1">
-                Virtual Career Assessment & Development Planning System
-              </p>
+    <div className="min-h-screen" style={{ background: '#E8ECF1' }}>
+
+      {/* ── Top navigation bar ── */}
+      <div style={{ background: '#1B365D' }}>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center h-14 gap-3">
+            <div
+              className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+              style={{ background: '#0F2340' }}
+            >
+              <MCDevice size={20} />
             </div>
+            <div>
+              <div className="text-white font-medium text-sm leading-tight">Career Development Board</div>
+              <div className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                Navy Medical Corps
+              </div>
+            </div>
+            <div className="flex-1" />
+            {confirmedData && (
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                style={{ background: '#FFC72C', color: '#1B365D' }}
+                title={confirmedData.currentRank || 'MC'}
+              >
+                {confirmedData.currentRank?.substring(0, 2) || 'MC'}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Progress Steps - Consolidated 4 steps */}
+      {/* ── Profile strip (step 3+) ── */}
+      {confirmedData && step >= 3 && (
+        <div style={{ background: '#1B365D', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4">
+            <div
+              className="rounded flex-shrink-0"
+              style={{ background: '#FFC72C', width: '4px', height: '52px' }}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-white font-medium text-base leading-snug">
+                {confirmedData.currentRank || 'MC Officer'}
+                {confirmedData.designator ? ` · ${confirmedData.designator}` : ''}
+              </div>
+              <div className="text-sm truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                {confirmedData.currentBillet || 'Medical Corps Officer'}
+              </div>
+            </div>
+            {confirmedData.boardCertified !== null && confirmedData.boardCertified !== undefined && (
+              <div
+                className="border text-xs font-medium px-3 py-1.5 rounded-sm whitespace-nowrap flex-shrink-0"
+                style={{ borderColor: '#FFC72C', background: 'rgba(255,199,44,0.15)', color: '#FFC72C' }}
+              >
+                {confirmedData.boardCertified ? 'Board Certified' : 'Board Eligible'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Progress steps ── */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center h-14">
             {steps.map((s, index) => {
               const Icon = s.icon;
+              const done = step > s.number;
+              const active = step >= s.number;
               return (
                 <div key={s.number} className="flex items-center flex-1">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                        step >= s.number
-                          ? 'bg-blue-600 text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-400'
-                      }`}
+                      className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                      style={active
+                        ? { background: '#1B365D', color: '#fff' }
+                        : { background: '#F1F5F9', color: '#94A3B8' }
+                      }
                     >
-                      <Icon className="w-6 h-6" />
+                      {done ? (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <Icon className="w-3.5 h-3.5" />
+                      )}
                     </div>
-                    <div>
+                    <div className="hidden sm:block">
                       <div
-                        className={`font-semibold ${
-                          step >= s.number ? 'text-blue-900' : 'text-gray-400'
-                        }`}
+                        className="text-sm font-semibold"
+                        style={{ color: active ? '#1B365D' : '#94A3B8' }}
                       >
                         {s.name}
                       </div>
-                      <div className="text-xs text-gray-500">{s.description}</div>
+                      <div className="text-xs text-gray-400">{s.description}</div>
                     </div>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-4 rounded ${
-                      step > s.number ? 'bg-blue-600' : 'bg-gray-200'
-                    }`} />
+                    <div
+                      className="flex-1 h-px mx-4 rounded"
+                      style={{ background: step > s.number ? '#1B365D' : '#E2E8F0' }}
+                    />
                   )}
                 </div>
               );
@@ -184,138 +251,172 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* ── Main content ── */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          {/* Step 1: Upload & Parse */}
-          {step === 1 && !showParser && (
-            <>
-              <DocumentUpload onDocumentsChange={handleDocumentsUploaded} />
-              <div className="mt-8 flex justify-end">
-                <button
-                  onClick={() => {
-                    // Show AI parser for any uploaded document
-                    if (canProceedFromUpload) {
-                      setShowParser(true);
-                    } else {
-                      setStep(2);
-                    }
-                  }}
-                  disabled={!canProceedFromUpload}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  Continue
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-              {!canProceedFromUpload && (
-                <p className="text-sm text-gray-500 text-right mt-2">
-                  Upload at least one document to continue
-                </p>
-              )}
-            </>
-          )}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
 
-          {step === 1 && showParser && (
-            <DocumentParser
-              uploadedDocuments={documents}
-              onParsedDataAccepted={handleParsedDataAccepted}
-              onSkip={handleSkipParser}
-            />
-          )}
-
-          {/* Step 2: Verify Parsed Data */}
-          {step === 2 && (
-            <VerifyParsedData
-              parsedData={parsedData}
-              onDataConfirmed={handleDataConfirmed}
-              onBack={() => {
-                setStep(1);
-                setShowParser(false);
-              }}
-            />
-          )}
-
-          {/* Step 3: Career Analysis */}
+          {/* Metric summary strip — step 3 only */}
           {step === 3 && confirmedData && (
-            <>
-              {/* Tab bar */}
-              <div className="flex border-b border-gray-200 mb-6">
-                <button
-                  onClick={() => setAnalysisTab('checklist')}
-                  className={`px-5 py-2.5 text-sm font-medium transition-colors ${
-                    analysisTab === 'checklist'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  CDB Checklist
-                </button>
-                <button
-                  onClick={() => setAnalysisTab('analysis')}
-                  className={`px-5 py-2.5 text-sm font-medium transition-colors ${
-                    analysisTab === 'analysis'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Record Analysis
-                </button>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: '#E2E8F0' }}>
+              <div className="bg-white px-5 py-4">
+                <div className="text-2xl font-medium leading-tight" style={{ color: '#1B365D' }}>
+                  {confirmedData.fitrepCount || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide font-medium">FITREPs</div>
               </div>
-
-              {analysisTab === 'checklist' && (
-                <CDBChecklist officerData={confirmedData} />
-              )}
-              {analysisTab === 'analysis' && (
-                <AnalysisResults officerData={getOfficerDataForAnalysis()!} />
-              )}
-
-              <div className="mt-8 flex justify-between">
-                <button
-                  onClick={() => setStep(2)}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-                >
-                  Back to Verify
-                </button>
-                <button
-                  onClick={() => setStep(4)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  Generate AI Action Plan
-                  <Sparkles className="w-5 h-5" />
-                </button>
+              <div className="bg-white px-5 py-4">
+                <div className="text-2xl font-medium leading-tight" style={{ color: '#1B365D' }}>
+                  {epMpRate !== null ? `${epMpRate}%` : '—'}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide font-medium">EP + MP rate</div>
               </div>
-            </>
+              <div className="bg-white px-5 py-4">
+                <div className="text-2xl font-medium leading-tight" style={{ color: '#FFC72C' }}>
+                  {confirmedData.earlyPromotes || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide font-medium">Early promotes</div>
+              </div>
+              <div className="bg-white px-5 py-4">
+                <div className="text-2xl font-medium leading-tight" style={{ color: '#1B365D' }}>
+                  {confirmedData.fitrepAverage ? confirmedData.fitrepAverage.toFixed(2) : '—'}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide font-medium">Trait avg</div>
+              </div>
+            </div>
           )}
 
-          {/* Step 4: AI-Powered Action Plan */}
-          {step === 4 && confirmedData && (
-            <>
-              <PersonalizedActionPlan officerData={confirmedData} />
-              <div className="mt-8 flex justify-between">
-                <button
-                  onClick={() => setStep(3)}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-                >
-                  Back to Analysis
-                </button>
-                <button
-                  onClick={() => {
-                    setStep(1);
-                    setShowParser(false);
-                    setParsedData({});
-                    setConfirmedData(null);
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Start New Analysis
-                </button>
-              </div>
-            </>
-          )}
+          <div className="p-8">
+
+            {/* Step 1: Upload & Parse */}
+            {step === 1 && !showParser && (
+              <>
+                <DocumentUpload onDocumentsChange={handleDocumentsUploaded} />
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => {
+                      if (canProceedFromUpload) {
+                        setShowParser(true);
+                      } else {
+                        setStep(2);
+                      }
+                    }}
+                    disabled={!canProceedFromUpload}
+                    className="px-6 py-3 text-white rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: canProceedFromUpload ? '#1B365D' : undefined }}
+                  >
+                    Continue
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+                {!canProceedFromUpload && (
+                  <p className="text-sm text-gray-500 text-right mt-2">
+                    Upload at least one document to continue
+                  </p>
+                )}
+              </>
+            )}
+
+            {step === 1 && showParser && (
+              <DocumentParser
+                uploadedDocuments={documents}
+                onParsedDataAccepted={handleParsedDataAccepted}
+                onSkip={handleSkipParser}
+              />
+            )}
+
+            {/* Step 2: Verify Parsed Data */}
+            {step === 2 && (
+              <VerifyParsedData
+                parsedData={parsedData}
+                onDataConfirmed={handleDataConfirmed}
+                onBack={() => {
+                  setStep(1);
+                  setShowParser(false);
+                }}
+              />
+            )}
+
+            {/* Step 3: Career Analysis */}
+            {step === 3 && confirmedData && (
+              <>
+                <div className="flex border-b border-gray-200 mb-6">
+                  <button
+                    onClick={() => setAnalysisTab('checklist')}
+                    className={`px-5 py-2.5 text-sm font-medium transition-colors ${
+                      analysisTab === 'checklist'
+                        ? 'border-b-2 text-[#1B365D]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    style={analysisTab === 'checklist' ? { borderBottomColor: '#1B365D' } : {}}
+                  >
+                    CDB Checklist
+                  </button>
+                  <button
+                    onClick={() => setAnalysisTab('analysis')}
+                    className={`px-5 py-2.5 text-sm font-medium transition-colors ${
+                      analysisTab === 'analysis'
+                        ? 'border-b-2 text-[#1B365D]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    style={analysisTab === 'analysis' ? { borderBottomColor: '#1B365D' } : {}}
+                  >
+                    Record Analysis
+                  </button>
+                </div>
+
+                {analysisTab === 'checklist' && <CDBChecklist officerData={confirmedData} />}
+                {analysisTab === 'analysis' && <AnalysisResults officerData={getOfficerDataForAnalysis()!} />}
+
+                <div className="mt-8 flex justify-between">
+                  <button
+                    onClick={() => setStep(2)}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Back to Verify
+                  </button>
+                  <button
+                    onClick={() => setStep(4)}
+                    className="px-6 py-3 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                    style={{ background: '#1B365D' }}
+                  >
+                    Generate AI Action Plan
+                    <Sparkles className="w-5 h-5" />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Step 4: AI-Powered Action Plan */}
+            {step === 4 && confirmedData && (
+              <>
+                <PersonalizedActionPlan officerData={confirmedData} />
+                <div className="mt-8 flex justify-between">
+                  <button
+                    onClick={() => setStep(3)}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Back to Analysis
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStep(1);
+                      setShowParser(false);
+                      setParsedData({});
+                      setConfirmedData(null);
+                    }}
+                    className="px-6 py-3 text-white rounded-lg font-semibold transition-colors"
+                    style={{ background: '#1B365D' }}
+                  >
+                    Start New Analysis
+                  </button>
+                </div>
+              </>
+            )}
+
+          </div>
         </div>
 
-        {/* CDB Reference Q&A - Always visible */}
+        {/* CDB Reference Q&A */}
         <div className="mt-6">
           <ResourcesQA />
         </div>
@@ -325,8 +426,8 @@ export default function App() {
           <p className="text-sm text-yellow-800">
             <strong>Disclaimer:</strong> This tool provides general career development guidance
             based on typical Navy Medical Corps progression standards. AI recommendations are generated
-            using uploaded reference documents. For official career counseling, consult with your 
-            detailer, commanding officer, or BUMED Career Development Division. Always verify course 
+            using uploaded reference documents. For official career counseling, consult with your
+            detailer, commanding officer, or BUMED Career Development Division. Always verify course
             dates and requirements with official sources before registering.
           </p>
         </div>

@@ -35,4 +35,17 @@ Commit: feat(parse): split document parsing into 3 focused Claude calls
 
 **Phase 3 — Anthropic native PDF support** (`pdfUtils.ts`, `DocumentUpload.tsx`,
 `DocumentParser.tsx`, `api/ask.js`)
-(see next entry)
+For PDFs ≤1.5 MB, `extractBase64FromPDF()` reads raw bytes and base64-encodes them
+(runs in parallel with text extraction in DocumentUpload — no added latency). The base64
+payload travels alongside the text in the POST body. On the backend, `callClaude()` builds
+a native `document` content block when base64 is present (adding `anthropic-beta:
+pdfs-2024-09-25`), falling back to text otherwise. Claude reads the actual PDF structure
+— including tabular form fields — bypassing lossy text extraction entirely for supported
+PDFs. Text extraction is retained for the Q&A/Notion path and as fallback.
+Commit: feat(parse): Anthropic native PDF support — send PDFs as document blocks
+
+### Net result of all three phases
+- Text extraction now preserves column structure via pipe-separated output (Phase 1)
+- Each form gets its own focused, full-budget Claude call on Sonnet (Phase 2)
+- PDFs ≤1.5 MB bypass text extraction entirely and let Claude read native structure (Phase 3)
+- Failure in one form's parse no longer corrupts the others (Phase 2 isolation)

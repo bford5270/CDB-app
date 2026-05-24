@@ -531,7 +531,7 @@ export default async function handler(req, res) {
               apiKey,
               'PSR',
               psrBase64 || null,
-              'claude-sonnet-4-6',
+              'claude-haiku-4-5-20251001',
             ).catch(e => {
               console.error('PSR parse failed (using defaults):', e.message);
               return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };

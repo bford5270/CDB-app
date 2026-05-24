@@ -9,7 +9,6 @@ import {
 import type { ParsedOfficerData } from './VerifyParsedData';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import coursesJson from '../../../public/fy26-courses.json';
-import { PSRTimeline } from './PSRTimeline';
 
 // ─── FY26 session lookup helpers ────────────────────────────────────────────
 
@@ -566,12 +565,6 @@ export function CDBChecklist({ officerData }: { officerData: ParsedOfficerData }
           )}
         </div>
       </div>
-
-      {officerData.fitreps && officerData.fitreps.length > 0 && (
-        <div className="border border-gray-200 rounded-lg overflow-hidden p-4 bg-white">
-          <PSRTimeline fitreps={officerData.fitreps} />
-        </div>
-      )}
 
       {sections.map(section => {
         const Icon = section.icon;

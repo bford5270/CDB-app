@@ -10,6 +10,7 @@ import { lookupPromo, zoneStatus, NEXT_RANK } from './components/CDBChecklist';
 import { DashboardPanel } from './components/DashboardPanel';
 import { DocSwapPanel } from './components/DocSwapPanel';
 import ResourcesQA from './components/ResourcesQA';
+import { PSRTimeline } from './components/PSRTimeline';
 import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
 import type { OfficerData } from './components/OfficerDataForm';
@@ -497,6 +498,13 @@ export default function App() {
                       }
                     }}
                   />
+
+                  {/* FITREP Timeline — prominent, always visible on step 3 */}
+                  {confirmedData.fitreps && confirmedData.fitreps.length > 0 && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                      <PSRTimeline fitreps={confirmedData.fitreps} />
+                    </div>
+                  )}
 
                   {/* Tab bar */}
                   <div className="flex items-center gap-1 mb-6 border-b border-gray-200">

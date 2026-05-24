@@ -1,86 +1,107 @@
-/**
- * PDF Text Extraction Utility
- * Uses pdf.js to extract text from uploaded PDF files
- */
-
 import * as pdfjsLib from 'pdfjs-dist';
-// Import worker as URL using Vite's special syntax
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Set up the worker using the imported URL
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-/**
- * Extract text content from a PDF file
- * @param file - The PDF file to extract text from
- * @returns Promise resolving to the extracted text
- */
+// Cluster an array of X coordinates into column bands using a tolerance threshold.
+// Returns the sorted list of band center X values.
+function detectColumnBands(xValues: number[], tolerance = 15): number[] {
+  if (xValues.length === 0) return [];
+  const sorted = [...xValues].sort((a, b) => a - b);
+  const bands: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const lastBand = bands[bands.length - 1];
+    const bandCenter = lastBand.reduce((s, v) => s + v, 0) / lastBand.length;
+    if (Math.abs(sorted[i] - bandCenter) <= tolerance) {
+      lastBand.push(sorted[i]);
+    } else {
+      bands.push([sorted[i]]);
+    }
+  }
+  return bands.map(b => b.reduce((s, v) => s + v, 0) / b.length);
+}
+
+// Assign an X value to the nearest column band index.
+function assignToBand(x: number, bands: number[]): number {
+  let nearest = 0;
+  let minDist = Math.abs(x - bands[0]);
+  for (let i = 1; i < bands.length; i++) {
+    const d = Math.abs(x - bands[i]);
+    if (d < minDist) { minDist = d; nearest = i; }
+  }
+  return nearest;
+}
+
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
-    // Convert file to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
-    
-    // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const textParts: string[] = [];
-    
-    // Extract text from each page
+
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
-      
-      // Build text with position awareness for tabular data
+
       const items = textContent.items as Array<{
         str: string;
         transform: number[];
         width: number;
         height: number;
       }>;
-      
-      // Sort items by Y position (top to bottom), then X position (left to right)
-      // Note: PDF Y coordinates increase upward, so we sort descending for top-to-bottom
-      const sortedItems = items.sort((a, b) => {
-        const yDiff = b.transform[5] - a.transform[5]; // Y position (descending)
-        if (Math.abs(yDiff) > 5) return yDiff; // Different lines
-        return a.transform[4] - b.transform[4]; // Same line, sort by X (ascending)
+
+      // Collect all X positions to detect column structure for this page.
+      const allX = items.filter(i => i.str.trim()).map(i => i.transform[4]);
+      const bands = detectColumnBands(allX);
+      const isTabular = bands.length >= 3;
+
+      // Sort top-to-bottom, left-to-right.
+      const sorted = [...items].sort((a, b) => {
+        const yDiff = b.transform[5] - a.transform[5];
+        if (Math.abs(yDiff) > 5) return yDiff;
+        return a.transform[4] - b.transform[4];
       });
-      
+
+      // Group items into Y-proximity rows.
+      const rows: Array<typeof items> = [];
+      let currentRow: typeof items = [];
       let lastY: number | null = null;
-      let lineText = '';
-      
-      for (const item of sortedItems) {
-        const currentY = item.transform[5];
-        
-        // Check if we're on a new line (Y position changed significantly)
-        if (lastY !== null && Math.abs(currentY - lastY) > 5) {
-          if (lineText.trim()) {
-            textParts.push(lineText.trim());
+
+      for (const item of sorted) {
+        const y = item.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 5) {
+          if (currentRow.length > 0) rows.push(currentRow);
+          currentRow = [];
+        }
+        currentRow.push(item);
+        lastY = y;
+      }
+      if (currentRow.length > 0) rows.push(currentRow);
+
+      // Emit each row. For tabular pages, use pipe-separated columns; otherwise join with spaces.
+      for (const row of rows) {
+        if (!row.some(i => i.str.trim())) continue;
+
+        let line: string;
+        if (isTabular) {
+          const slots = new Array<string>(bands.length).fill('');
+          for (const item of row) {
+            if (!item.str.trim()) continue;
+            const col = assignToBand(item.transform[4], bands);
+            slots[col] = slots[col] ? slots[col] + ' ' + item.str.trim() : item.str.trim();
           }
-          lineText = '';
+          // Trim trailing empty columns, then join non-trivial rows.
+          while (slots.length > 1 && !slots[slots.length - 1]) slots.pop();
+          line = slots.join(' | ');
+        } else {
+          line = row.map(i => i.str).join(' ').trim();
         }
-        
-        // Add space between items on the same line if there's a gap
-        if (lineText && item.str.trim()) {
-          lineText += ' ';
-        }
-        
-        lineText += item.str;
-        lastY = currentY;
+
+        if (line.trim()) textParts.push(line.trim());
       }
-      
-      // Don't forget the last line
-      if (lineText.trim()) {
-        textParts.push(lineText.trim());
-      }
-      
-      // Add page separator
-      if (pageNum < pdf.numPages) {
-        textParts.push('--- PAGE BREAK ---');
-      }
+
+      if (pageNum < pdf.numPages) textParts.push('--- PAGE BREAK ---');
     }
-    
+
     return textParts.join('\n');
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
@@ -88,11 +109,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
-/**
- * Check if a file is a valid PDF
- * @param file - The file to check
- * @returns boolean indicating if file is a PDF
- */
 export function isPDF(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }

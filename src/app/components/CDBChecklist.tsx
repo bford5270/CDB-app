@@ -383,8 +383,8 @@ function buildSections(data: ParsedOfficerData): Section[] {
     label: `AQD codes (${data.aqds.length} detected: ${data.aqds.length > 0 ? data.aqds.join(', ') : 'none'})`,
     status: data.aqds.length > 0 ? 'good' : 'info',
     detail: data.aqds.length > 0
-      ? `Parsed: ${data.aqds.join(', ')}. Verify in Block 72 of ODC and "Special Qualifications" section of OSR.`
-      : 'No AQDs detected. Verify Block 72 of ODC.',
+      ? `Parsed from ODC Block 72 and OSR Special Qualifications: ${data.aqds.join(', ')}. Confirm these match your documents.`
+      : 'No AQDs detected in ODC Block 72 or OSR. Confirm Block 72 is present in your ODC upload.',
     action: 'If you qualify for AQDs not shown, submit self-service requests. For JPME AQDs (JS7/JS8), provide official JPME completion letter — detailers cannot add these.',
   });
 

@@ -1,6 +1,6 @@
 // api/ask.js - Vercel Serverless Function
 // Handles two modes:
-//   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR
+//   1. action: 'parse-documents' — AI extraction of ODC/OSR/PSR (three separate calls)
 //   2. (default) Q&A against uploaded reference documents
 
 import { readFileSync } from 'fs';
@@ -64,26 +64,22 @@ const AQD_REFERENCE = buildAQDReference();
 // PSR PDFs especially produce lines that are >60% box-drawing characters.
 function cleanDocumentText(text, docType) {
   if (!text) return '';
-  // Remove null bytes and non-printable control characters (common in bad OCR)
   let cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
   if (docType === 'psr') {
-    // Drop lines that are mostly non-alphanumeric (table borders, form boxes)
     const lines = cleaned.split('\n');
     cleaned = lines
       .map(line => {
         if (line.length < 4) return line;
-        const usable = (line.match(/[a-zA-Z0-9 .,\/\-:()]/g) || []).length;
+        const usable = (line.match(/[a-zA-Z0-9 .,\/\-:|()]/g) || []).length;
         return usable / line.length < 0.45 ? '' : line;
       })
       .reduce((acc, line, i, arr) => {
-        // Collapse consecutive blank lines to one
         if (line === '' && i > 0 && arr[i - 1] === '') return acc;
         acc.push(line);
         return acc;
       }, [])
       .join('\n');
   }
-  // Normalize excessive whitespace
   return cleaned
     .replace(/\t/g, ' ')
     .replace(/ {4,}/g, '   ')
@@ -107,7 +103,6 @@ function validateParsed(parsed) {
         return !isNaN(year) && year >= 1995 && year <= 2033;
       })
       .sort((a, b) => a.date.localeCompare(b.date))
-      // Remove backward progressions (keep only strictly ascending rank entries)
       .reduce((acc, entry) => {
         const maxIdx = acc.length > 0 ? RANK_ORDER.indexOf(acc[acc.length - 1].rank) : -1;
         if (RANK_ORDER.indexOf(entry.rank) > maxIdx) acc.push(entry);
@@ -115,7 +110,6 @@ function validateParsed(parsed) {
       }, []);
   }
 
-  // Normalize two-letter clearance codes (e.g. "SS" → "Secret")
   if (parsed.clearanceLevel) {
     const cl = parsed.clearanceLevel.toUpperCase().replace(/\s/g, '');
     if (/^S/.test(cl) || cl === 'SS') parsed.clearanceLevel = 'Secret';
@@ -130,31 +124,303 @@ function validateParsed(parsed) {
 function scrubPII(text) {
   if (!text) return '';
   return text
-    // SSN — hyphenated, spaced, and bare 9-digit forms
     .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN REDACTED]')
     .replace(/\b\d{3} \d{2} \d{4}\b/g, '[SSN REDACTED]')
     .replace(/\b(SSN|Social Security)[:\s#]+\d{9}\b/gi, '[SSN REDACTED]')
-    // DOD ID / EDIPI
     .replace(/\b(DODID|EDIPI|EDI-PI|DOD\s+ID)[:\s]+\d{10}\b/gi, '[DOD ID REDACTED]')
-    // Date of birth when explicitly labeled
     .replace(/\b(DOB|Date\s+of\s+Birth|Birth\s+Date|Born)[:\s]+[\d\/\-\.]+/gi, '[DOB REDACTED]')
-    // US phone numbers (various formats)
     .replace(/\b(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, '[PHONE REDACTED]')
-    // Email addresses
     .replace(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g, '[EMAIL REDACTED]')
-    // IPv4 addresses
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP REDACTED]')
-    // Credit / debit card numbers (13-19 digits, possibly spaced or hyphenated)
     .replace(/\b(?:\d{4}[-\s]?){3}\d{1,4}\b/g, '[CARD REDACTED]')
-    // Bank routing/account patterns (ABA routing: 9-digit starting with 0-3)
     .replace(/\b(routing|account|acct|RTN)[:\s#]+\d{9,17}\b/gi, '[ACCOUNT REDACTED]')
-    // Passport numbers (US format: letter(s) + 6-9 digits — but only when labeled)
     .replace(/\b(passport|PASSNO)[:\s#]+[A-Z]{0,2}\d{6,9}\b/gi, '[PASSPORT REDACTED]')
-    // Home/personal addresses — street numbers followed by street keywords
     .replace(/\b\d{1,6}\s+[A-Za-z0-9\s]{3,30}\b(Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Place|Pl|Way|Circle|Cir)\b/gi, '[ADDRESS REDACTED]')
-    // Zip codes when labeled
     .replace(/\b(ZIP|Zip Code|Postal Code)[:\s]+\d{5}(-\d{4})?\b/gi, '[ZIP REDACTED]');
 }
+
+// Walk the string tracking brace depth and string state to extract the outermost JSON object.
+function extractJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inString) { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (!inString) {
+      if (ch === '{') depth++;
+      else if (ch === '}' && --depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
+// Call Anthropic and return a parsed JSON object. Throws on API error or invalid JSON.
+async function callClaude(systemPrompt, userMessage, apiKey, label) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error(`Claude ${label} error:`, res.status, errText.substring(0, 300));
+    throw new Error(`Claude API error ${res.status} on ${label}`);
+  }
+
+  const data = await res.json();
+  const rawText = data.content?.[0]?.text || '';
+  if (data.stop_reason === 'max_tokens') {
+    console.warn(`${label} response truncated at max_tokens`);
+  }
+  console.log(`${label} raw (first 400):`, rawText.substring(0, 400));
+
+  let jsonText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const extracted = extractJsonObject(jsonText);
+  if (extracted) jsonText = extracted;
+
+  try {
+    return JSON.parse(jsonText);
+  } catch (e) {
+    console.error(`${label} JSON parse error:`, e.message, '\nRaw (first 600):', rawText.substring(0, 600));
+    throw new Error(`${label}: AI returned invalid JSON`);
+  }
+}
+
+// ============================================================================
+// FOCUSED SYSTEM PROMPTS
+// ============================================================================
+
+function buildOdcSystemPrompt(today) {
+  return [
+    'You are a Navy personnel record parser. You are parsing ONLY the Officer Data Card (ODC).',
+    'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
+    `TODAY'S DATE: ${today}`,
+    '',
+    '=== RANK / PROMOTION HISTORY EXTRACTION ===',
+    'Navy rank order (O1→O6): ENS → LTJG → LT → LCDR → CDR → CAPT.',
+    '',
+    'PRIMARY SOURCE — "Promotion History" block on the ODC:',
+    'The ODC contains a chart or table explicitly labeled "Promotion History" (sometimes "Date of Rank" or "Promotion Dates").',
+    'This block has one row per rank showing the rank abbreviation and a 6-digit date side by side.',
+    'Extract EVERY rank-date pair from this block into rankHistory. This is the authoritative source.',
+    '',
+    'RULES:',
+    '1. A rank row MUST have a non-blank 6-digit date next to it to be included.',
+    '   If the date field is empty, dashes, zeros, or "N/A" → the officer has NOT been promoted to that rank. OMIT it.',
+    '2. The Promotion History chart lists ALL potential ranks (ENS through CAPT) — future ranks have blank dates.',
+    '   Higher ranks with no date = not yet promoted. DO NOT include them.',
+    '3. LTJG rarely appears — only include it if it has an explicit 6-digit date.',
+    '4. Do NOT pick up 6-digit numbers from other ODC fields (PEBD, PRD, EAOS, UIC codes, report numbers).',
+    '   A number is a DOR only if it is in the Promotion History block adjacent to a rank abbreviation.',
+    '',
+    'DATE FORMAT: Promotion History dates are 6-digit MMDDYY → convert to YYYY-MM-DD.',
+    '  "010924" → 2024-01-09  |  "090118" → 2018-09-01  |  "052808" → 2008-05-28',
+    'Valid DOR years: 2000–2032. Discard any entry whose converted year falls outside this range.',
+    '',
+    'CLEARANCE DATE: 4-digit MMYY format → convert to YYYY-MM. "0520"→2020-05  "1118"→2018-11',
+    '',
+    `SET "rank" = most recent rankHistory entry whose date ≤ today (${today}).`,
+    '',
+    '=== AQD EXTRACTION (ODC ONLY) ===',
+    'Extract AQD codes from ODC Block 72 / "Additional Qualification Designators" section.',
+    'EXCLUDE: clearance codes (SS/TT/VV/TS), rank abbrevs (ENS/LTJG/LT/LCDR/CDR/CAPT),',
+    '  4-digit designator codes (2100–2399), report types (RG/CC/AT/TR), specialty codes ending in K/J/T.',
+    'Return [] if no AQD section found.',
+    '',
+    '=== BOARD CERTIFICATION ===',
+    'Look for a specialty code where the LAST character is K or J (e.g. "16Q0K" or "16Q0J").',
+    'K = Board Certified (set boardCertified=true, certificationCode="K").',
+    'J = Board Eligible / NOT Board Certified (set boardCertified=false, certificationCode="J").',
+    'T = In Training (set boardCertified=false, certificationCode=null).',
+    '',
+    '=== OTHER ODC FIELDS ===',
+    'name: officer full name as printed.',
+    'designator: 4-digit code (e.g. 2100, 2300). yearGroup: 2-digit YG.',
+    'clearanceLevel: the two-letter clearance eligibility/level code from the ODC — return it as-is (e.g., "SS", "TT", "VV").',
+    'clearanceDate: 4-digit MMYY → YYYY-MM.',
+    '',
+    'Return ONLY this JSON (null for unknown strings, 0 for unknown numbers, [] for unknown arrays, false for unknown booleans):',
+    '{',
+    '  "name": null,',
+    '  "rank": null,',
+    '  "designator": null,',
+    '  "yearGroup": null,',
+    '  "rankHistory": [{"rank": "LT", "date": "YYYY-MM-DD"}],',
+    '  "boardCertified": null,',
+    '  "certificationCode": null,',
+    '  "clearanceLevel": "",',
+    '  "clearanceDate": "",',
+    '  "aqds": [],',
+    '  "warnings": [],',
+    '  "confidence": {"rankHistory": "medium", "aqds": "medium"}',
+    '}',
+  ].join('\n');
+}
+
+function buildOsrSystemPrompt(odcResult) {
+  const ctx = odcResult.name
+    ? `Officer context from ODC: name=${odcResult.name}, rank=${odcResult.rank || 'unknown'}, designator=${odcResult.designator || 'unknown'}.`
+    : 'ODC data not available.';
+  return [
+    'You are a Navy personnel record parser. You are parsing ONLY the Officer Summary Record (OSR).',
+    'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
+    ctx,
+    '',
+    '=== EDUCATION ===',
+    'hasUndergrad: true if any undergraduate degree is listed.',
+    'hasMedicalSchool: true if medical school (MD/DO) or nursing degree is listed.',
+    '',
+    '=== AQD EXTRACTION (OSR ONLY) ===',
+    'Extract AQD codes from the OSR "Special Qualifications" section.',
+    'OSR may spell out AQD names (e.g. "67A Executive Medicine") — extract just the code ("67A").',
+    'EXCLUDE: clearance codes (SS/TT/VV/TS), rank abbrevs (ENS/LTJG/LT/LCDR/CDR/CAPT),',
+    '  4-digit designator codes (2100–2399), report types (RG/CC/AT/TR).',
+    'Return [] if no Special Qualifications section found.',
+    '',
+    'Return ONLY this JSON:',
+    '{',
+    '  "hasUndergrad": false,',
+    '  "hasMedicalSchool": false,',
+    '  "aqds": []',
+    '}',
+  ].join('\n');
+}
+
+function buildPsrSystemPrompt(odcResult) {
+  const ctx = odcResult.rank
+    ? `Officer context from ODC: rank=${odcResult.rank}, name=${odcResult.name || 'unknown'}.`
+    : 'ODC data not available.';
+  return [
+    'You are a Navy personnel record parser. You are parsing ONLY the Performance Summary Record (PSR).',
+    'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
+    ctx,
+    '',
+    '=== PSR PARSING (CRITICAL — NO HALLUCINATION) ===',
+    'STRICT RULE: Every field you extract must come VERBATIM from the document text. Do NOT infer, guess, or fill in missing values.',
+    'Station/command names: copy EXACTLY as they appear. Do NOT substitute, abbreviate, or invent command names.',
+    '  If a station name is garbled or unreadable, use the garbled text as-is or leave it blank — NEVER guess a real command name.',
+    'Numbers (scores, averages, counts): copy EXACTLY from the document. Do NOT round, estimate, or calculate.',
+    'Dates: extract from/to dates as printed. If garbled, leave blank rather than guessing.',
+    '',
+    'The PSR table uses pipe-separated columns (|). Each row represents one FITREP period.',
+    'Columns appear left-to-right as: pay grade | from date | to date | station/command | trait scores | individual avg | RS avg | RS count | promotion rec | report type.',
+    '',
+    'From PSR: each FITREP has pay grade, from/to dates, station, reporting senior, 5 trait scores (1-5),',
+    'individual average, RS cumulative average (the "R/S CUM" column — typically 3.5–4.5), RS count (# of officers',
+    'at that pay grade the reporting senior has reported on), promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
+    '',
+    '=== PROMOTION RECOMMENDATION ===',
+    'Each FITREP row has a "PRT" column (1-2 chars) — use this as primary source:',
+    '  N=NOB, B=NOB, P=Promotable, MP=Must Promote, SP=Select Promotable, PR=Progressing',
+    '  PP=Early Promote (EP). KEY: "PP" is TWO chars meaning EP — the "E" OCRs as "P" in Navy PDFs. "PP" ≠ "P".',
+    '  PN=also likely Early Promote (EP) — OCR artifact where "E"→"P" and "P"→"N".',
+    'BACKUP: 5 marker columns left-to-right: SP | PR | P | MP | EP (position 1=SP, 5=EP). If ambiguous → null.',
+    'SUMMARY ROW: Use "EP N  MP N  P N" totals to set earlyPromotes/mustPromotes/promotables counts.',
+    'NOB reports: PRT shows N or B; no rec scored.',
+    'rscaAverage: mean of rsAverage across all graded (non-NOB) FITREPs.',
+    '',
+    'PSR ANALYSIS RULES:',
+    'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
+    'psrIssues: flag leftward movement (EP to MP, MP to P, P to PR in consecutive graded reports),',
+    'date gaps over 3 months between consecutive FITREPs, 2 or more consecutive P or below.',
+    'belowRSAverageCount: count fitreps where individualAverage is less than rsAverage.',
+    '',
+    'Return ONLY this JSON (0 for unknown numbers, [] for unknown arrays, "insufficient_data" for unknown trend):',
+    '{',
+    '  "fitrepAverage": 0,',
+    '  "rscaAverage": 0,',
+    '  "fitrepCount": 0,',
+    '  "earlyPromotes": 0,',
+    '  "mustPromotes": 0,',
+    '  "promotables": 0,',
+    '  "progressings": 0,',
+    '  "psrTrend": "insufficient_data",',
+    '  "psrIssues": [],',
+    '  "belowRSAverageCount": 0,',
+    '  "belowRSAveragePercentage": 0,',
+    '  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],',
+    '  "warnings": [],',
+    '  "confidence": {"psrData": "medium"}',
+    '}',
+  ].join('\n');
+}
+
+// Merge ODC, OSR, and PSR parsed results into the full ExtractedOfficerData shape.
+function mergeResults(odcResult, osrResult, psrResult) {
+  // Deduplicate AQDs from ODC and OSR.
+  const aqds = [...new Set([...(odcResult.aqds || []), ...(osrResult.aqds || [])])];
+
+  // Merge warnings from all three calls.
+  const warnings = [
+    ...(odcResult.warnings || []),
+    ...(psrResult.warnings || []),
+  ];
+
+  // Composite confidence: overall = min of individual levels.
+  const levelRank = { high: 2, medium: 1, low: 0 };
+  const rankToLevel = ['low', 'medium', 'high'];
+  const odcConf = odcResult.confidence || {};
+  const psrConf = psrResult.confidence || {};
+  const minRank = Math.min(
+    levelRank[odcConf.rankHistory] ?? 1,
+    levelRank[odcConf.aqds] ?? 1,
+    levelRank[psrConf.psrData] ?? 1,
+  );
+  const overall = rankToLevel[minRank];
+
+  return {
+    name: odcResult.name ?? null,
+    rank: odcResult.rank ?? null,
+    designator: odcResult.designator ?? null,
+    yearGroup: odcResult.yearGroup ?? null,
+    rankHistory: odcResult.rankHistory ?? [],
+    boardCertified: odcResult.boardCertified ?? null,
+    certificationCode: odcResult.certificationCode ?? null,
+    clearanceLevel: odcResult.clearanceLevel ?? '',
+    clearanceDate: odcResult.clearanceDate ?? '',
+    aqds,
+    hasUndergrad: osrResult.hasUndergrad ?? false,
+    hasMedicalSchool: osrResult.hasMedicalSchool ?? false,
+    fitrepAverage: psrResult.fitrepAverage ?? 0,
+    rscaAverage: psrResult.rscaAverage ?? 0,
+    fitrepCount: psrResult.fitrepCount ?? 0,
+    earlyPromotes: psrResult.earlyPromotes ?? 0,
+    mustPromotes: psrResult.mustPromotes ?? 0,
+    promotables: psrResult.promotables ?? 0,
+    progressings: psrResult.progressings ?? 0,
+    psrTrend: psrResult.psrTrend ?? 'insufficient_data',
+    psrIssues: psrResult.psrIssues ?? [],
+    belowRSAverageCount: psrResult.belowRSAverageCount ?? 0,
+    belowRSAveragePercentage: psrResult.belowRSAveragePercentage ?? 0,
+    fitreps: psrResult.fitreps ?? [],
+    warnings,
+    confidence: {
+      rankHistory: odcConf.rankHistory ?? 'medium',
+      aqds: odcConf.aqds ?? 'medium',
+      psrData: psrConf.psrData ?? 'medium',
+      overall,
+    },
+  };
+}
+
+// ============================================================================
+// HANDLER
+// ============================================================================
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -180,7 +446,7 @@ export default async function handler(req, res) {
     const { action } = body;
 
     // =========================================================================
-    // MODE 1: DOCUMENT PARSING
+    // MODE 1: DOCUMENT PARSING — three focused sequential/parallel Claude calls
     // =========================================================================
     if (action === 'parse-documents') {
       const { odc, osr, psr } = body;
@@ -189,194 +455,65 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'At least one document is required' });
       }
 
-      const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 5000)));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 3500)));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 7000)));
-      const docContext = sections.join('\n\n');
-
       const today = new Date().toISOString().split('T')[0];
 
-      const parseSystemPrompt = [
-        'You are a Navy personnel record parser for the Navy Medical Corps Career Development Board application.',
-        'You receive raw text from PDF-extracted Navy documents (ODC, OSR, PSR). Text is often garbled. Cross-reference all available documents.',
-        'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
-        `TODAY'S DATE: ${today}`,
-        '',
-        '=== RANK / PROMOTION HISTORY EXTRACTION ===',
-        'Navy rank order (O1→O6): ENS → LTJG → LT → LCDR → CDR → CAPT.',
-        '',
-        'PRIMARY SOURCE — "Promotion History" block on the ODC:',
-        'The ODC contains a chart or table explicitly labeled "Promotion History" (sometimes "Date of Rank" or "Promotion Dates").',
-        'This block has one row per rank showing the rank abbreviation and a 6-digit date side by side.',
-        'Extract EVERY rank-date pair from this block into rankHistory. This is the authoritative source.',
-        '',
-        'SECONDARY SOURCE — OSR rank/date entries: If the Promotion History block is missing or garbled,',
-        'look in the OSR for rank promotion dates listed in a similar table format.',
-        '',
-        'RULES:',
-        '1. A rank row in the Promotion History block MUST have a non-blank 6-digit date next to it to be included.',
-        '   If the date field is empty, dashes, zeros, or "N/A" → the officer has NOT been promoted to that rank. OMIT it.',
-        '2. The Promotion History chart lists ALL potential ranks (ENS through CAPT) — future ranks have blank dates.',
-        '   CAPT or other higher ranks with no date = not yet promoted. DO NOT include them in rankHistory.',
-        '3. LTJG rarely appears — only include it if it has an explicit 6-digit date.',
-        '4. Do NOT pick up 6-digit numbers from other ODC fields (PEBD, PRD, EAOS, UIC codes, report numbers).',
-        '   A number is a DOR only if it is in the Promotion History block adjacent to a rank abbreviation.',
-        '',
-        'DATE FORMAT: Promotion History dates are 6-digit MMDDYY → convert to YYYY-MM-DD.',
-        '  "010924" → 2024-01-09  |  "090118" → 2018-09-01  |  "052808" → 2008-05-28',
-        'Valid DOR years: 2000–2032. Discard any entry whose converted year falls outside this range.',
-        '',
-        'CLEARANCE DATE: 4-digit MMYY format → convert to YYYY-MM. "0520"→2020-05  "1118"→2018-11',
-        '',
-        `SET "rank" = most recent rankHistory entry whose date ≤ today (${today}).`,
-        '',
-        '=== AQD EXTRACTION ===',
-        'Check BOTH (1) ODC Block 72 / "Additional Qualification Designators" AND (2) OSR "Special Qualifications" section.',
-        'Merge and deduplicate codes from both. OSR may expand names ("67A Executive Medicine") — extract just the code ("67A").',
-        'EXCLUDE: clearance codes (SS/TT/VV/TS), rank abbrevs (ENS/LTJG/LT/LCDR/CDR/CAPT),',
-        '  4-digit designator codes (2100–2399), report types (RG/CC/AT/TR), specialty codes ending in K/J/T.',
-        'Return [] if no AQD section found in either document.',
-        '',
-        '=== BOARD CERTIFICATION ===',
-        'Look for a specialty code where the LAST character is K or J (e.g. "16Q0K" or "16Q0J").',
-        'K = Board Certified (set boardCertified=true, certificationCode="K").',
-        'J = Board Eligible / NOT Board Certified (set boardCertified=false, certificationCode="J").',
-        'T = In Training (set boardCertified=false, certificationCode=null).',
-        '',
-        '=== OTHER ODC FIELDS ===',
-        'designator: 4-digit code (e.g. 2100, 2300). yearGroup: 2-digit YG.',
-        'clearanceLevel: the two-letter clearance eligibility/level code from the ODC — return it as-is (e.g., "SS", "TT", "VV"). Do NOT try to expand it here.',
-        'clearanceDate: 4-digit MMYY → YYYY-MM (see format examples above).',
-        '',
-        'FROM OSR: education (hasUndergrad, hasMedicalSchool), courses.',
-        '',
-        '=== PSR PARSING (CRITICAL — NO HALLUCINATION) ===',
-        'STRICT RULE: Every field you extract from the PSR must come VERBATIM from the document text. Do NOT infer, guess, or fill in missing values.',
-        'Station/command names: copy EXACTLY as they appear in the document. Do NOT substitute, abbreviate, or invent command names. If a station name is garbled or unreadable, use the garbled text as-is or leave it blank — NEVER guess a real-world command name.',
-        'Numbers (scores, averages, counts): copy EXACTLY from the document. Do NOT round, estimate, or calculate. If a number is unreadable, use 0.',
-        'Dates: extract from/to dates as printed. If garbled, leave blank rather than guessing.',
-        'From PSR: each FITREP has pay grade, from/to dates, station, reporting senior, 5 trait scores (1-5),',
-        'individual average, RS cumulative average (the "R/S CUM" column — typically 3.5–4.5), RS count (# of officers',
-        'at that pay grade the reporting senior has reported on), promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
-        '',
-        '=== PROMOTION RECOMMENDATION ===',
-        'Each FITREP row has a "PRT" column (1-2 chars) — use this as primary source:',
-        '  N=NOB, B=NOB, P=Promotable, MP=Must Promote, SP=Select Promotable, PR=Progressing',
-        '  PP=Early Promote (EP). KEY: "PP" is TWO chars meaning EP — the "E" OCRs as "P" in Navy PDFs. "PP" ≠ "P".',
-        '  PN=also likely Early Promote (EP) — OCR artifact where "E"→"P" and "P"→"N".',
-        'BACKUP: 5 marker columns left-to-right: SP | PR | P | MP | EP (position 1=SP, 5=EP). If ambiguous → null.',
-        'SUMMARY ROW: Use "EP N  MP N  P N" totals to set earlyPromotes/mustPromotes/promotables counts.',
-        'NOB reports: PRT shows N or B; no rec scored.',
-        'rscaAverage: mean of rsAverage across all graded (non-NOB) FITREPs.',
-        '',
-        'PSR ANALYSIS RULES:',
-        'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
-        'psrIssues: flag leftward movement (EP to MP, MP to P, P to PR in consecutive graded reports),',
-        'date gaps over 3 months between consecutive FITREPs, 2 or more consecutive P or below.',
-        'belowRSAverageCount: count fitreps where individualAverage is less than rsAverage.',
-        '',
-        'Return this JSON (use null for unknown strings, 0 for unknown numbers, [] for unknown arrays, false for unknown booleans):',
-        '{',
-        '  "name": null,',
-        '  "rank": null,',
-        '  "designator": null,',
-        '  "yearGroup": null,',
-        '  "rankHistory": [{"rank": "LT", "date": "YYYY-MM-DD"}],',
-        '  "boardCertified": null,',
-        '  "certificationCode": null,',
-        '  "clearanceLevel": "",',
-        '  "clearanceDate": "",',
-        '  "aqds": [],',
-        '  "hasUndergrad": false,',
-        '  "hasMedicalSchool": false,',
-        '  "fitrepAverage": 0,',
-        '  "rscaAverage": 0,',
-        '  "fitrepCount": 0,',
-        '  "earlyPromotes": 0,',
-        '  "mustPromotes": 0,',
-        '  "promotables": 0,',
-        '  "progressings": 0,',
-        '  "psrTrend": "insufficient_data",',
-        '  "psrIssues": [],',
-        '  "belowRSAverageCount": 0,',
-        '  "belowRSAveragePercentage": 0,',
-        '  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],',
-        '  "warnings": [],',
-        '  "confidence": {"rankHistory":"medium","aqds":"medium","psrData":"medium","overall":"medium"}',
-        '}'
-      ].join('\n');
+      // --- Call 1: ODC (must run first — OSR/PSR prompts use its results) ---
+      let odcResult = {
+        name: null, rank: null, designator: null, yearGroup: null,
+        rankHistory: [], boardCertified: null, certificationCode: null,
+        clearanceLevel: '', clearanceDate: '', aqds: [], warnings: [],
+        confidence: { rankHistory: 'medium', aqds: 'medium' },
+      };
 
-      const parseRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 8192,
-          system: parseSystemPrompt,
-          messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]
-        })
-      });
-
-      if (!parseRes.ok) {
-        const errText = await parseRes.text();
-        console.error('Claude parse error:', parseRes.status, errText);
-        let msg = 'Claude API error ' + parseRes.status;
-        if (parseRes.status === 401) msg = 'Invalid API key (401)';
-        if (parseRes.status === 429) msg = 'Rate limit reached (429)';
-        return res.status(500).json({ error: msg });
+      if (odc) {
+        const odcText = scrubPII(cleanDocumentText(odc, 'odc'));
+        odcResult = await callClaude(
+          buildOdcSystemPrompt(today),
+          'Parse this Officer Data Card (ODC):\n\n' + odcText,
+          apiKey,
+          'ODC',
+        );
       }
 
-      const parseData = await parseRes.json();
-      const rawText = (parseData.content?.[0]?.text) || '';
-      const stopReason = parseData.stop_reason || '';
-      console.log('Parse raw response (first 600):', rawText.substring(0, 600));
-      if (stopReason === 'max_tokens') {
-        console.warn('Response truncated at max_tokens — JSON may be incomplete');
-      }
+      // --- Calls 2 + 3: OSR and PSR in parallel after ODC ---
+      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [] };
+      const psrDefault = {
+        fitrepAverage: 0, rscaAverage: 0, fitrepCount: 0,
+        earlyPromotes: 0, mustPromotes: 0, promotables: 0, progressings: 0,
+        psrTrend: 'insufficient_data', psrIssues: [], belowRSAverageCount: 0,
+        belowRSAveragePercentage: 0, fitreps: [], warnings: [],
+        confidence: { psrData: 'medium' },
+      };
 
-      // Strip code fences, then extract the outermost JSON object using brace-matching.
-      // lastIndexOf('}') is unsafe: if Claude adds text after the JSON (even another {}),
-      // it returns the wrong position and breaks JSON.parse.
-      let jsonText = rawText
-        .replace(/```json\s*/gi, '')
-        .replace(/```\s*/g, '')
-        .trim();
+      const [osrResult, psrResult] = await Promise.all([
+        osr
+          ? callClaude(
+              buildOsrSystemPrompt(odcResult),
+              'Parse this Officer Summary Record (OSR):\n\n' + scrubPII(cleanDocumentText(osr, 'osr')),
+              apiKey,
+              'OSR',
+            ).catch(e => {
+              console.error('OSR parse failed (using defaults):', e.message);
+              return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
+            })
+          : Promise.resolve(osrDefault),
 
-      // Walk the string tracking depth and string state to find the true closing brace.
-      function extractJsonObject(text) {
-        const start = text.indexOf('{');
-        if (start === -1) return null;
-        let depth = 0;
-        let inString = false;
-        let escaped = false;
-        for (let i = start; i < text.length; i++) {
-          const ch = text[i];
-          if (escaped) { escaped = false; continue; }
-          if (ch === '\\' && inString) { escaped = true; continue; }
-          if (ch === '"') { inString = !inString; continue; }
-          if (!inString) {
-            if (ch === '{') depth++;
-            else if (ch === '}' && --depth === 0) return text.substring(start, i + 1);
-          }
-        }
-        return null;
-      }
+        psr
+          ? callClaude(
+              buildPsrSystemPrompt(odcResult),
+              'Parse this Performance Summary Record (PSR):\n\n' + scrubPII(cleanDocumentText(psr, 'psr')),
+              apiKey,
+              'PSR',
+            ).catch(e => {
+              console.error('PSR parse failed (using defaults):', e.message);
+              return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
+            })
+          : Promise.resolve(psrDefault),
+      ]);
 
-      const extracted = extractJsonObject(jsonText);
-      if (extracted) jsonText = extracted;
-
-      try {
-        const parsed = validateParsed(JSON.parse(jsonText));
-        return res.status(200).json(parsed);
-      } catch (e) {
-        console.error('JSON parse error:', e.message, '\nRaw (first 800):', rawText.substring(0, 800));
-        return res.status(422).json({ error: 'AI returned invalid JSON' });
-      }
+      const merged = mergeResults(odcResult, osrResult, psrResult);
+      const validated = validateParsed(merged);
+      return res.status(200).json(validated);
     }
 
     // =========================================================================
@@ -442,14 +579,14 @@ export default async function handler(req, res) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 8192,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }]
-      })
+        messages: [{ role: 'user', content: userMessage }],
+      }),
     });
 
     if (!qaRes.ok) {
@@ -463,7 +600,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       answer,
-      documentsSearched: documentCount || 0
+      documentsSearched: documentCount || 0,
     });
 
   } catch (error) {

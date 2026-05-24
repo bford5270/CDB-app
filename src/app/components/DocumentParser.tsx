@@ -366,9 +366,13 @@ const PROMO_REC_LABELS: Record<string, string> = {
 function formatDate(iso: string) {
   if (!iso) return '—';
   try {
-    const [y, m, d] = iso.split('-');
+    const parts = iso.split('-');
+    if (parts.length < 2) return iso;
+    const [y, m, d] = parts;
+    const monthIdx = parseInt(m, 10) - 1;
+    if (isNaN(monthIdx) || monthIdx < 0 || monthIdx > 11) return iso;
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${months[parseInt(m) - 1]} ${d ? d + ', ' : ''}${y}`;
+    return d ? `${months[monthIdx]} ${d}, ${y}` : `${months[monthIdx]} ${y}`;
   } catch {
     return iso;
   }
@@ -893,15 +897,15 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                             {f.startDate ? formatDate(f.startDate) : '?'} – {f.endDate ? formatDate(f.endDate) : '?'}
                           </td>
                           <td className="px-2 py-1.5 text-gray-600">{f.station || '—'}</td>
-                          <td className="px-2 py-1.5 text-center font-medium text-gray-700">
-                            {f.individualAverage > 0 ? f.individualAverage.toFixed(2) : '—'}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {f.rsAverage > 0 ? (
-                              <span className="font-medium" style={{ color: aboveRS ? '#16A34A' : '#DC2626' }}>
-                                {f.rsAverage.toFixed(2)}{aboveRS ? ' ▲' : ' ▼'}
+                          <td className="px-2 py-1.5 text-center font-medium">
+                            {f.individualAverage > 0 ? (
+                              <span style={{ color: aboveRS ? '#16A34A' : '#DC2626' }}>
+                                {f.individualAverage.toFixed(2)}{aboveRS ? ' ▲' : ' ▼'}
                               </span>
                             ) : '—'}
+                          </td>
+                          <td className="px-2 py-1.5 text-center font-medium text-gray-500">
+                            {f.rsAverage > 0 ? f.rsAverage.toFixed(2) : '—'}
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <span className="px-1.5 py-0.5 rounded font-bold" style={recStyle}>

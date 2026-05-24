@@ -108,6 +108,22 @@ function validateParsed(parsed) {
         if (RANK_ORDER.indexOf(entry.rank) > maxIdx) acc.push(entry);
         return acc;
       }, []);
+
+    // If consecutive ranks are within 90 days of each other, the date extraction
+    // is almost certainly wrong — flag it rather than silently accepting bad data.
+    const issues = [];
+    for (let i = 1; i < parsed.rankHistory.length; i++) {
+      const prev = new Date(parsed.rankHistory[i - 1].date).getTime();
+      const curr = new Date(parsed.rankHistory[i].date).getTime();
+      const daysDiff = (curr - prev) / (1000 * 60 * 60 * 24);
+      if (daysDiff < 90) {
+        issues.push(`Suspicious: ${parsed.rankHistory[i - 1].rank} and ${parsed.rankHistory[i].rank} dates are only ${Math.round(daysDiff)} days apart — likely a date extraction error`);
+      }
+    }
+    if (issues.length > 0) {
+      parsed.warnings = [...(parsed.warnings || []), ...issues];
+      if (parsed.confidence) parsed.confidence.rankHistory = 'low';
+    }
   }
 
   if (parsed.clearanceLevel) {
@@ -357,21 +373,25 @@ function buildPsrSystemPrompt(odcResult) {
     'promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
     '',
     '=== PROMOTION RECOMMENDATION ===',
-    'The PSR has a "PROMOTION RECOMMENDATION" section with checkboxes or marker columns.',
-    'There are exactly 5 possible values in left-to-right order: SP | PR | P | MP | EP',
-    '  SP = Significant Problems (worst), PR = Progressing, P = Promotable, MP = Must Promote, EP = Early Promote (best)',
+    'Each FITREP has one promotion recommendation. Extract it for every row.',
+    'Valid values: "EP" (Early Promote), "MP" (Must Promote), "P" (Promotable), "PR" (Progressing), "SP" (Significant Problems), "NOB" (Not Observed).',
     '',
-    'PRIMARY METHOD — look for a marked/checked/filled box or an "X" or bullet in one of the 5 columns:',
-    '  The leftmost marked column = the recommendation. If EP column is marked → "EP". If MP → "MP". Etc.',
+    'SEARCH ORDER — try each method and use the first that succeeds:',
+    '1. Look for the full text "EARLY PROMOTE", "MUST PROMOTE", "PROMOTABLE", "PROGRESSING", "SIGNIFICANT PROBLEMS" near the row → map to EP/MP/P/PR/SP.',
+    '2. Look for a recommendation code in the PRT/REC column: EP, MP, P, PR, SP, N, B, PP, PN.',
+    '3. Look for a checkbox or marker in one of 5 columns (SP | PR | P | MP | EP left-to-right, worst to best).',
     '',
-    'SECONDARY METHOD — "PRT" column code (1-2 chars):',
-    '  N or B → NOB (not observed). P → Promotable. MP → Must Promote. SP → Significant Problems. PR → Progressing.',
-    '  PP = Early Promote (EP). CRITICAL: "PP" is TWO chars = EP. The letter "E" often OCRs as "P" in these PDFs.',
-    '  PN = Early Promote (EP). OCR artifact: "E"→"P" and "P"→"N".',
-    '  EP → EP (if it appears literally as "EP").',
+    'CRITICAL — TWO-CHARACTER CODES:',
+    '  "MP" is TWO characters = Must Promote. Do NOT parse only the "P" part. If you see "M P", "M|P", or "MP" → "MP".',
+    '  "PP" is TWO characters = Early Promote (EP). The letter "E" often OCRs as "P" in Navy PDFs.',
+    '  "PN" = Early Promote (EP). OCR artifact where E→P and P→N.',
+    '  "EP" literal → EP. "SP" literal → SP. "PR" literal → PR.',
+    '  Single "P" alone (not preceded by M) → Promotable.',
+    '  "N" or "B" alone → NOB.',
     '',
-    'SUMMARY ROW: Use "EP N  MP N  P N" totals to set earlyPromotes/mustPromotes/promotables counts.',
-    'NOB reports: no rec scored, set promotionRec="NOB".',
+    'SUMMARY ROW: Look for a row like "EP: N  MP: N  P: N" or "EARLY PROMOTE N  MUST PROMOTE N" near the bottom.',
+    '  Use those totals to set earlyPromotes, mustPromotes, promotables, progressings counts.',
+    'NOB reports: set promotionRec="NOB". Do not count toward trend or averages.',
     'rscaAverage: mean of rsAverage across all graded (non-NOB) FITREPs.',
     '',
     'PSR ANALYSIS RULES:',
@@ -507,6 +527,7 @@ export default async function handler(req, res) {
 
       if (odc) {
         const odcText = scrubPII(cleanDocumentText(odc, 'odc'));
+        console.log('ODC input text (first 2000):\n', odcText.substring(0, 2000));
         odcResult = await callClaude(
           buildOdcSystemPrompt(today),
           'Parse this Officer Data Card (ODC):\n\n' + odcText,
@@ -515,6 +536,7 @@ export default async function handler(req, res) {
           odcBase64 || null,
           'claude-haiku-4-5-20251001',
         );
+        console.log('ODC result:', JSON.stringify(odcResult).substring(0, 600));
       }
 
       // --- Calls 2 + 3: OSR and PSR in parallel after ODC ---
@@ -543,17 +565,21 @@ export default async function handler(req, res) {
           : Promise.resolve(osrDefault),
 
         psr
-          ? callClaude(
-              buildPsrSystemPrompt(odcResult),
-              'Parse this Performance Summary Record (PSR):\n\n' + scrubPII(cleanDocumentText(psr, 'psr')),
-              apiKey,
-              'PSR',
-              psrBase64 || null,
-              'claude-haiku-4-5-20251001',
-            ).catch(e => {
-              console.error('PSR parse failed (using defaults):', e.message);
-              return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
-            })
+          ? (async () => {
+              const psrText = scrubPII(cleanDocumentText(psr, 'psr'));
+              console.log('PSR input text (first 3000):\n', psrText.substring(0, 3000));
+              return callClaude(
+                buildPsrSystemPrompt(odcResult),
+                'Parse this Performance Summary Record (PSR):\n\n' + psrText,
+                apiKey,
+                'PSR',
+                psrBase64 || null,
+                'claude-haiku-4-5-20251001',
+              ).catch(e => {
+                console.error('PSR parse failed (using defaults):', e.message);
+                return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
+              });
+            })()
           : Promise.resolve(psrDefault),
       ]);
 

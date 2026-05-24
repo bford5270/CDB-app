@@ -190,9 +190,9 @@ export default async function handler(req, res) {
       }
 
       const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 6000)));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 4000)));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 8000)));
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 5000)));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 3500)));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 7000)));
       const docContext = sections.join('\n\n');
 
       const today = new Date().toISOString().split('T')[0];
@@ -314,8 +314,8 @@ export default async function handler(req, res) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 8192,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
           system: parseSystemPrompt,
           messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]
         })

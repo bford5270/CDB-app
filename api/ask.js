@@ -159,20 +159,41 @@ function extractJsonObject(text) {
   return null;
 }
 
+// Build the user-turn content for a Claude call.
+// When a base64 PDF is available, sends a native document block + instruction text.
+// Falls back to plain text when base64 is absent.
+function buildUserContent(textMessage, base64Pdf) {
+  if (base64Pdf) {
+    return [
+      {
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: base64Pdf },
+      },
+      { type: 'text', text: textMessage },
+    ];
+  }
+  return textMessage;
+}
+
 // Call Anthropic and return a parsed JSON object. Throws on API error or invalid JSON.
-async function callClaude(systemPrompt, userMessage, apiKey, label) {
+// When base64Pdf is provided, uses the native PDF document API (higher accuracy on tables).
+async function callClaude(systemPrompt, userMessage, apiKey, label, base64Pdf) {
+  const content = buildUserContent(userMessage, base64Pdf);
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+  };
+  if (base64Pdf) headers['anthropic-beta'] = 'pdfs-2024-09-25';
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
+    headers,
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 8192,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: 'user', content }],
     }),
   });
 
@@ -449,7 +470,7 @@ export default async function handler(req, res) {
     // MODE 1: DOCUMENT PARSING — three focused sequential/parallel Claude calls
     // =========================================================================
     if (action === 'parse-documents') {
-      const { odc, osr, psr } = body;
+      const { odc, osr, psr, odcBase64, osrBase64, psrBase64 } = body;
 
       if (!odc && !osr && !psr) {
         return res.status(400).json({ error: 'At least one document is required' });
@@ -472,6 +493,7 @@ export default async function handler(req, res) {
           'Parse this Officer Data Card (ODC):\n\n' + odcText,
           apiKey,
           'ODC',
+          odcBase64 || null,
         );
       }
 
@@ -492,6 +514,7 @@ export default async function handler(req, res) {
               'Parse this Officer Summary Record (OSR):\n\n' + scrubPII(cleanDocumentText(osr, 'osr')),
               apiKey,
               'OSR',
+              osrBase64 || null,
             ).catch(e => {
               console.error('OSR parse failed (using defaults):', e.message);
               return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
@@ -504,6 +527,7 @@ export default async function handler(req, res) {
               'Parse this Performance Summary Record (PSR):\n\n' + scrubPII(cleanDocumentText(psr, 'psr')),
               apiKey,
               'PSR',
+              psrBase64 || null,
             ).catch(e => {
               console.error('PSR parse failed (using defaults):', e.message);
               return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };

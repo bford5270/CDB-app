@@ -392,18 +392,24 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
     setStatus('parsing');
 
     const analyzed: string[] = [];
-    const body: { odc?: string; osr?: string; psr?: string } = {};
+    const body: {
+      odc?: string; osr?: string; psr?: string;
+      odcBase64?: string; osrBase64?: string; psrBase64?: string;
+    } = {};
 
     if (uploadedDocuments.odc?.status === 'success' && uploadedDocuments.odc.text) {
       body.odc = uploadedDocuments.odc.text;
+      if (uploadedDocuments.odc.base64) body.odcBase64 = uploadedDocuments.odc.base64;
       analyzed.push('ODC');
     }
     if (uploadedDocuments.osr?.status === 'success' && uploadedDocuments.osr.text) {
       body.osr = uploadedDocuments.osr.text;
+      if (uploadedDocuments.osr.base64) body.osrBase64 = uploadedDocuments.osr.base64;
       analyzed.push('OSR');
     }
     if (uploadedDocuments.psr?.status === 'success' && uploadedDocuments.psr.text) {
       body.psr = uploadedDocuments.psr.text;
+      if (uploadedDocuments.psr.base64) body.psrBase64 = uploadedDocuments.psr.base64;
       analyzed.push('PSR');
     }
 

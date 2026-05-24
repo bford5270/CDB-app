@@ -109,6 +109,20 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
+// Read the raw PDF bytes and return them as a base64 string for the Anthropic
+// native PDF document API. Bypasses pdf.js entirely — no text extraction needed.
+export async function extractBase64FromPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  // Process in 8KB chunks to avoid call-stack limits on large PDFs.
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 export function isPDF(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }

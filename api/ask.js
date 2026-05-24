@@ -177,7 +177,8 @@ function buildUserContent(textMessage, base64Pdf) {
 
 // Call Anthropic and return a parsed JSON object. Throws on API error or invalid JSON.
 // When base64Pdf is provided, uses the native PDF document API (higher accuracy on tables).
-async function callClaude(systemPrompt, userMessage, apiKey, label, base64Pdf) {
+// model defaults to Haiku (fast); pass 'claude-sonnet-4-6' for complex parsing tasks.
+async function callClaude(systemPrompt, userMessage, apiKey, label, base64Pdf, model = 'claude-haiku-4-5-20251001') {
   const content = buildUserContent(userMessage, base64Pdf);
   const headers = {
     'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ async function callClaude(systemPrompt, userMessage, apiKey, label, base64Pdf) {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model,
       max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: 'user', content }],
@@ -494,6 +495,7 @@ export default async function handler(req, res) {
           apiKey,
           'ODC',
           odcBase64 || null,
+          'claude-haiku-4-5-20251001',
         );
       }
 
@@ -515,6 +517,7 @@ export default async function handler(req, res) {
               apiKey,
               'OSR',
               osrBase64 || null,
+              'claude-haiku-4-5-20251001',
             ).catch(e => {
               console.error('OSR parse failed (using defaults):', e.message);
               return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
@@ -528,6 +531,7 @@ export default async function handler(req, res) {
               apiKey,
               'PSR',
               psrBase64 || null,
+              'claude-sonnet-4-6',
             ).catch(e => {
               console.error('PSR parse failed (using defaults):', e.message);
               return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };

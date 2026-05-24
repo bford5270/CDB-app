@@ -1094,6 +1094,26 @@ export function getOGradeFromRank(rank: string): string {
  */
 const PROMOTION_BOARD_SCHEDULE = [
   {
+    fy: 24,
+    inZoneStart: '2017-10-01',
+    inZoneEnd: '2018-09-30',
+    boards: {
+      O4: { convenes: '2023-05', fitrepDeadline: '2023-01' },
+      O5: { convenes: '2023-05', fitrepDeadline: '2022-10' },
+      O6: { convenes: '2023-02', fitrepDeadline: '2022-04' }
+    }
+  },
+  {
+    fy: 25,
+    inZoneStart: '2018-10-01',
+    inZoneEnd: '2019-09-30',
+    boards: {
+      O4: { convenes: '2024-05', fitrepDeadline: '2024-01' },
+      O5: { convenes: '2024-05', fitrepDeadline: '2023-10' },
+      O6: { convenes: '2024-02', fitrepDeadline: '2023-04' }
+    }
+  },
+  {
     fy: 26,
     inZoneStart: '2019-10-01',
     inZoneEnd: '2020-09-30',

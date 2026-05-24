@@ -19,7 +19,7 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
             <h3 className="font-semibold text-gray-700 mb-2">Promotion Timeline Not Available</h3>
             <p className="text-sm text-gray-600">
               {!timeline.isInZone
-                ? `Date of Rank (${formatDateForDisplay(dateOfRank)}) does not fall within the known in-zone windows for FY26-31.`
+                ? `Date of Rank (${formatDateForDisplay(dateOfRank)}) is outside the computed in-zone windows. Verify your current rank and DOR in the Verify step — the parser may have captured an older date.`
                 : 'Already at maximum rank in progression.'
               }
             </p>

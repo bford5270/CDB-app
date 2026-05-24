@@ -118,7 +118,7 @@ const RANK_COURSES: Record<string, { required: string[]; recommended: string[] }
     ],
     recommended: [
       'IESC if not yet complete (required for 67A AQD pathway)' + fy26Sessions('iesc'),
-      'NMQSLA — Navy Medicine Quality, Safety & Leadership Academy (mandated for command/milestone billets per BUMEDINST 1410.1)',
+      'NMQSLA — Navy Medicine Quality, Safety & Leadership Academy, if not yet complete (mandated for command/milestone billets per BUMEDINST 1410.1)',
       'SLLC — Senior Leader Legal Course (for incoming COs/XOs; CIN S-5F-0011)' + fy26Sessions('sllc'),
       'MedXellence — 40-hr CE at USU Bethesda (self-nominate; rising MHS executives)',
     ],
@@ -418,17 +418,29 @@ function buildSections(data: ParsedOfficerData): Section[] {
   const courseItems: CheckItem[] = [];
   const courses = RANK_COURSES[rank] || RANK_COURSES['LT'];
 
+  // AQDs that indicate a course is already complete
+  const aqdsUpper = data.aqds.map(a => a.toUpperCase());
+  const has67A_aqd = aqdsUpper.includes('67A');
+  const hasJPME_aqd = aqdsUpper.some(a => ['JS7', 'JS8', 'JP1', 'JP2'].includes(a));
+
   courseItems.push({
     label: `Required courses for ${rank || 'current rank'}`,
     status: 'info',
     detail: courses.required.join('\n'),
   });
 
-  if (courses.recommended.length > 0) {
+  const filteredRecommended = courses.recommended.filter(c => {
+    if (has67A_aqd && c.includes('IESC')) return false;
+    if (hasJPME_aqd && c.includes('JPME')) return false;
+    return true;
+  });
+
+  if (filteredRecommended.length > 0) {
     courseItems.push({
       label: 'Recommended courses',
       status: 'info',
-      detail: courses.recommended.join('\n'),
+      detail: filteredRecommended.join('\n'),
+      action: 'Courses already reflected in your AQDs are automatically hidden from this list.',
     });
   }
 

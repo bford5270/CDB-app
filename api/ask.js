@@ -190,9 +190,9 @@ export default async function handler(req, res) {
       }
 
       const sections = [];
-      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 12000)));
-      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 8000)));
-      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 12000)));
+      if (odc) sections.push('=== OFFICER DATA CARD (ODC) ===\n' + scrubPII(cleanDocumentText(odc, 'odc').substring(0, 8000)));
+      if (osr) sections.push('=== OFFICER SUMMARY RECORD (OSR) ===\n' + scrubPII(cleanDocumentText(osr, 'osr').substring(0, 5000)));
+      if (psr) sections.push('=== PERFORMANCE SUMMARY REPORT (PSR) ===\n' + scrubPII(cleanDocumentText(psr, 'psr').substring(0, 10000)));
       const docContext = sections.join('\n\n');
 
       const today = new Date().toISOString().split('T')[0];
@@ -231,18 +231,12 @@ export default async function handler(req, res) {
         `SET "rank" = current rank: find the most recent rankHistory entry whose date ≤ today (${today}).`,
         'Example: rankHistory has LCDR 2021-10-01 and CDR 2025-10-01; today is 2026-05-23 → rank = "CDR".',
         '',
-        '=== AQD EXTRACTION (STRICT) ===',
-        'ONLY extract AQD codes that appear in a dedicated AQD or "Additional Qualification Designator" section of the ODC (Block 72 or equivalent).',
-        'Do NOT infer or guess AQDs from other text, station codes, duty titles, clearance codes, billet names, or specialty codes.',
-        'IMPORTANT FALSE POSITIVES TO IGNORE:',
-        '  - "SS" in clearance context means Secret/Secret clearance — NOT Submarine Warfare AQD',
-        '  - "VV", "TT", "TS" are clearance codes — NOT AQDs',
-        '  - Rank abbreviations (LT, LCDR, CDR, ENS, LTJG), report types (RG, CC, AT, TR), and station codes are NOT AQDs',
-        '  - Designator codes (2100, 2300, etc.) are NOT AQDs',
-        '  - Specialty codes like "16Q0K" are board certification codes, NOT AQDs',
-        'Use the MASTER AQD REFERENCE LIST below to validate and name codes. If a code appears in the AQD section of the ODC but is not in the master list, include it anyway — do not silently drop it.',
-        'If the document has no clear AQD section, return [].',
-        AQD_REFERENCE,
+        '=== AQD EXTRACTION ===',
+        'Look ONLY in the section explicitly labeled "Additional Qualification Designators", "AQD", or "Block 72" of the ODC.',
+        'Extract each 2-5 character alphanumeric code you find there (e.g. LA7, 680, 67A, BX2, AW5, JS7, JS8, 62D).',
+        'DO NOT extract: clearance codes (SS, TT, VV, TS, S), rank abbreviations (LT, LCDR, CDR, ENS, LTJG),',
+        '  designator codes (2100-2399), report types (RG, CC, AT, TR), or specialty codes ending in K/J/T (e.g. "16Q0K").',
+        'If no clear AQD block exists in the document, return [].',
         '',
         '=== BOARD CERTIFICATION ===',
         'Look for a specialty code where the LAST character is K or J (e.g. "16Q0K" or "16Q0J").',
@@ -266,15 +260,22 @@ export default async function handler(req, res) {
         'individual average, RS cumulative average (the "R/S CUM" column — typically 3.5–4.5), RS count (# of officers',
         'at that pay grade the reporting senior has reported on), promotion rec (EP/MP/P/PR/SP/NOB), report type (RG/CC/AT/TR/NOB).',
         '',
-        'PROMOTION RECOMMENDATION ENCODING — CRITICAL:',
-        'Each FITREP row encodes the promotion recommendation as five side-by-side columns in this fixed order: EP | MP | P | PR | SP.',
-        'Exactly ONE column contains an "X" (or "x"); the remaining four contain "0" (or "O", "o" — OCR variants of zero).',
-        'The column that has the X is the actual promotion recommendation.',
-        'Column mapping: column 1 = EP, column 2 = MP, column 3 = P, column 4 = PR, column 5 = SP.',
-        'Example: "0 X 0 0 0" → MP.  "X 0 0 0 0" → EP.  "0 0 X 0 0" → P.  "0 0 0 X 0" → PR.  "0 0 0 0 X" → SP.',
-        'Do NOT default to P when the column is ambiguous — read the X position carefully.',
-        'NOB (Not Observed) reports have no X/0 pattern; identify them by the report type column.',
-        'rscaAverage: compute the simple average of all rsAverage values across graded FITREPs (exclude NOB reports).',
+        '=== PROMOTION RECOMMENDATION — READ CAREFULLY ===',
+        'The PSR encodes each FITREP\'s promotion rec as 5 adjacent markers in fixed order: EP | MP | P | PR | SP.',
+        'Exactly ONE is "selected"; the rest are blank/zero. The selected position determines the recommendation.',
+        '',
+        'STEP 1 — LOOK FOR SUMMARY TOTALS FIRST: The PSR often has a summary row showing totals like',
+        '  "EP 3  MP 5  P 2" or a table with counts under each heading.',
+        '  Use these totals to set earlyPromotes (EP count), mustPromotes (MP count), promotables (P count).',
+        '',
+        'STEP 2 — PER-FITREP: For each row, the selected rec appears as ONE of:',
+        '  a) X/0 pattern: "X 0 0 0 0"=EP, "0 X 0 0 0"=MP, "0 0 X 0 0"=P, "0 0 0 X 0"=PR, "0 0 0 0 X"=SP',
+        '  b) A checkmark, bullet, or filled character in one of 5 adjacent columns',
+        '  c) Just the abbreviation alone: "EP" or "MP" printed in that field',
+        '  If the pattern is ambiguous or absent, set promotionRec to null — do NOT default to "P".',
+        '',
+        'NOB (Not Observed) reports: no rec pattern; identify by report type column.',
+        'rscaAverage: simple average of rsAverage across all graded (non-NOB) FITREPs.',
         '',
         'PSR ANALYSIS RULES:',
         'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
@@ -321,7 +322,7 @@ export default async function handler(req, res) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-sonnet-4-6',
           max_tokens: 8192,
           system: parseSystemPrompt,
           messages: [{ role: 'user', content: 'Parse these Navy officer documents:\n\n' + docContext }]

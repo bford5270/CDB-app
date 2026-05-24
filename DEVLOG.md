@@ -25,7 +25,13 @@ the column relationships the PSR grid depends on.
 Commit: feat(parse): grid-aware column detection in pdfUtils — pipe-separated tabular rows
 
 **Phase 2 — Three separate Claude calls** (`api/ask.js`)
-(see next entry)
+Replaced the single monolithic Claude call with three focused calls: (1) ODC — identity,
+rank history, AQDs, board cert, clearance; (2) OSR — education and additional AQDs;
+(3) PSR — full FITREP table. OSR and PSR run in parallel after ODC. Removed per-doc
+character limits (was 5000/3500/7000 chars). Upgraded parsing model to claude-sonnet-4-6;
+Q&A remains on Haiku. Isolated failure handling: bad PSR parse no longer destroys ODC
+results. AQDs from ODC and OSR are deduplicated on merge.
+Commit: feat(parse): split document parsing into 3 focused Claude calls
 
 **Phase 3 — Anthropic native PDF support** (`pdfUtils.ts`, `DocumentUpload.tsx`,
 `DocumentParser.tsx`, `api/ask.js`)

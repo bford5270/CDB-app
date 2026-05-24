@@ -269,12 +269,15 @@ function buildOdcSystemPrompt(today) {
     'DATE FORMAT: Promotion History dates are 6-digit MMDDYY → convert to YYYY-MM-DD.',
     '  Parse as: first 2 digits = MM (month), middle 2 = DD (day), last 2 = YY (year).',
     '  YY is ALWAYS a 2000s year: 00→2000, 05→2005, 18→2018, 24→2024. NEVER interpret YY as 1900s.',
-    '  Examples: "010924" → month=01, day=09, year=24 → 2024-01-09',
+    '  Examples: "090124" → month=09, day=01, year=24 → 2024-09-01',
     '            "090118" → month=09, day=01, year=18 → 2018-09-01',
-    '            "052808" → month=05, day=28, year=08 → 2008-05-28',
+    '            "052112" → month=05, day=21, year=12 → 2012-05-21',
+    '            "010924" → month=01, day=09, year=24 → 2024-01-09',
     '            "110122" → month=11, day=01, year=22 → 2022-11-01',
     'Valid DOR years: 2000–2032. Discard any entry whose converted year falls outside this range.',
-    'COMMON MISTAKE: do not swap MM and DD. The first two digits are always the month.',
+    'CRITICAL MISTAKE TO AVOID: "090124" is NOT year=09 (2009). It is month=09, year=24 (2024).',
+    '  The last two digits are ALWAYS the year. The first two digits are ALWAYS the month.',
+    '  If your parsed dates cluster around 2005–2012, you have swapped MM and YY — re-parse.',
     '',
     'CLEARANCE DATE: 4-digit MMYY format → convert to YYYY-MM. "0520"→2020-05  "1118"→2018-11',
     '',
@@ -329,6 +332,15 @@ function buildOsrSystemPrompt(odcResult) {
     'hasUndergrad: true if any undergraduate degree is listed.',
     'hasMedicalSchool: true if medical school (MD/DO) or nursing degree is listed.',
     '',
+    '=== RANK HISTORY FROM OSR ===',
+    'The OSR contains a promotion section or date-of-rank row showing ranks (CAPT/CDR/LCDR/LT/LTJG/ENS) and their promotion dates.',
+    'OSR dates use YYMMDD format: first 2 digits = YY (year 2000s), next 2 = MM (month), last 2 = DD (day).',
+    '  Examples: "240901" → year=24=2024, month=09, day=01 → 2024-09-01',
+    '            "180901" → year=18=2018, month=09, day=01 → 2018-09-01',
+    '            "120521" → year=12=2012, month=05, day=21 → 2012-05-21',
+    'YYMMDD is unambiguous because MM must be 01–12; if the first 2 digits (as MM) would be > 12 or 00, the format is wrong.',
+    'Return [] if no promotion dates found in the OSR.',
+    '',
     '=== AQD EXTRACTION (OSR ONLY) ===',
     'Extract AQD codes from the OSR "Special Qualifications" section.',
     'OSR may spell out AQD names (e.g. "67A Executive Medicine") — extract just the code ("67A").',
@@ -340,6 +352,7 @@ function buildOsrSystemPrompt(odcResult) {
     '{',
     '  "hasUndergrad": false,',
     '  "hasMedicalSchool": false,',
+    '  "rankHistory": [{"rank": "CDR", "date": "YYYY-MM-DD"}],',
     '  "aqds": []',
     '}',
   ].join('\n');
@@ -382,12 +395,18 @@ function buildPsrSystemPrompt(odcResult) {
     '3. Look for a checkbox or marker in one of 5 columns (SP | PR | P | MP | EP left-to-right, worst to best).',
     '',
     'CRITICAL — TWO-CHARACTER CODES:',
-    '  "MP" is TWO characters = Must Promote. Do NOT parse only the "P" part. If you see "M P", "M|P", or "MP" → "MP".',
-    '  "PP" is TWO characters = Early Promote (EP). The letter "E" often OCRs as "P" in Navy PDFs.',
+    '  "MP" is TWO characters = Must Promote. Do NOT parse only the "P" part.',
+    '  COLUMN SPLIT ARTIFACT: PDF text extraction may place "M" and "P" in adjacent pipe-separated',
+    '  columns. If you see "M | P", "M|P", "M" followed immediately by "P" in the rec area → "MP".',
+    '  Similarly "E | P" or "E|P" → "EP".',
+    '  "PP" = Early Promote (EP). The letter "E" often OCRs as "P" in Navy PDFs.',
     '  "PN" = Early Promote (EP). OCR artifact where E→P and P→N.',
     '  "EP" literal → EP. "SP" literal → SP. "PR" literal → PR.',
-    '  Single "P" alone (not preceded by M) → Promotable.',
+    '  Single "P" alone (confirmed, no adjacent "M") → Promotable.',
     '  "N" or "B" alone → NOB.',
+    '  NATIVE PDF: If reading the raw PDF, the recommendation is the column with the X mark in the',
+    '  5-column checkbox grid labeled SP | PR | P | MP | EP (left=worst, right=best).',
+    '  Column 4 checkbox marked → MP. Column 5 → EP. Column 3 → P. Etc.',
     '',
     'SUMMARY ROW: Look for a row like "EP: N  MP: N  P: N" or "EARLY PROMOTE N  MUST PROMOTE N" near the bottom.',
     '  Use those totals to set earlyPromotes, mustPromotes, promotables, progressings counts.',
@@ -431,6 +450,19 @@ function mergeResults(odcResult, osrResult, psrResult) {
     ...(psrResult.warnings || []),
   ];
 
+  // Prefer OSR rank dates when ODC dates failed the sanity check.
+  // OSR uses unambiguous YYMMDD (month 01-12 constraint eliminates ambiguity),
+  // while ODC uses MMDDYY which the model sometimes misreads as YYMMDD.
+  let rankHistory = odcResult.rankHistory ?? [];
+  if (
+    odcResult.confidence?.rankHistory === 'low' &&
+    Array.isArray(osrResult.rankHistory) &&
+    osrResult.rankHistory.length > 0
+  ) {
+    rankHistory = osrResult.rankHistory;
+    warnings.push('Rank dates sourced from OSR (ODC dates failed sanity check — OSR YYMMDD dates used instead)');
+  }
+
   // Composite confidence: overall = min of individual levels.
   const levelRank = { high: 2, medium: 1, low: 0 };
   const rankToLevel = ['low', 'medium', 'high'];
@@ -448,7 +480,7 @@ function mergeResults(odcResult, osrResult, psrResult) {
     rank: odcResult.rank ?? null,
     designator: odcResult.designator ?? null,
     yearGroup: odcResult.yearGroup ?? null,
-    rankHistory: odcResult.rankHistory ?? [],
+    rankHistory,
     boardCertified: odcResult.boardCertified ?? null,
     certificationCode: odcResult.certificationCode ?? null,
     clearanceLevel: odcResult.clearanceLevel ?? '',
@@ -528,7 +560,7 @@ export default async function handler(req, res) {
       if (odc) {
         const odcText = scrubPII(cleanDocumentText(odc, 'odc'));
         console.log('ODC input text (first 2000):\n', odcText.substring(0, 2000));
-        odcResult = await callClaude(
+        const rawOdcResult = await callClaude(
           buildOdcSystemPrompt(today),
           'Parse this Officer Data Card (ODC):\n\n' + odcText,
           apiKey,
@@ -536,7 +568,10 @@ export default async function handler(req, res) {
           odcBase64 || null,
           'claude-haiku-4-5-20251001',
         );
-        console.log('ODC result:', JSON.stringify(odcResult).substring(0, 600));
+        // Validate ODC dates NOW so confidence.rankHistory is set before mergeResults
+        // decides whether to fall back to OSR dates.
+        odcResult = validateParsed(rawOdcResult);
+        console.log('ODC result (validated):', JSON.stringify(odcResult).substring(0, 600));
       }
 
       // --- Calls 2 + 3: OSR and PSR in parallel after ODC ---

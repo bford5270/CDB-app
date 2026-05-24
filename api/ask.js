@@ -261,6 +261,7 @@ export default async function handler(req, res) {
         'Each FITREP row has a "PRT" column (1-2 chars) — use this as primary source:',
         '  N=NOB, B=NOB, P=Promotable, MP=Must Promote, SP=Select Promotable, PR=Progressing',
         '  PP=Early Promote (EP). KEY: "PP" is TWO chars meaning EP — the "E" OCRs as "P" in Navy PDFs. "PP" ≠ "P".',
+        '  PN=also likely Early Promote (EP) — OCR artifact where "E"→"P" and "P"→"N".',
         'BACKUP: 5 marker columns left-to-right: SP | PR | P | MP | EP (position 1=SP, 5=EP). If ambiguous → null.',
         'SUMMARY ROW: Use "EP N  MP N  P N" totals to set earlyPromotes/mustPromotes/promotables counts.',
         'NOB reports: PRT shows N or B; no rec scored.',

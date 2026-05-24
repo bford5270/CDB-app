@@ -44,6 +44,45 @@ pdfs-2024-09-25`), falling back to text otherwise. Claude reads the actual PDF s
 PDFs. Text extraction is retained for the Q&A/Notion path and as fallback.
 Commit: feat(parse): Anthropic native PDF support — send PDFs as document blocks
 
+### Bug fixes — rank date accuracy + PSR MP detection (2026-05-24 continued)
+
+Four bugs identified by comparing actual PDFs against parsed output:
+
+**ODC rank dates wrong** (MMDDYY misread as YYMMDD)
+Root cause: Haiku reads ODC's `090124` as YY=09/MM=01/DD=24 (→ Jan 24 2009) instead of
+MM=09/DD=01/YY=24 (→ Sep 1 2024). Prompt already had the rule but no concrete examples
+matching the actual data. Added explicit examples with the officer's actual date strings
+(`090124→2024-09-01`, `052112→2012-05-21`) and a bold warning: "if dates cluster around
+2005–2012, you swapped MM and YY — re-parse."
+
+**OSR as rank-date fallback**
+OSR shows the same promotion dates in YYMMDD format (240901 / 180901 / 120521). YYMMDD
+is unambiguous: month>12 is impossible, so there's no format ambiguity. Added a new
+`rankHistory` field to the OSR prompt (YYMMDD examples included). In `mergeResults`, when
+`odcResult.confidence.rankHistory === 'low'` (set by the 90-day sanity check in
+`validateParsed`), the merge now substitutes OSR's rank dates and adds a warning to the
+UI. Critically, `validateParsed` is now called on `odcResult` immediately after the ODC
+call (before `mergeResults`) so the confidence flag is available in time to trigger the
+fallback.
+Commit: fix(parse): ODC rank dates + OSR fallback + PSR MP detection
+
+**PSR MP never detected**
+Root cause: pdf.js column band extraction places "M" and "P" in adjacent pipe-separated
+columns; Claude reads only the right-side "P" and returns Promotable instead of Must
+Promote. Prompt additions: explain the column-split artifact ("M|P"→"MP", "E|P"→"EP"),
+instruct Claude that when reading native PDF, the promotion rec is the X mark's column
+position in the 5-column SP|PR|P|MP|EP checkbox grid (column 4 = MP, column 5 = EP).
+
+**PSR date "undefined" in UI**
+Root cause: `formatDate` called `months[parseInt(undefined)-1]` which silently returned
+`undefined` in a template string. Fixed by guarding `parts.length < 2` and validating
+monthIdx range before indexing.
+
+**RSCA coloring convention**
+User preference: `individualAverage` cell should be red/green based on whether it's
+above or below the RS average; `rsAverage` column shows a plain gray number. Fixed by
+swapping which `<td>` receives the conditional color styling.
+
 ### Net result of all three phases
 - Text extraction now preserves column structure via pipe-separated output (Phase 1)
 - Each form gets its own focused, full-budget Claude call on Sonnet (Phase 2)

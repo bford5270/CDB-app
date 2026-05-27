@@ -438,12 +438,21 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
 
       // Override rank with date-computed value from rankHistory.
       // Claude reads the rank label off the document which may be stale if the
-      // officer promoted after the ODC was printed.
+      // officer promoted after the ODC was printed. However, never let the
+      // computed rank exceed the AI's own stated rank — a misread future date
+      // (e.g. CAPT date parsed as past) must not override a correct CDR rank.
+      const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM', 'VADM', 'ADM'];
       const todayStr = new Date().toISOString().split('T')[0];
       const computedRank = data.rankHistory
         .filter(rh => rh.date <= todayStr)
         .sort((a, b) => b.date.localeCompare(a.date))[0]?.rank;
-      if (computedRank) data.rank = computedRank;
+      if (computedRank) {
+        const aiIdx = data.rank ? RANK_ORDER.indexOf(data.rank.toUpperCase()) : -1;
+        const computedIdx = RANK_ORDER.indexOf(computedRank.toUpperCase());
+        if (aiIdx < 0 || computedIdx <= aiIdx) {
+          data.rank = computedRank;
+        }
+      }
 
       setExtracted(data);
       setStatus('done');
@@ -998,20 +1007,21 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                         }} />
                       ))}
 
-                      {/* Vertical change markers */}
+                      {/* Horizontal separators between rows on command/RS changes */}
                       {valid.map((f, i) => {
                         if (i === 0) return null;
                         const prev = valid[i - 1];
                         const cmdChange = f.station !== prev.station;
                         const rsChange = f.rsName && prev.rsName && f.rsName !== prev.rsName;
                         if (!cmdChange && !rsChange) return null;
-                        const x = pct(f.startDate);
                         return (
-                          <div key={`vline-${i}`} style={{
-                            position: 'absolute', top: 0, bottom: 0,
-                            left: `${x}%`, width: 2,
+                          <div key={`hline-${i}`} style={{
+                            position: 'absolute',
+                            top: i * ROW_H - 1,
+                            left: 0, right: 0,
+                            height: 2,
                             background: cmdChange ? '#3B82F6' : '#F59E0B',
-                            opacity: 0.5, zIndex: 2,
+                            opacity: 0.7, zIndex: 2,
                           }} />
                         );
                       })}
@@ -1081,11 +1091,11 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                   {/* Legend */}
                   <div style={{ display: 'flex', gap: 12, marginTop: 6, marginLeft: LABEL_W, flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <div style={{ width: 2, height: 12, background: '#3B82F6', opacity: 0.6 }} />
+                      <div style={{ width: 16, height: 2, background: '#3B82F6', opacity: 0.7 }} />
                       <span style={{ fontSize: 10, color: '#64748B' }}>Command change</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <div style={{ width: 2, height: 12, background: '#F59E0B', opacity: 0.6 }} />
+                      <div style={{ width: 16, height: 2, background: '#F59E0B', opacity: 0.7 }} />
                       <span style={{ fontSize: 10, color: '#64748B' }}>RS change</span>
                     </div>
                     {(['EP', 'MP', 'P', 'PR', 'SP'] as const).map(rec => {

@@ -17,6 +17,8 @@ export interface ExtractedOfficerData {
   rank: string | null;
   designator: string | null;
   yearGroup: string | null;
+  clinicalSpecialty: string | null;
+  selectedForNextRank: { rank: string; date: string } | null;
 
   rankHistory: Array<{ rank: string; date: string }>;
 
@@ -719,6 +721,12 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                 <dt className="text-gray-400 text-xs">Designator</dt>
                 <dd className="font-medium text-gray-800 text-xs">{extracted.designator || 'Not detected'}</dd>
               </div>
+              {extracted.clinicalSpecialty && (
+                <div className="flex justify-between">
+                  <dt className="text-gray-400 text-xs">Clinical Specialty</dt>
+                  <dd className="font-medium text-gray-800 text-xs">{extracted.clinicalSpecialty}</dd>
+                </div>
+              )}
               {extracted.yearGroup && (
                 <div className="flex justify-between">
                   <dt className="text-gray-400 text-xs">Year Group</dt>
@@ -742,6 +750,12 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                     </React.Fragment>
                   ))}
                 </div>
+                {extracted.selectedForNextRank && (
+                  <div className="mt-2 px-2 py-1.5 rounded text-xs font-medium"
+                    style={{ background: 'rgba(255,199,44,0.15)', color: '#92400E', border: '1px solid rgba(255,199,44,0.4)' }}>
+                    Selected for {extracted.selectedForNextRank.rank} — effective {formatDate(extracted.selectedForNextRank.date)}
+                  </div>
+                )}
               </div>
             )}
           </div>

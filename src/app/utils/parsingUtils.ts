@@ -1180,6 +1180,8 @@ export interface PromotionTimeline {
   currentPayGrade: string;
   dateOfRank: string;
   inZoneFY: number | null;
+  inZoneStart: string | null;
+  inZoneEnd: string | null;
   nextRank: string | null;
   nextPayGrade: string | null;
   boardConvenes: string | null;
@@ -1187,6 +1189,10 @@ export interface PromotionTimeline {
   daysUntilBoard: number | null;
   daysUntilFitrepDeadline: number | null;
   isInZone: boolean;
+  belowZoneFY: number | null;
+  belowZoneBoardConvenes: string | null;
+  belowZoneFitrepDeadline: string | null;
+  daysUntilBelowZoneBoard: number | null;
 }
 
 /**
@@ -1206,15 +1212,32 @@ export function calculatePromotionTimeline(
   // Find the FY where officer is in-zone based on DOR
   let inZoneFY: number | null = null;
   let boardInfo: { convenes: string; fitrepDeadline: string } | null = null;
+  let inZoneStart: string | null = null;
+  let inZoneEnd: string | null = null;
 
   for (const schedule of PROMOTION_BOARD_SCHEDULE) {
     if (dateOfRank >= schedule.inZoneStart && dateOfRank <= schedule.inZoneEnd) {
       inZoneFY = schedule.fy;
-      // Get board info for next rank
+      inZoneStart = schedule.inZoneStart;
+      inZoneEnd = schedule.inZoneEnd;
       if (nextPayGrade && nextPayGrade in schedule.boards) {
         boardInfo = schedule.boards[nextPayGrade as keyof typeof schedule.boards];
       }
       break;
+    }
+  }
+
+  // Below-zone is the board one FY prior to primary zone
+  let belowZoneFY: number | null = null;
+  let belowZoneBoardInfo: { convenes: string; fitrepDeadline: string } | null = null;
+
+  if (inZoneFY !== null) {
+    const belowSchedule = PROMOTION_BOARD_SCHEDULE.find(s => s.fy === inZoneFY! - 1);
+    if (belowSchedule) {
+      belowZoneFY = belowSchedule.fy;
+      if (nextPayGrade && nextPayGrade in belowSchedule.boards) {
+        belowZoneBoardInfo = belowSchedule.boards[nextPayGrade as keyof typeof belowSchedule.boards];
+      }
     }
   }
 
@@ -1226,9 +1249,14 @@ export function calculatePromotionTimeline(
   if (boardInfo) {
     const boardDate = new Date(boardInfo.convenes + '-01');
     const fitrepDate = new Date(boardInfo.fitrepDeadline + '-01');
-
     daysUntilBoard = Math.ceil((boardDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     daysUntilFitrepDeadline = Math.ceil((fitrepDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  let daysUntilBelowZoneBoard: number | null = null;
+  if (belowZoneBoardInfo) {
+    const belowBoardDate = new Date(belowZoneBoardInfo.convenes + '-01');
+    daysUntilBelowZoneBoard = Math.ceil((belowBoardDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }
 
   return {
@@ -1236,12 +1264,18 @@ export function calculatePromotionTimeline(
     currentPayGrade: payGrade,
     dateOfRank,
     inZoneFY,
+    inZoneStart,
+    inZoneEnd,
     nextRank,
     nextPayGrade,
     boardConvenes: boardInfo?.convenes || null,
     fitrepDeadline: boardInfo?.fitrepDeadline || null,
     daysUntilBoard,
     daysUntilFitrepDeadline,
-    isInZone: inZoneFY !== null
+    isInZone: inZoneFY !== null,
+    belowZoneFY,
+    belowZoneBoardConvenes: belowZoneBoardInfo?.convenes || null,
+    belowZoneFitrepDeadline: belowZoneBoardInfo?.fitrepDeadline || null,
+    daysUntilBelowZoneBoard,
   };
 }

@@ -124,7 +124,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     promotables: parsedData.promotables || 0,
     hasUndergrad: parsedData.hasUndergrad ?? true,
     hasMedicalSchool: parsedData.hasMedicalSchool ?? true,
-    designator: parsedData.designator || '2300',
+    designator: parsedData.designator || '2100',
     currentBillet: parsedData.currentBillet || '',
     deployments: parsedData.deployments || 0,
     operationalTours: parsedData.operationalTours || 0,

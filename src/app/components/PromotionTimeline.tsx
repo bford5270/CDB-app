@@ -45,7 +45,7 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
       </div>
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         {/* Current Status */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="text-sm text-gray-600 mb-1">Current Rank</div>
@@ -57,16 +57,27 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
 
         {/* In-Zone Status */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="text-sm text-green-700 mb-1">In-Zone for Promotion</div>
+          <div className="text-sm text-green-700 mb-1">Primary Zone</div>
           <div className="text-2xl font-bold text-green-600">FY{timeline.inZoneFY}</div>
           <div className="text-xs text-green-600 mt-1">
             To {timeline.nextRank} ({timeline.nextPayGrade})
           </div>
         </div>
 
-        {/* Board Date */}
+        {/* Below-Zone Board */}
+        {timeline.belowZoneFY && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="text-sm text-amber-700 mb-1">Below Zone Opportunity</div>
+            <div className="text-2xl font-bold text-amber-600">FY{timeline.belowZoneFY}</div>
+            <div className="text-xs text-amber-600 mt-1">
+              Board: {timeline.belowZoneBoardConvenes ? formatDateForDisplay(timeline.belowZoneBoardConvenes) : 'TBD'}
+            </div>
+          </div>
+        )}
+
+        {/* Primary Board Date */}
         <div className={`border rounded-lg p-4 ${boardSoon ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
-          <div className={`text-sm mb-1 ${boardSoon ? 'text-yellow-700' : 'text-gray-600'}`}>Board Convenes</div>
+          <div className={`text-sm mb-1 ${boardSoon ? 'text-yellow-700' : 'text-gray-600'}`}>Primary Board Convenes</div>
           <div className={`text-2xl font-bold ${boardSoon ? 'text-yellow-600' : 'text-blue-600'}`}>
             {timeline.boardConvenes ? formatDateForDisplay(timeline.boardConvenes) : 'TBD'}
           </div>
@@ -130,7 +141,9 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
             <div className="flex-1">
               <div className="font-medium text-gray-900">In-Zone Period</div>
               <div className="text-sm text-gray-600">
-                Fiscal Year {timeline.inZoneFY} (Officers with DOR between Oct 1, {(timeline.inZoneFY || 0) - 7} and Sep 30, {(timeline.inZoneFY || 0) - 6})
+                Fiscal Year {timeline.inZoneFY} (DOR between{' '}
+                {timeline.inZoneStart ? formatDateForDisplay(timeline.inZoneStart) : '—'} and{' '}
+                {timeline.inZoneEnd ? formatDateForDisplay(timeline.inZoneEnd) : '—'})
               </div>
             </div>
           </div>
@@ -152,7 +165,29 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
             </div>
           )}
 
-          {/* Board Convenes */}
+          {/* Below Zone Board */}
+          {timeline.belowZoneBoardConvenes && (
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium text-gray-900">Below-Zone Board (FY{timeline.belowZoneFY})</div>
+                <div className="text-sm text-gray-600">
+                  {formatDateForDisplay(timeline.belowZoneBoardConvenes)} — early selection opportunity one year before primary zone
+                  {timeline.daysUntilBelowZoneBoard !== null && (
+                    <span className="ml-2 text-amber-600 font-medium">
+                      ({timeline.daysUntilBelowZoneBoard > 0
+                        ? `${timeline.daysUntilBelowZoneBoard} days away`
+                        : `${Math.abs(timeline.daysUntilBelowZoneBoard)} days ago`})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Primary Board Convenes */}
           {timeline.boardConvenes && (
             <div className="flex items-start gap-3">
               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
@@ -161,7 +196,7 @@ export function PromotionTimeline({ currentRank, dateOfRank, className = '' }: P
                 <TrendingUp className={`w-5 h-5 ${boardSoon ? 'text-yellow-600' : 'text-blue-600'}`} />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-gray-900">Selection Board Convenes</div>
+                <div className="font-medium text-gray-900">Primary Zone Board Convenes (FY{timeline.inZoneFY})</div>
                 <div className="text-sm text-gray-600">
                   {formatDateForDisplay(timeline.boardConvenes)} - {timeline.nextPayGrade} promotion board meets
                 </div>

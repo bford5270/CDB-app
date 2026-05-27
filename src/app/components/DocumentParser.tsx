@@ -49,6 +49,7 @@ export interface ExtractedOfficerData {
   fitreps: Array<{
     payGrade: string;
     station: string;
+    rsName?: string;
     startDate: string;
     endDate: string;
     individualAverage: number;
@@ -933,6 +934,178 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                 </table>
               </div>
             )}
+
+            {/* FITREP Gantt Timeline */}
+            {extracted.fitreps.length > 0 && (() => {
+              const valid = extracted.fitreps.filter(f => f.startDate && f.endDate);
+              if (valid.length === 0) return null;
+
+              const times = valid.flatMap(f => [+new Date(f.startDate), +new Date(f.endDate)]);
+              const tMin = Math.min(...times);
+              const tMax = Math.max(...times);
+              const span = tMax - tMin || 1;
+              const pct = (d: string) => ((+new Date(d) - tMin) / span) * 100;
+
+              const RANK_BG: Record<string, string> = {
+                O1: '#EFF6FF', O2: '#F0FDF4', O3: '#FFFBEB',
+                O4: '#F5F3FF', O5: '#ECFDF5', O6: '#EFF6FF',
+              };
+              const REC_STYLE: Record<string, { bg: string; color: string }> = {
+                EP: { bg: NAVY, color: '#fff' },
+                MP: { bg: 'rgba(27,54,93,0.18)', color: NAVY },
+                P:  { bg: '#E2E8F0', color: '#475569' },
+                PR: { bg: '#FEF3C7', color: '#92400E' },
+                SP: { bg: '#FEE2E2', color: '#991B1B' },
+              };
+
+              const ROW_H = 40;
+              const LABEL_W = 40;
+              const BADGE_W = 28;
+
+              const startYear = new Date(tMin).getFullYear();
+              const endYear = new Date(tMax).getFullYear();
+              const years: Array<{ year: number; p: number }> = [];
+              for (let y = startYear; y <= endYear + 1; y++) {
+                const t = +new Date(`${y}-01-01`);
+                if (t >= tMin && t <= tMax) {
+                  years.push({ year: y, p: ((t - tMin) / span) * 100 });
+                }
+              }
+
+              return (
+                <div style={{ marginTop: 20, userSelect: 'none' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    FITREP Timeline
+                  </div>
+                  <div style={{ display: 'flex' }}>
+                    {/* Grade labels */}
+                    <div style={{ width: LABEL_W, flexShrink: 0 }}>
+                      {valid.map((f, i) => (
+                        <div key={i} style={{ height: ROW_H, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: NAVY }}>{f.payGrade}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Chart area */}
+                    <div style={{ flex: 1, position: 'relative', borderLeft: '2px solid #E2E8F0' }}>
+                      {/* Row backgrounds (rank-banded) */}
+                      {valid.map((f, i) => (
+                        <div key={`bg-${i}`} style={{
+                          position: 'absolute', top: i * ROW_H, left: 0, right: 0, height: ROW_H,
+                          background: RANK_BG[f.payGrade] || '#F8FAFC',
+                          borderBottom: '1px solid rgba(0,0,0,0.04)',
+                        }} />
+                      ))}
+
+                      {/* Vertical change markers */}
+                      {valid.map((f, i) => {
+                        if (i === 0) return null;
+                        const prev = valid[i - 1];
+                        const cmdChange = f.station !== prev.station;
+                        const rsChange = f.rsName && prev.rsName && f.rsName !== prev.rsName;
+                        if (!cmdChange && !rsChange) return null;
+                        const x = pct(f.startDate);
+                        return (
+                          <div key={`vline-${i}`} style={{
+                            position: 'absolute', top: 0, bottom: 0,
+                            left: `${x}%`, width: 2,
+                            background: cmdChange ? '#3B82F6' : '#F59E0B',
+                            opacity: 0.5, zIndex: 2,
+                          }} />
+                        );
+                      })}
+
+                      {/* Year grid lines */}
+                      {years.map(({ year, p }) => (
+                        <div key={`yr-${year}`} style={{
+                          position: 'absolute', top: 0, bottom: 0,
+                          left: `${p}%`, width: 1,
+                          background: '#E2E8F0', zIndex: 1,
+                        }} />
+                      ))}
+
+                      {/* FITREP bars */}
+                      {valid.map((f, i) => {
+                        const left = pct(f.startDate);
+                        const right = pct(f.endDate);
+                        const width = Math.max(right - left, 1);
+                        const rec = f.promotionRec || '';
+                        const rs = REC_STYLE[rec] || { bg: '#E2E8F0', color: '#94A3B8' };
+                        return (
+                          <div key={`bar-${i}`} style={{
+                            position: 'absolute',
+                            top: i * ROW_H + 11,
+                            left: `${left}%`,
+                            width: `${width}%`,
+                            height: ROW_H - 22,
+                            display: 'flex', zIndex: 3,
+                          }}>
+                            <div style={{
+                              flex: 1, minWidth: 4,
+                              background: 'rgba(27,54,93,0.15)',
+                              border: '1px solid rgba(27,54,93,0.25)',
+                              borderRight: 'none',
+                              borderRadius: '3px 0 0 3px',
+                            }} />
+                            <div style={{
+                              flexShrink: 0, width: BADGE_W,
+                              background: rs.bg, color: rs.color,
+                              fontSize: 9, fontWeight: 800,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              border: '1px solid rgba(0,0,0,0.1)',
+                              borderRadius: '0 3px 3px 0',
+                            }}>
+                              {rec || '?'}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Height spacer */}
+                      <div style={{ height: valid.length * ROW_H }} />
+                    </div>
+                  </div>
+
+                  {/* X-axis year labels */}
+                  <div style={{ position: 'relative', marginLeft: LABEL_W, height: 18, borderTop: '1px solid #E2E8F0' }}>
+                    {years.map(({ year, p }) => (
+                      <span key={`lbl-${year}`} style={{
+                        position: 'absolute', left: `${p}%`,
+                        transform: 'translateX(-50%)',
+                        fontSize: 10, color: '#94A3B8', lineHeight: '18px',
+                      }}>{year}</span>
+                    ))}
+                  </div>
+
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, marginLeft: LABEL_W, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 2, height: 12, background: '#3B82F6', opacity: 0.6 }} />
+                      <span style={{ fontSize: 10, color: '#64748B' }}>Command change</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 2, height: 12, background: '#F59E0B', opacity: 0.6 }} />
+                      <span style={{ fontSize: 10, color: '#64748B' }}>RS change</span>
+                    </div>
+                    {(['EP', 'MP', 'P', 'PR', 'SP'] as const).map(rec => {
+                      const s = REC_STYLE[rec];
+                      return (
+                        <div key={rec} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <div style={{
+                            width: 22, height: 14, background: s.bg, color: s.color,
+                            fontSize: 8, fontWeight: 800,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid rgba(0,0,0,0.1)', borderRadius: 2,
+                          }}>{rec}</div>
+                          <span style={{ fontSize: 10, color: '#64748B' }}>{rec}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </details>
       )}

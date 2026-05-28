@@ -436,22 +436,17 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
 
       const data: ExtractedOfficerData = await response.json();
 
-      // Override rank with date-computed value from rankHistory.
-      // Claude reads the rank label off the document which may be stale if the
-      // officer promoted after the ODC was printed. However, never let the
-      // computed rank exceed the AI's own stated rank — a misread future date
-      // (e.g. CAPT date parsed as past) must not override a correct CDR rank.
+      // Override rank with the most recent past entry from rankHistory.
+      // This handles ODCs printed before a promotion date (stale rank label)
+      // and OSR/rankHistory disagreements. The date filter ensures we never
+      // advance to a future promotion that hasn't happened yet.
       const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT', 'RDML', 'RADM', 'VADM', 'ADM'];
       const todayStr = new Date().toISOString().split('T')[0];
       const computedRank = data.rankHistory
         .filter(rh => rh.date <= todayStr)
         .sort((a, b) => b.date.localeCompare(a.date))[0]?.rank;
       if (computedRank) {
-        const aiIdx = data.rank ? RANK_ORDER.indexOf(data.rank.toUpperCase()) : -1;
-        const computedIdx = RANK_ORDER.indexOf(computedRank.toUpperCase());
-        if (aiIdx < 0 || computedIdx <= aiIdx) {
-          data.rank = computedRank;
-        }
+        data.rank = computedRank;
       }
 
       // If selectedForNextRank date is already in the past, fold it into current rank.

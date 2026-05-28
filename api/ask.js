@@ -134,6 +134,46 @@ function validateParsed(parsed) {
     else if (cl === 'N' || cl === 'NONE') parsed.clearanceLevel = 'None';
   }
 
+  if (Array.isArray(parsed.fitreps)) {
+    // Strip duty-title overflow fragments from station names. These appear when a long
+    // duty title (e.g. "ASSOC PROFESSOR") overflows from LINE 1 onto LINE 2 and the AI
+    // mistakenly appends the tail fragment to the station string from LINE 2.
+    // Pattern: trailing whitespace + fragment that is NOT a recognizable station word.
+    const OVERFLOW_RE = /\s+(FESS|FESSOR|OFESSO|ROFESSOR|PROFESSOR|SSISTANT|SSOC|ESIDENT|OCIATE|ESSOR|SSOR|IDENT)\s*$/i;
+    for (const f of parsed.fitreps) {
+      if (f.station) {
+        f.station = f.station.replace(OVERFLOW_RE, '').trim();
+      }
+    }
+
+    // Remove phantom FITREPs caused by LINE 2 continuation lines being misread as LINE 1.
+    // A FITREP period shorter than 7 days is always a parsing artifact.
+    const before = parsed.fitreps.length;
+    parsed.fitreps = parsed.fitreps.filter(f => {
+      if (!f.startDate || !f.endDate) return true;
+      const start = new Date(f.startDate).getTime();
+      const end = new Date(f.endDate).getTime();
+      if (isNaN(start) || isNaN(end)) return true;
+      return (end - start) / (1000 * 60 * 60 * 24) >= 7;
+    });
+    const removed = before - parsed.fitreps.length;
+    if (removed > 0) {
+      parsed.warnings = [...(parsed.warnings || []),
+        `Removed ${removed} phantom FITREP(s) with period < 7 days (likely LINE 2 continuation misread as new entry)`,
+      ];
+    }
+
+    // Re-derive aggregate counts from the cleaned fitrep list.
+    if (parsed.fitreps.length !== before) {
+      const graded = parsed.fitreps.filter(f => f.promotionRec && f.promotionRec !== 'NOB');
+      parsed.fitrepCount = parsed.fitreps.length;
+      parsed.earlyPromotes = graded.filter(f => f.promotionRec === 'EP').length;
+      parsed.mustPromotes = graded.filter(f => f.promotionRec === 'MP').length;
+      parsed.promotables = graded.filter(f => f.promotionRec === 'P').length;
+      parsed.progressings = graded.filter(f => f.promotionRec === 'PR').length;
+    }
+  }
+
   return parsed;
 }
 

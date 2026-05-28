@@ -454,6 +454,25 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
         }
       }
 
+      // If selectedForNextRank date is already in the past, fold it into current rank.
+      // This handles the case where the ODC was printed before the promotion date
+      // (e.g. ODC printed Aug 2024, CDR promotion Sep 01 2024 — that date is now past).
+      if (data.selectedForNextRank && data.selectedForNextRank.date <= todayStr) {
+        const snrRank = data.selectedForNextRank.rank.toUpperCase();
+        const snrIdx = RANK_ORDER.indexOf(snrRank);
+        const currentIdx = RANK_ORDER.indexOf((data.rank || '').toUpperCase());
+        if (snrIdx > currentIdx) {
+          data.rank = data.selectedForNextRank.rank;
+          // Add to rankHistory so promotion timeline picks it up correctly
+          if (!data.rankHistory.some(rh => rh.rank.toUpperCase() === snrRank)) {
+            data.rankHistory.push({
+              rank: data.selectedForNextRank.rank,
+              date: data.selectedForNextRank.date,
+            });
+          }
+        }
+      }
+
       setExtracted(data);
       setStatus('done');
     } catch (err) {
@@ -760,7 +779,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                     </React.Fragment>
                   ))}
                 </div>
-                {extracted.selectedForNextRank && (
+                {extracted.selectedForNextRank && extracted.selectedForNextRank.date > new Date().toISOString().split('T')[0] && (
                   <div className="mt-2 px-2 py-1.5 rounded text-xs font-medium"
                     style={{ background: 'rgba(255,199,44,0.15)', color: '#92400E', border: '1px solid rgba(255,199,44,0.4)' }}>
                     Selected for {extracted.selectedForNextRank.rank} — effective {formatDate(extracted.selectedForNextRank.date)}

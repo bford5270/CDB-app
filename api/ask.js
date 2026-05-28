@@ -146,32 +146,48 @@ function validateParsed(parsed) {
       }
     }
 
+    // Sort by startDate so overlap detection works correctly.
+    parsed.fitreps.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+
     // Remove phantom FITREPs caused by LINE 2 continuation lines being misread as LINE 1.
-    // A FITREP period shorter than 7 days is always a parsing artifact.
+    // Two patterns:
+    // 1. Period < 7 days — always a parsing artifact.
+    // 2. startDate equals the endDate of the immediately preceding FITREP — the LINE 2
+    //    endDate of FITREP N was read as the startDate of a phantom FITREP N+phantom.
+    //    Real FITREPs always start the day after the previous one ends.
     const before = parsed.fitreps.length;
-    parsed.fitreps = parsed.fitreps.filter(f => {
+    parsed.fitreps = parsed.fitreps.filter((f, i, arr) => {
       if (!f.startDate || !f.endDate) return true;
       const start = new Date(f.startDate).getTime();
       const end = new Date(f.endDate).getTime();
       if (isNaN(start) || isNaN(end)) return true;
-      return (end - start) / (1000 * 60 * 60 * 24) >= 7;
+
+      // Pattern 1: < 7-day period
+      if ((end - start) / (1000 * 60 * 60 * 24) < 7) return false;
+
+      // Pattern 2: startDate == previous FITREP's endDate (exact same calendar day)
+      if (i > 0) {
+        const prev = arr[i - 1];
+        if (prev.endDate && f.startDate === prev.endDate) return false;
+      }
+
+      return true;
     });
     const removed = before - parsed.fitreps.length;
     if (removed > 0) {
       parsed.warnings = [...(parsed.warnings || []),
-        `Removed ${removed} phantom FITREP(s) with period < 7 days (likely LINE 2 continuation misread as new entry)`,
+        `Removed ${removed} phantom FITREP(s) (period < 7 days or startDate equals previous endDate — LINE 2 misread as new entry)`,
       ];
     }
 
-    // Re-derive aggregate counts from the cleaned fitrep list.
-    if (parsed.fitreps.length !== before) {
-      const graded = parsed.fitreps.filter(f => f.promotionRec && f.promotionRec !== 'NOB');
-      parsed.fitrepCount = parsed.fitreps.length;
-      parsed.earlyPromotes = graded.filter(f => f.promotionRec === 'EP').length;
-      parsed.mustPromotes = graded.filter(f => f.promotionRec === 'MP').length;
-      parsed.promotables = graded.filter(f => f.promotionRec === 'P').length;
-      parsed.progressings = graded.filter(f => f.promotionRec === 'PR').length;
-    }
+    // Always re-derive aggregate counts from the actual fitrep list so they stay
+    // consistent with what is displayed, regardless of what the PSR summary row said.
+    const graded = parsed.fitreps.filter(f => f.promotionRec && f.promotionRec !== 'NOB');
+    parsed.fitrepCount = parsed.fitreps.length;
+    parsed.earlyPromotes = graded.filter(f => f.promotionRec === 'EP').length;
+    parsed.mustPromotes = graded.filter(f => f.promotionRec === 'MP').length;
+    parsed.promotables = graded.filter(f => f.promotionRec === 'P').length;
+    parsed.progressings = graded.filter(f => f.promotionRec === 'PR').length;
   }
 
   return parsed;

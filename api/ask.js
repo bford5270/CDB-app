@@ -109,19 +109,28 @@ function validateParsed(parsed) {
         return acc;
       }, []);
 
+    // Medical Corps officers commission directly as LT; ENS/LTJG entries with the
+    // same date as LT are AI artifacts from listing all ranks and picking up the LT date.
+    const ltEntry = parsed.rankHistory.find(e => e.rank === 'LT');
+    if (ltEntry) {
+      parsed.rankHistory = parsed.rankHistory.filter(e =>
+        !(['ENS', 'LTJG'].includes(e.rank) && e.date === ltEntry.date)
+      );
+    }
+
     // If consecutive ranks are within 90 days of each other, the date extraction
     // is almost certainly wrong — flag it rather than silently accepting bad data.
-    const issues = [];
+    const rankIssues = [];
     for (let i = 1; i < parsed.rankHistory.length; i++) {
       const prev = new Date(parsed.rankHistory[i - 1].date).getTime();
       const curr = new Date(parsed.rankHistory[i].date).getTime();
       const daysDiff = (curr - prev) / (1000 * 60 * 60 * 24);
       if (daysDiff < 90) {
-        issues.push(`Suspicious: ${parsed.rankHistory[i - 1].rank} and ${parsed.rankHistory[i].rank} dates are only ${Math.round(daysDiff)} days apart — likely a date extraction error`);
+        rankIssues.push(`Suspicious: ${parsed.rankHistory[i - 1].rank} and ${parsed.rankHistory[i].rank} dates are only ${Math.round(daysDiff)} days apart — likely a date extraction error`);
       }
     }
-    if (issues.length > 0) {
-      parsed.warnings = [...(parsed.warnings || []), ...issues];
+    if (rankIssues.length > 0) {
+      parsed.warnings = [...(parsed.warnings || []), ...rankIssues];
       if (parsed.confidence) parsed.confidence.rankHistory = 'low';
     }
   }
@@ -146,33 +155,53 @@ function validateParsed(parsed) {
       }
     }
 
-    // Sort by startDate so overlap detection works correctly.
+    // Normalize payGrade: "01"/"03"/"04" (digit zero) → "O1"/"O3"/"O4" (letter O).
+    for (const f of parsed.fitreps) {
+      if (f.payGrade) f.payGrade = String(f.payGrade).replace(/^0(\d)$/, 'O$1');
+    }
+
+    // Drop FITREPs whose startDate is outside the plausible range.
+    // Minimum year: one year before the officer's LT commissioning date (from rankHistory),
+    // or 2000 if unknown. Maximum year: next calendar year.
+    const ltEntry = Array.isArray(parsed.rankHistory)
+      ? parsed.rankHistory.find(e => e.rank === 'LT')
+      : null;
+    const minFitrepYear = ltEntry
+      ? Math.max(2000, parseInt(ltEntry.date.substring(0, 4), 10) - 1)
+      : 2000;
+    const maxYear = new Date().getFullYear() + 1;
+    parsed.fitreps = parsed.fitreps.filter(f => {
+      const yr = f.startDate ? parseInt(f.startDate.substring(0, 4), 10) : NaN;
+      return isNaN(yr) || (yr >= minFitrepYear && yr <= maxYear);
+    });
+
+    // Sort by startDate so overlap detection is sequential.
     parsed.fitreps.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
 
-    // Remove phantom FITREPs caused by LINE 2 continuation lines being misread as LINE 1.
-    // Two patterns:
-    // 1. Period < 7 days — always a parsing artifact.
-    // 2. startDate equals the endDate of the immediately preceding FITREP — the LINE 2
-    //    endDate of FITREP N was read as the startDate of a phantom FITREP N+phantom.
-    //    Real FITREPs always start the day after the previous one ends.
+    // Remove phantom FITREPs in two passes so each pass operates on a clean list.
+    // If both passes run in one step, a short phantom's endDate can match the next
+    // real FITREP's startDate and incorrectly remove a legitimate entry.
+
     const before = parsed.fitreps.length;
-    parsed.fitreps = parsed.fitreps.filter((f, i, arr) => {
+
+    // Pass 1: drop entries whose period is < 7 days — always a parsing artifact.
+    parsed.fitreps = parsed.fitreps.filter(f => {
       if (!f.startDate || !f.endDate) return true;
       const start = new Date(f.startDate).getTime();
       const end = new Date(f.endDate).getTime();
       if (isNaN(start) || isNaN(end)) return true;
-
-      // Pattern 1: < 7-day period
-      if ((end - start) / (1000 * 60 * 60 * 24) < 7) return false;
-
-      // Pattern 2: startDate == previous FITREP's endDate (exact same calendar day)
-      if (i > 0) {
-        const prev = arr[i - 1];
-        if (prev.endDate && f.startDate === prev.endDate) return false;
-      }
-
-      return true;
+      return (end - start) / (1000 * 60 * 60 * 24) >= 7;
     });
+
+    // Pass 2 (on already-cleaned list): drop entries whose startDate equals the
+    // previous FITREP's endDate. Real FITREPs always start the day after the
+    // previous one ends; same-day start means LINE 2's endDate was misread as a new LINE 1.
+    parsed.fitreps = parsed.fitreps.filter((f, i, arr) => {
+      if (i === 0 || !f.startDate) return true;
+      const prev = arr[i - 1];
+      return !(prev.endDate && f.startDate === prev.endDate);
+    });
+
     const removed = before - parsed.fitreps.length;
     if (removed > 0) {
       parsed.warnings = [...(parsed.warnings || []),
@@ -180,14 +209,74 @@ function validateParsed(parsed) {
       ];
     }
 
-    // Always re-derive aggregate counts from the actual fitrep list so they stay
-    // consistent with what is displayed, regardless of what the PSR summary row said.
+    // Re-derive ALL aggregate stats from the cleaned fitrep list.
+    // The AI's summary-row readings are unreliable (it reads the RS's historical
+    // distribution totals, not this officer's). Compute everything deterministically.
+    const REC_ORDER = { SP: 0, PR: 1, P: 2, MP: 3, EP: 4 };
     const graded = parsed.fitreps.filter(f => f.promotionRec && f.promotionRec !== 'NOB');
-    parsed.fitrepCount = parsed.fitreps.length;
-    parsed.earlyPromotes = graded.filter(f => f.promotionRec === 'EP').length;
-    parsed.mustPromotes = graded.filter(f => f.promotionRec === 'MP').length;
-    parsed.promotables = graded.filter(f => f.promotionRec === 'P').length;
-    parsed.progressings = graded.filter(f => f.promotionRec === 'PR').length;
+    const gradedWithAvg = graded.filter(f => f.individualAverage > 0);
+    const gradedWithRS  = graded.filter(f => f.rsAverage > 0);
+    const gradedWithBoth = graded.filter(f => f.individualAverage > 0 && f.rsAverage > 0);
+
+    parsed.fitrepCount    = parsed.fitreps.length;
+    parsed.earlyPromotes  = graded.filter(f => f.promotionRec === 'EP').length;
+    parsed.mustPromotes   = graded.filter(f => f.promotionRec === 'MP').length;
+    parsed.promotables    = graded.filter(f => f.promotionRec === 'P').length;
+    parsed.progressings   = graded.filter(f => f.promotionRec === 'PR').length;
+
+    parsed.fitrepAverage = gradedWithAvg.length > 0
+      ? Math.round(gradedWithAvg.reduce((s, f) => s + f.individualAverage, 0) / gradedWithAvg.length * 100) / 100
+      : 0;
+    parsed.rscaAverage = gradedWithRS.length > 0
+      ? Math.round(gradedWithRS.reduce((s, f) => s + f.rsAverage, 0) / gradedWithRS.length * 100) / 100
+      : 0;
+
+    const belowRS = gradedWithBoth.filter(f => f.individualAverage < f.rsAverage);
+    parsed.belowRSAverageCount      = belowRS.length;
+    parsed.belowRSAveragePercentage = gradedWithBoth.length > 0
+      ? Math.round(belowRS.length / gradedWithBoth.length * 100)
+      : 0;
+
+    // Re-derive psrTrend from the cleaned graded list.
+    const recValues = graded
+      .filter(f => f.promotionRec in REC_ORDER)
+      .map(f => REC_ORDER[f.promotionRec]);
+    if (recValues.length >= 6) {
+      const oldest = recValues.slice(0, 3).reduce((s, v) => s + v, 0);
+      const newest = recValues.slice(-3).reduce((s, v) => s + v, 0);
+      parsed.psrTrend = newest > oldest ? 'improving' : newest < oldest ? 'declining' : 'stable';
+    } else if (recValues.length >= 2) {
+      const first = recValues[0], last = recValues[recValues.length - 1];
+      parsed.psrTrend = last > first ? 'improving' : last < first ? 'declining' : 'stable';
+    } else {
+      parsed.psrTrend = 'insufficient_data';
+    }
+
+    // Re-derive psrIssues: leftward movement in consecutive graded reports, and
+    // coverage gaps > 90 days between consecutive FITREPs (any type).
+    const derivedIssues = [];
+    for (let i = 1; i < graded.length; i++) {
+      const prev = REC_ORDER[graded[i - 1].promotionRec] ?? -1;
+      const curr = REC_ORDER[graded[i].promotionRec] ?? -1;
+      if (prev >= 0 && curr >= 0 && curr < prev) {
+        derivedIssues.push(
+          `Leftward movement: ${graded[i - 1].promotionRec} → ${graded[i].promotionRec} (period ending ${graded[i].endDate})`
+        );
+      }
+    }
+    for (let i = 1; i < parsed.fitreps.length; i++) {
+      const prevEnd   = new Date(parsed.fitreps[i - 1].endDate).getTime();
+      const currStart = new Date(parsed.fitreps[i].startDate).getTime();
+      if (!isNaN(prevEnd) && !isNaN(currStart)) {
+        const gapDays = (currStart - prevEnd) / (1000 * 60 * 60 * 24);
+        if (gapDays > 90) {
+          derivedIssues.push(
+            `Coverage gap of ${Math.round(gapDays)} days before ${parsed.fitreps[i].startDate}`
+          );
+        }
+      }
+    }
+    if (derivedIssues.length > 0) parsed.psrIssues = derivedIssues;
   }
 
   return parsed;
@@ -457,8 +546,20 @@ function buildOsrSystemPrompt(odcResult) {
 }
 
 function buildPsrSystemPrompt(odcResult) {
+  // Build grade-period context from rankHistory so AI can sanity-check payGrades.
+  let gradeContext = '';
+  if (Array.isArray(odcResult.rankHistory) && odcResult.rankHistory.length > 0) {
+    const sorted = [...odcResult.rankHistory].sort((a, b) => a.date.localeCompare(b.date));
+    const lines = sorted.map((entry, i) => {
+      const next = sorted[i + 1];
+      return next
+        ? `  ${entry.rank} from ${entry.date} to ${next.date}`
+        : `  ${entry.rank} from ${entry.date} to present`;
+    });
+    gradeContext = '\nOfficer grade history (use to verify payGrade per FITREP period):\n' + lines.join('\n');
+  }
   const ctx = odcResult.rank
-    ? `Officer context from ODC: rank=${odcResult.rank}, name=${odcResult.name || 'unknown'}.`
+    ? `Officer context from ODC: rank=${odcResult.rank}, name=${odcResult.name || 'unknown'}.${gradeContext}`
     : 'ODC data not available.';
   return [
     'You are a Navy personnel record parser. You are parsing ONLY the Performance Summary Record (PSR).',
@@ -573,16 +674,12 @@ function buildPsrSystemPrompt(odcResult) {
     'REPORT TYPE (RPT TYPE column, last column): RG=regular, CC=concurrent, AT=administrative, TR=transfer.',
     'CC and AT reports often have no X in the promo rec grid — set promotionRec="NOB" for those.',
     '',
-    'SUMMARY ROW: Look for a row like "EP: N  MP: N  P: N" or "EARLY PROMOTE N  MUST PROMOTE N" near the bottom.',
-    '  Use those totals to set earlyPromotes, mustPromotes, promotables, progressings counts.',
-    'NOB reports: set promotionRec="NOB". Do not count toward trend or averages.',
-    'rscaAverage: mean of rsAverage across all graded (non-NOB) FITREPs.',
-    '',
-    'PSR ANALYSIS RULES:',
-    'trend: compare recent 3 vs oldest 3 promo recs. Values: improving/declining/stable/insufficient_data',
-    'psrIssues: flag leftward movement (EP to MP, MP to P, P to PR in consecutive graded reports),',
-    'date gaps over 3 months between consecutive FITREPs, 2 or more consecutive P or below.',
-    'belowRSAverageCount: count fitreps where individualAverage is less than rsAverage.',
+    'NOB reports: set promotionRec="NOB". Do not count toward averages.',
+    'NOTE: fitrepCount, earlyPromotes, mustPromotes, promotables, progressings, fitrepAverage,',
+    '  rscaAverage, belowRSAverageCount, psrTrend, and psrIssues are computed server-side from',
+    '  the fitreps array you return. Set them to 0/[] and "insufficient_data" — do not try to',
+    '  read the PSR summary row for these values, as that row contains RS historical totals,',
+    '  not this officer\'s personal counts.',
     '',
     'Return ONLY this JSON (0 for unknown numbers, [] for unknown arrays, "insufficient_data" for unknown trend):',
     '{',

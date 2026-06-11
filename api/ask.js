@@ -280,25 +280,41 @@ function validateParsed(parsed) {
     }
 
     // Re-derive psrIssues: leftward movement in consecutive graded reports, and
-    // coverage gaps > 90 days between consecutive FITREPs (any type).
+    // coverage gaps > 90 days between consecutive non-concurrent FITREPs.
     const derivedIssues = [];
+
+    // Leftward movement — only flag when the transition stays within the same
+    // reporting context (same RS, same command, same payGrade).  Movement across
+    // a context boundary (new RS, PCS, or promotion) is expected and not adverse.
     for (let i = 1; i < graded.length; i++) {
-      const prev = REC_ORDER[graded[i - 1].promotionRec] ?? -1;
-      const curr = REC_ORDER[graded[i].promotionRec] ?? -1;
-      if (prev >= 0 && curr >= 0 && curr < prev) {
-        derivedIssues.push(
-          `Leftward movement: ${graded[i - 1].promotionRec} → ${graded[i].promotionRec} (period ending ${graded[i].endDate})`
-        );
+      const prevF = graded[i - 1];
+      const currF = graded[i];
+      const prevVal = REC_ORDER[prevF.promotionRec] ?? -1;
+      const currVal = REC_ORDER[currF.promotionRec] ?? -1;
+      if (prevVal >= 0 && currVal >= 0 && currVal < prevVal) {
+        const sameRS      = !prevF.rsName  || !currF.rsName  || prevF.rsName  === currF.rsName;
+        const sameStation = !prevF.station || !currF.station || prevF.station === currF.station;
+        const sameGrade   = !prevF.payGrade || !currF.payGrade || prevF.payGrade === currF.payGrade;
+        if (sameRS && sameStation && sameGrade) {
+          derivedIssues.push(
+            `Leftward movement: ${prevF.promotionRec} → ${currF.promotionRec} (period ending ${currF.endDate})`
+          );
+        }
       }
     }
-    for (let i = 1; i < parsed.fitreps.length; i++) {
-      const prevEnd   = new Date(parsed.fitreps[i - 1].endDate).getTime();
-      const currStart = new Date(parsed.fitreps[i].startDate).getTime();
+
+    // Coverage gaps — exclude concurrent (CC) reports from the timeline anchors.
+    // CC reports run simultaneously with a primary billet and do not represent
+    // uncovered periods; using their endDate as a gap reference produces false positives.
+    const timelineFitreps = parsed.fitreps.filter(f => f.reportType !== 'CC');
+    for (let i = 1; i < timelineFitreps.length; i++) {
+      const prevEnd   = new Date(timelineFitreps[i - 1].endDate).getTime();
+      const currStart = new Date(timelineFitreps[i].startDate).getTime();
       if (!isNaN(prevEnd) && !isNaN(currStart)) {
         const gapDays = (currStart - prevEnd) / (1000 * 60 * 60 * 24);
         if (gapDays > 90) {
           derivedIssues.push(
-            `Coverage gap of ${Math.round(gapDays)} days before ${parsed.fitreps[i].startDate}`
+            `Coverage gap of ${Math.round(gapDays)} days before ${timelineFitreps[i].startDate}`
           );
         }
       }

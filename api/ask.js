@@ -1119,7 +1119,34 @@ export default async function handler(req, res) {
 
       const today = new Date().toISOString().split('T')[0];
 
-      // --- Call 1: ODC (must run first — OSR/PSR prompts use its results) ---
+      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [] };
+      // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
+      const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
+
+      // Start the slow PSR call (Sonnet, reads the PDF) IMMEDIATELY, concurrent with
+      // the ODC/OSR calls, so the function's wall-clock stays under Vercel's 60s
+      // maxDuration. Previously PSR waited for ODC to finish first (ODC + PSR could
+      // exceed 60s → 504 Gateway Timeout). The PSR carries its own payGrade in every
+      // row, so it does not need ODC's grade-history context.
+      const psrPromise = psr
+        ? (() => {
+            const psrText = scrubPII(cleanDocumentText(psr, 'psr'));
+            console.log('PSR input text (first 3000):\n', psrText.substring(0, 3000));
+            return callClaude(
+              buildPsrSystemPrompt({ rank: null, name: null, rankHistory: [] }),
+              'Parse this Performance Summary Record (PSR):\n\n' + psrText,
+              apiKey,
+              'PSR',
+              psrBase64 || null,
+              'claude-sonnet-4-6',
+            ).catch(e => {
+              console.error('PSR parse failed (using defaults):', e.message);
+              return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
+            });
+          })()
+        : Promise.resolve(psrDefault);
+
+      // --- ODC (fast Haiku — must finish before OSR, whose prompt uses its results) ---
       let odcResult = {
         name: null, rank: null, designator: null, yearGroup: null,
         clinicalSpecialty: null, selectedForNextRank: null,
@@ -1145,44 +1172,23 @@ export default async function handler(req, res) {
         console.log('ODC result (validated):', JSON.stringify(odcResult).substring(0, 600));
       }
 
-      // --- Calls 2 + 3: OSR and PSR in parallel after ODC ---
-      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [] };
-      // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
-      const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
+      // --- OSR (fast Haiku, uses ODC context) ---
+      const osrResult = osr
+        ? await callClaude(
+            buildOsrSystemPrompt(odcResult),
+            'Parse this Officer Summary Record (OSR):\n\n' + scrubPII(cleanDocumentText(osr, 'osr')),
+            apiKey,
+            'OSR',
+            osrBase64 || null,
+            'claude-haiku-4-5-20251001',
+          ).catch(e => {
+            console.error('OSR parse failed (using defaults):', e.message);
+            return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
+          })
+        : osrDefault;
 
-      const [osrResult, psrResult] = await Promise.all([
-        osr
-          ? callClaude(
-              buildOsrSystemPrompt(odcResult),
-              'Parse this Officer Summary Record (OSR):\n\n' + scrubPII(cleanDocumentText(osr, 'osr')),
-              apiKey,
-              'OSR',
-              osrBase64 || null,
-              'claude-haiku-4-5-20251001',
-            ).catch(e => {
-              console.error('OSR parse failed (using defaults):', e.message);
-              return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
-            })
-          : Promise.resolve(osrDefault),
-
-        psr
-          ? (async () => {
-              const psrText = scrubPII(cleanDocumentText(psr, 'psr'));
-              console.log('PSR input text (first 3000):\n', psrText.substring(0, 3000));
-              return callClaude(
-                buildPsrSystemPrompt(odcResult),
-                'Parse this Performance Summary Record (PSR):\n\n' + psrText,
-                apiKey,
-                'PSR',
-                psrBase64 || null,
-                'claude-sonnet-4-6',
-              ).catch(e => {
-                console.error('PSR parse failed (using defaults):', e.message);
-                return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
-              });
-            })()
-          : Promise.resolve(psrDefault),
-      ]);
+      // --- Await the PSR call that has been running concurrently with ODC/OSR ---
+      const psrResult = await psrPromise;
 
       const merged = mergeResults(odcResult, osrResult, psrResult);
       const validated = validateParsed(merged, psrRecs);

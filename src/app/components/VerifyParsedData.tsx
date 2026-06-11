@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, Edit2, Save, X, ChevronDown, ChevronUp, Shield, Award, FileText, TrendingUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
 import type { RankDate } from './RankHistoryForm';
 
 // Types
@@ -67,6 +67,16 @@ interface VerifyParsedDataProps {
   onBack: () => void;
 }
 
+// Parse an ISO date string (YYYY-MM-DD) as local time so "2024-09-01" never
+// renders as Aug 31 due to UTC-to-local offset.
+const localDateStr = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// AQD codes that satisfy JPME Phase I or II.
+const JPME_AQDS = new Set(['JS7', 'JS8']);
+
 const RANK_OPTIONS = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT'];
 
 const DESIGNATOR_OPTIONS = [
@@ -130,520 +140,316 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     operationalTours: parsedData.operationalTours || 0,
     jointDuty: parsedData.jointDuty ?? false,
     commandTour: parsedData.commandTour ?? false,
-    jpmeComplete: parsedData.jpmeComplete ?? false,
+    jpmeComplete: parsedData.jpmeComplete ?? (parsedData.aqds ?? []).some(a => JPME_AQDS.has(a)),
     warnings: parsedData.warnings || [],
-  });
-
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    rank: true,
-    clearance: true,
-    certification: true,
-    aqds: true,
-    fitrep: true,
-    experience: true,
   });
 
   // Calculate current rank from rank history if not set
   useEffect(() => {
     if (!data.currentRank && data.rankHistory.length > 0) {
-      const sortedRanks = [...data.rankHistory].sort((a, b) => 
+      const sortedRanks = [...data.rankHistory].sort((a, b) =>
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
       setData(prev => ({ ...prev, currentRank: sortedRanks[0].rank }));
     }
   }, [data.rankHistory, data.currentRank]);
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
   const updateField = <K extends keyof ParsedOfficerData>(field: K, value: ParsedOfficerData[K]) => {
     setData(prev => ({ ...prev, [field]: value }));
   };
 
   const toggleAQD = (aqd: string) => {
-    setData(prev => ({
-      ...prev,
-      aqds: prev.aqds.includes(aqd) 
+    setData(prev => {
+      const next = prev.aqds.includes(aqd)
         ? prev.aqds.filter(a => a !== aqd)
-        : [...prev.aqds, aqd]
-    }));
+        : [...prev.aqds, aqd];
+      const derivedJpme = next.some(a => JPME_AQDS.has(a));
+      return { ...prev, aqds: next, jpmeComplete: derivedJpme || prev.jpmeComplete };
+    });
   };
 
   const canProceed = data.currentRank && data.fitrepAverage > 0;
+  const jpmeSource = data.aqds.filter(a => JPME_AQDS.has(a)).join(' + ') || null;
+  const commonCodes = new Set(COMMON_AQDS.map(a => a.code));
+  const extraAqds = data.aqds.filter(c => !commonCodes.has(c));
 
-  const SectionHeader = ({ 
-    title, 
-    icon: Icon, 
-    section, 
-    status 
-  }: { 
-    title: string; 
-    icon: React.ElementType; 
-    section: string;
-    status: 'complete' | 'warning' | 'incomplete';
-  }) => (
-    <button
-      onClick={() => toggleSection(section)}
-      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-    >
-      <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" style={{
-          color: status === 'complete' ? '#16A34A' : status === 'warning' ? '#D97706' : '#9CA3AF'
-        }} />
-        <span className="font-semibold text-gray-900">{title}</span>
-        {status === 'complete' && <CheckCircle className="w-4 h-4" style={{ color: '#16A34A' }} />}
-        {status === 'warning' && <AlertTriangle className="w-4 h-4" style={{ color: '#D97706' }} />}
-      </div>
-      {expandedSections[section] ? (
-        <ChevronUp className="w-5 h-5 text-gray-400" />
-      ) : (
-        <ChevronDown className="w-5 h-5 text-gray-400" />
-      )}
-    </button>
+  const NAVY = '#1B365D';
+  const INP_STYLE: React.CSSProperties = { width: '100%', border: '1px solid #CBD5E1', borderRadius: 4, padding: '5px 8px', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' };
+  const LABEL_STYLE: React.CSSProperties = { display: 'block', fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 };
+  const PARSED_VAL: React.CSSProperties = { fontSize: 13, color: '#1E293B' };
+  const PARSED_EMPTY: React.CSSProperties = { fontSize: 13, color: '#CBD5E1' };
+
+  const SectionBand = ({ title }: { title: string }) => (
+    <div style={{ padding: '5px 14px', background: '#F8FAFC', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{title}</span>
+    </div>
   );
 
+  const ParsedField = ({ label, value }: { label: string; value?: string | null }) => (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 2 }}>{label}</div>
+      <div style={value ? PARSED_VAL : PARSED_EMPTY}>{value || '—'}</div>
+    </div>
+  );
+
+  const LEFT: React.CSSProperties = { padding: '12px 14px', background: 'rgba(27,54,93,0.025)', borderRight: '1px solid #E2E8F0' };
+  const RIGHT: React.CSSProperties = { padding: '12px 14px' };
+  const SPLIT: React.CSSProperties = { display: 'grid', gridTemplateColumns: '42% 58%', borderBottom: '1px solid #E2E8F0' };
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Verify Your Record</h2>
-        <p className="text-gray-600 mt-2">
-          Review the data extracted from your documents. Edit any incorrect information before proceeding.
-        </p>
+    <div>
+      <div style={{ marginBottom: 14 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: 0 }}>Record Review</h2>
+        <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0' }}>Confirm what we parsed — correct anything before the analysis runs.</p>
       </div>
 
-      {/* Warnings */}
       {data.warnings.length > 0 && (
-        <div className="rounded-lg p-4"
-          style={{ background: 'rgba(255,199,44,0.08)', border: '1px solid rgba(255,199,44,0.4)' }}>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 mt-0.5" style={{ color: '#D97706' }} />
-            <div>
-              <h3 className="font-semibold" style={{ color: '#1B365D' }}>Parsing Notes</h3>
-              <ul className="mt-2 space-y-1">
-                {data.warnings.map((warning, i) => (
-                  <li key={i} className="text-sm" style={{ color: '#92620A' }}>• {warning}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        <div style={{ background: 'rgba(255,199,44,0.08)', border: '1px solid rgba(255,199,44,0.4)', borderRadius: 6, padding: '10px 14px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#92620A', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Parsing notes</div>
+          {data.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: '#92620A' }}>• {w}</div>)}
         </div>
       )}
 
-      {/* Rank & Promotion Timeline */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Rank & Promotion Timeline" 
-          icon={TrendingUp} 
-          section="rank"
-          status={data.currentRank ? 'complete' : 'incomplete'}
-        />
-        {expandedSections.rank && (
-          <div className="p-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Officer Name</label>
-              <input
-                type="text"
-                value={data.name || ''}
-                onChange={(e) => updateField('name', e.target.value)}
-                placeholder="e.g. Brian S. Ford"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Current Rank</label>
-                <select
-                  value={data.currentRank}
-                  onChange={(e) => updateField('currentRank', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                >
-                  <option value="">Select Rank</option>
-                  {RANK_OPTIONS.map(rank => (
-                    <option key={rank} value={rank}>{rank}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Designator</label>
-                <select
-                  value={data.designator}
-                  onChange={(e) => updateField('designator', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                >
-                  {DESIGNATOR_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+      <div style={{ border: '1px solid #CBD5E1', borderRadius: 8, overflow: 'hidden' }}>
 
-            {data.rankHistory.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Rank History (Parsed)</label>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  {data.rankHistory.map((rh, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{rh.rank}</span>
-                      <span className="text-gray-600">{new Date(rh.date).toLocaleDateString()}</span>
+        {/* Column headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '42% 58%', background: NAVY }}>
+          <div style={{ padding: '8px 14px', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>From documents</span>
+          </div>
+          <div style={{ padding: '8px 14px' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Confirm / correct</span>
+          </div>
+        </div>
+
+        {/* ─── Identity ─── */}
+        <SectionBand title="Identity" />
+        <div style={SPLIT}>
+          <div style={LEFT}>
+            <ParsedField label="Name" value={parsedData.name} />
+            {parsedData.rankHistory && parsedData.rankHistory.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 3 }}>Rank history</div>
+                {[...parsedData.rankHistory]
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((rh, i) => (
+                    <div key={i} style={{ fontSize: 13, color: '#1E293B', marginBottom: 2 }}>
+                      {rh.rank} <span style={{ color: '#CBD5E1' }}>·</span> {localDateStr(rh.date)}
                     </div>
                   ))}
-                </div>
               </div>
             )}
+            <ParsedField label="Designator" value={parsedData.designator} />
           </div>
-        )}
-      </div>
-
-      {/* Security Clearance */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Security Clearance" 
-          icon={Shield} 
-          section="clearance"
-          status={data.clearanceLevel ? 'complete' : 'warning'}
-        />
-        {expandedSections.clearance && (
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div style={RIGHT}>
+            <div style={{ marginBottom: 10 }}>
+              <label style={LABEL_STYLE}>Name</label>
+              <input type="text" value={data.name || ''} onChange={e => updateField('name', e.target.value)}
+                style={INP_STYLE} placeholder="e.g. Brian S. Ford" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Clearance Level</label>
-                <select
-                  value={data.clearanceLevel}
-                  onChange={(e) => updateField('clearanceLevel', e.target.value as ParsedOfficerData['clearanceLevel'])}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                >
-                  <option value="">Not Specified</option>
-                  <option value="Secret">Secret</option>
-                  <option value="Top Secret">Top Secret</option>
-                  <option value="None">None</option>
+                <label style={LABEL_STYLE}>Current Rank</label>
+                <select value={data.currentRank} onChange={e => updateField('currentRank', e.target.value)} style={INP_STYLE}>
+                  <option value="">Select</option>
+                  {RANK_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Clearance Date</label>
-                <input
-                  type="date"
-                  value={data.clearanceDate}
-                  onChange={(e) => updateField('clearanceDate', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
+                <label style={LABEL_STYLE}>Designator</label>
+                <select value={data.designator} onChange={e => updateField('designator', e.target.value)} style={INP_STYLE}>
+                  {DESIGNATOR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </div>
             </div>
-            {!data.clearanceLevel && (
-              <p className="mt-2 text-sm" style={{ color: '#D97706' }}>
-                ⚠️ Clearance level not detected. Some senior billets require Top Secret clearance.
-              </p>
-            )}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Board Certification */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Board Certification" 
-          icon={Award} 
-          section="certification"
-          status={data.boardCertified !== null ? 'complete' : 'warning'}
-        />
-        {expandedSections.certification && (
-          <div className="p-4">
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">Board Certification Status</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="boardCert"
-                    checked={data.boardCertified === true}
-                    onChange={() => {
-                      updateField('boardCertified', true);
-                      updateField('certificationCode', 'K');
-                    }}
-                    className="w-4 h-4"
-                    style={{ accentColor: '#1B365D' }}
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium">K Code</span> - Board Certified
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="boardCert"
-                    checked={data.boardCertified === false}
-                    onChange={() => {
-                      updateField('boardCertified', false);
-                      updateField('certificationCode', 'J');
-                    }}
-                    className="w-4 h-4"
-                    style={{ accentColor: '#1B365D' }}
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium">J Code</span> - Board Eligible
-                  </span>
-                </label>
+        {/* ─── Clearance ─── */}
+        <SectionBand title="Security Clearance" />
+        <div style={SPLIT}>
+          <div style={LEFT}>
+            <ParsedField label="Level" value={parsedData.clearanceLevel || null} />
+            <ParsedField label="Date" value={parsedData.clearanceDate ? localDateStr(parsedData.clearanceDate) : null} />
+          </div>
+          <div style={{ ...RIGHT, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+            <div>
+              <label style={LABEL_STYLE}>Level</label>
+              <select value={data.clearanceLevel} onChange={e => updateField('clearanceLevel', e.target.value as ParsedOfficerData['clearanceLevel'])} style={INP_STYLE}>
+                <option value="">Not specified</option>
+                <option value="Secret">Secret</option>
+                <option value="Top Secret">Top Secret</option>
+                <option value="None">None</option>
+              </select>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Date</label>
+              <input type="date" value={data.clearanceDate} onChange={e => updateField('clearanceDate', e.target.value)} style={INP_STYLE} />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Performance ─── */}
+        <SectionBand title="Fitness Report Summary" />
+        <div style={SPLIT}>
+          <div style={LEFT}>
+            <ParsedField label="FITREPs" value={parsedData.fitrepCount != null ? String(parsedData.fitrepCount) : null} />
+            <ParsedField label="Trait avg" value={parsedData.fitrepAverage ? parsedData.fitrepAverage.toFixed(2) : null} />
+            <ParsedField label="EP / MP / P" value={
+              parsedData.earlyPromotes != null
+                ? `${parsedData.earlyPromotes} EP · ${parsedData.mustPromotes ?? 0} MP · ${parsedData.promotables ?? 0} P`
+                : null
+            } />
+          </div>
+          <div style={{ ...RIGHT, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+            <div>
+              <label style={LABEL_STYLE}>Total FITREPs</label>
+              <input type="number" min="0" value={data.fitrepCount || ''} onChange={e => updateField('fitrepCount', parseInt(e.target.value) || 0)} style={INP_STYLE} />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Trait Average</label>
+              <input type="number" step="0.01" min="1" max="5" value={data.fitrepAverage || ''} onChange={e => updateField('fitrepAverage', parseFloat(e.target.value) || 0)} placeholder="e.g. 4.08" style={INP_STYLE} />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Early Promotes</label>
+              <input type="number" min="0" value={data.earlyPromotes || ''} onChange={e => updateField('earlyPromotes', parseInt(e.target.value) || 0)} style={INP_STYLE} />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Must Promotes</label>
+              <input type="number" min="0" value={data.mustPromotes || ''} onChange={e => updateField('mustPromotes', parseInt(e.target.value) || 0)} style={INP_STYLE} />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Qualifications ─── */}
+        <SectionBand title="Qualifications" />
+        <div style={{ ...SPLIT, borderBottom: 'none' }}>
+          <div style={LEFT}>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 2 }}>Board cert</div>
+              <div style={PARSED_VAL}>
+                {parsedData.certificationCode === 'K' ? 'K code — Board Certified'
+                  : parsedData.certificationCode === 'J' ? 'J code — Board Eligible'
+                  : <span style={PARSED_EMPTY}>—</span>}
               </div>
-              {data.certificationCode && (
-                <div className={`mt-2 p-3 rounded-lg ${
-                  data.certificationCode === 'K' ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
-                }`}>
-                  <p className="text-sm">
-                    {data.certificationCode === 'K'
-                      ? '✓ Board certified physicians are competitive for promotion boards.'
-                      : '⚠️ Board certification is typically expected by O4. Consider timeline for certification.'}
-                  </p>
-                </div>
-              )}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* AQDs */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Additional Qualification Designators (AQDs)" 
-          icon={Award} 
-          section="aqds"
-          status={data.aqds.length > 0 ? 'complete' : 'warning'}
-        />
-        {expandedSections.aqds && (
-          <div className="p-4">
-            <p className="text-sm text-gray-600 mb-3">Select all AQDs currently held:</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {COMMON_AQDS.map(aqd => (
-                <label
-                  key={aqd.code}
-                  className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors"
-                  style={data.aqds.includes(aqd.code)
-                    ? { background: 'rgba(27,54,93,0.06)', border: '1px solid rgba(27,54,93,0.25)' }
-                    : { background: '#fff', border: '1px solid #E2E8F0' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={data.aqds.includes(aqd.code)}
-                    onChange={() => toggleAQD(aqd.code)}
-                    className="w-4 h-4 rounded"
-                    style={{ accentColor: '#1B365D' }}
-                  />
-                  <div>
-                    <span className="font-medium text-sm">{aqd.code}</span>
-                    <span className="text-xs text-gray-500 block">{aqd.name}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-            {/* Detected AQDs not in the checkbox list */}
-            {(() => {
-              const commonCodes = new Set(COMMON_AQDS.map(a => a.code));
-              const extras = data.aqds.filter(c => !commonCodes.has(c));
-              if (extras.length === 0) return null;
-              return (
-                <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E2E8F0' }}>
-                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Detected from documents</p>
-                  <div className="flex flex-wrap gap-2">
-                    {extras.map(code => (
-                      <label key={code} className="flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer text-xs"
-                        style={data.aqds.includes(code)
-                          ? { background: 'rgba(27,54,93,0.06)', border: '1px solid rgba(27,54,93,0.25)', color: '#1B365D' }
-                          : { background: '#fff', border: '1px solid #E2E8F0', color: '#64748B' }}>
-                        <input type="checkbox" checked={data.aqds.includes(code)}
-                          onChange={() => toggleAQD(code)} className="w-3.5 h-3.5"
-                          style={{ accentColor: '#1B365D' }} />
-                        <span className="font-semibold">{code}</span>
-                      </label>
+            <div>
+              <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 }}>AQDs</div>
+              {parsedData.aqds && parsedData.aqds.length > 0
+                ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {parsedData.aqds.map(a => (
+                      <span key={a} style={{ fontSize: 11, fontFamily: 'monospace', padding: '2px 6px', borderRadius: 3, background: 'rgba(27,54,93,0.08)', color: NAVY }}>{a}</span>
                     ))}
                   </div>
-                </div>
-              );
-            })()}
-            {data.aqds.length === 0 && (
-              <p className="mt-3 text-sm" style={{ color: '#D97706' }}>
-                ⚠️ No AQDs detected. Upload ODC with a populated Block 72.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* FITREP Analysis */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Fitness Report Summary" 
-          icon={FileText} 
-          section="fitrep"
-          status={data.fitrepAverage > 0 ? 'complete' : 'incomplete'}
-        />
-        {expandedSections.fitrep && (
-          <div className="p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Trait Average</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  max="5"
-                  value={data.fitrepAverage || ''}
-                  onChange={(e) => updateField('fitrepAverage', parseFloat(e.target.value) || 0)}
-                  placeholder="e.g., 4.85"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total FITREPs</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={data.fitrepCount || ''}
-                  onChange={(e) => updateField('fitrepCount', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Early Promotes</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={data.earlyPromotes || ''}
-                  onChange={(e) => updateField('earlyPromotes', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Must Promotes</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={data.mustPromotes || ''}
-                  onChange={(e) => updateField('mustPromotes', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-            </div>
-            {data.fitrepAverage > 0 && (
-              <div className="mt-4 p-3 rounded-lg" style={
-                data.fitrepAverage >= 4.5 ? { background: '#F0FDF4', border: '1px solid #BBF7D0' } :
-                data.fitrepAverage >= 4.0 ? { background: 'rgba(255,199,44,0.08)', border: '1px solid rgba(255,199,44,0.4)' } :
-                { background: '#FEF2F2', border: '1px solid #FECACA' }
-              }>
-                <p className="text-sm" style={{
-                  color: data.fitrepAverage >= 4.5 ? '#166534' : data.fitrepAverage >= 4.0 ? '#92620A' : '#991B1B'
-                }}>
-                  {data.fitrepAverage >= 4.5
-                    ? '✓ Strong trait average — competitive for promotion.'
-                    : data.fitrepAverage >= 4.0
-                    ? '⚠️ Solid trait average — consider ways to strengthen record.'
-                    : '⚠️ Below typical competitive range — discuss with mentor.'}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Experience & Additional Info */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <SectionHeader 
-          title="Experience & Qualifications" 
-          icon={Award} 
-          section="experience"
-          status="complete"
-        />
-        {expandedSections.experience && (
-          <div className="p-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current Billet</label>
-              <input
-                type="text"
-                value={data.currentBillet}
-                onChange={(e) => updateField('currentBillet', e.target.value)}
-                placeholder="e.g., Department Head, Family Medicine"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deployments</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={data.deployments}
-                  onChange={(e) => updateField('deployments', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Operational Tours</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={data.operationalTours}
-                  onChange={(e) => updateField('operationalTours', parseInt(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={data.jpmeComplete}
-                  onChange={(e) => updateField('jpmeComplete', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
-                />
-                <span className="text-sm">JPME I Complete</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={data.jointDuty}
-                  onChange={(e) => updateField('jointDuty', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
-                />
-                <span className="text-sm">Joint Duty Assignment</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={data.commandTour}
-                  onChange={(e) => updateField('commandTour', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
-                />
-                <span className="text-sm">Command Tour Complete</span>
-              </label>
+                : <span style={PARSED_EMPTY}>None detected</span>
+              }
             </div>
           </div>
-        )}
+          <div style={RIGHT}>
+            {/* Board cert */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={LABEL_STYLE}>Board Certification</label>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {([['K', 'Certified'] as const, ['J', 'Eligible'] as const]).map(([code, label]) => (
+                  <label key={code} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                    <input type="radio" name="boardCert" checked={data.certificationCode === code}
+                      onChange={() => { updateField('boardCertified', code === 'K'); updateField('certificationCode', code); }}
+                      style={{ accentColor: NAVY }} />
+                    {code} code <span style={{ color: '#94A3B8', fontSize: 11 }}>— {label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* AQD chips */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={LABEL_STYLE}>AQDs held — click to toggle</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {COMMON_AQDS.map(aqd => {
+                  const active = data.aqds.includes(aqd.code);
+                  return (
+                    <button key={aqd.code} onClick={() => toggleAQD(aqd.code)} title={aqd.name} style={{
+                      fontSize: 11, fontFamily: 'monospace', padding: '3px 8px', borderRadius: 3, cursor: 'pointer',
+                      background: active ? NAVY : '#fff', color: active ? '#fff' : '#64748B',
+                      border: active ? `1px solid ${NAVY}` : '1px solid #CBD5E1', transition: 'all 0.1s',
+                    }}>
+                      {aqd.code}
+                    </button>
+                  );
+                })}
+                {extraAqds.map(code => (
+                  <button key={code} onClick={() => toggleAQD(code)} style={{
+                    fontSize: 11, fontFamily: 'monospace', padding: '3px 8px', borderRadius: 3, cursor: 'pointer',
+                    background: NAVY, color: '#fff', border: `1px solid ${NAVY}`,
+                  }}>
+                    {code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Checkboxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                <input type="checkbox" checked={data.jpmeComplete} onChange={e => updateField('jpmeComplete', e.target.checked)}
+                  style={{ accentColor: NAVY, width: 14, height: 14 }} />
+                JPME Complete
+                {jpmeSource && (
+                  <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: 'rgba(27,54,93,0.08)', color: NAVY }}>
+                    from {jpmeSource}
+                  </span>
+                )}
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                <input type="checkbox" checked={data.commandTour} onChange={e => updateField('commandTour', e.target.checked)}
+                  style={{ accentColor: NAVY, width: 14, height: 14 }} />
+                Command Tour
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                <input type="checkbox" checked={data.jointDuty} onChange={e => updateField('jointDuty', e.target.checked)}
+                  style={{ accentColor: NAVY, width: 14, height: 14 }} />
+                Joint Duty Assignment
+              </label>
+            </div>
+
+            {/* Billet + deployments */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingTop: 10, borderTop: '1px solid #F1F5F9' }}>
+              <div>
+                <label style={LABEL_STYLE}>Current Billet</label>
+                <input type="text" value={data.currentBillet} onChange={e => updateField('currentBillet', e.target.value)}
+                  placeholder="e.g. Dept Head, FM" style={INP_STYLE} />
+              </div>
+              <div>
+                <label style={LABEL_STYLE}>Deployments</label>
+                <input type="number" min="0" value={data.deployments} onChange={e => updateField('deployments', parseInt(e.target.value) || 0)} style={INP_STYLE} />
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      {/* Proceed Button */}
-      <div className="flex justify-between pt-4">
-        <button
-          onClick={onBack}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-        >
+      {/* Navigation */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #F1F5F9', marginTop: 16 }}>
+        <button onClick={onBack} style={{ padding: '8px 20px', border: '1px solid #CBD5E1', background: '#fff', borderRadius: 4, fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
           Back to Upload
         </button>
-        <button
-          onClick={() => onDataConfirmed(data)}
-          disabled={!canProceed}
-          className="px-6 py-3 text-white rounded-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-          style={{ background: canProceed ? '#1B365D' : undefined }}
-        >
-          Continue to Analysis
-          <CheckCircle className="w-5 h-5" />
-        </button>
+        <div style={{ textAlign: 'right' }}>
+          {!canProceed && (
+            <div style={{ fontSize: 11, color: '#EF4444', marginBottom: 6 }}>Current rank and FITREP average required to continue</div>
+          )}
+          <button onClick={() => onDataConfirmed(data)} disabled={!canProceed} style={{
+            padding: '8px 20px', borderRadius: 4, fontSize: 13, fontWeight: 700,
+            cursor: canProceed ? 'pointer' : 'not-allowed',
+            background: canProceed ? NAVY : '#CBD5E1', color: '#fff', border: 'none',
+            boxShadow: canProceed ? '0 2px 8px rgba(27,54,93,0.3)' : 'none',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            Continue to Analysis
+            <CheckCircle style={{ width: 15, height: 15 }} />
+          </button>
+        </div>
       </div>
-      {!canProceed && (
-        <p className="text-sm text-red-500 text-right">
-          Please enter current rank and FITREP average to continue
-        </p>
-      )}
     </div>
   );
 }

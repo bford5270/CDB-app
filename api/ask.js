@@ -160,6 +160,33 @@ function validateParsed(parsed) {
       if (f.payGrade) f.payGrade = String(f.payGrade).replace(/^0(\d)$/, 'O$1');
     }
 
+    // Normalize station names: when two entries share the same first word (command
+    // root), promote the shorter variant to match the longest canonical form — e.g.,
+    // "USU BETHESDA" → "USU BETHESDA MD".  Only applies when the canonical is a
+    // word-aligned prefix extension of the shorter name, so "NAVHOSP GUAM" is never
+    // confused with "NAVHOSP CAMP PENDLETON".
+    // RS names and all other per-FITREP fields are unaffected by this normalization.
+    for (const f of parsed.fitreps) {
+      if (f.station) f.station = f.station.replace(/,\s*$/, '').replace(/\s+/g, ' ').trim();
+    }
+    const stationCanon = {};
+    for (const f of parsed.fitreps) {
+      if (!f.station || f.station.length < 2) continue;
+      const key = f.station.split(' ')[0];
+      if (!stationCanon[key] || f.station.length > stationCanon[key].length) {
+        stationCanon[key] = f.station;
+      }
+    }
+    for (const f of parsed.fitreps) {
+      if (!f.station || f.station.length < 2) continue;
+      const key = f.station.split(' ')[0];
+      const canon = stationCanon[key];
+      if (canon && canon !== f.station) {
+        const tail = canon.slice(f.station.length);
+        if (tail === '' || tail.startsWith(' ')) f.station = canon;
+      }
+    }
+
     // Drop FITREPs whose startDate is outside the plausible range.
     // Minimum year: one year before the officer's LT commissioning date (from rankHistory),
     // or 2000 if unknown. Maximum year: next calendar year.
@@ -619,6 +646,9 @@ function buildPsrSystemPrompt(odcResult) {
     '  startDate → START DATE on LINE 1 (MMDDYY format)',
     '  endDate   → END DATE on LINE 2 (MMDDYY format) — skip any overflow text at the start of LINE 2',
     '  station   → station part1 from LINE 1 + station part2 from LINE 2 (omit overflow fragments)',
+    '  STATION CONSISTENCY: If the same command appears across multiple consecutive FITREPs, use the same station string for all of them.',
+    '  Prefer the most complete form — e.g., if one row has "USU BETHESDA MD" and another has "USU BETHESDA", use "USU BETHESDA MD" for both.',
+    '  The rsName may differ across FITREPs at the same command (different reporting seniors) — that is normal and expected.',
     '  rsName    → RS last name from LINE 1',
     '  reportType → 2-letter code at end of LINE 2 (RG/CC/AT/TR)',
     '',

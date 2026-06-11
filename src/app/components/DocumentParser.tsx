@@ -1040,6 +1040,22 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                         );
                       })}
 
+                      {/* Rank promotion lines — separate pass so they layer on top of RS/command lines */}
+                      {valid.map((f, i) => {
+                        if (i === 0) return null;
+                        if (f.payGrade === valid[i - 1].payGrade) return null;
+                        return (
+                          <div key={`rankline-${i}`} style={{
+                            position: 'absolute',
+                            top: i * ROW_H - 2,
+                            left: 0, right: 0,
+                            height: 3,
+                            background: '#10B981',
+                            opacity: 0.85, zIndex: 4,
+                          }} />
+                        );
+                      })}
+
                       {/* Year grid lines */}
                       {years.map(({ year, p }) => (
                         <div key={`yr-${year}`} style={{
@@ -1111,6 +1127,10 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <div style={{ width: 16, height: 2, background: '#F59E0B', opacity: 0.7 }} />
                       <span style={{ fontSize: 10, color: '#64748B' }}>RS change</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 16, height: 3, background: '#10B981', opacity: 0.85 }} />
+                      <span style={{ fontSize: 10, color: '#64748B' }}>Rank promotion</span>
                     </div>
                     {(['EP', 'MP', 'P', 'PR', 'SP'] as const).map(rec => {
                       const s = REC_STYLE[rec];

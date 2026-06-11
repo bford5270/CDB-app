@@ -6,6 +6,7 @@ import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyPar
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
 import { CDBChecklist } from './components/CDBChecklist';
+import { HowToReadRecord, isJuniorRank } from './components/HowToReadRecord';
 import { lookupPromo, zoneStatus, NEXT_RANK } from './components/CDBChecklist';
 import { DashboardPanel } from './components/DashboardPanel';
 import { DocSwapPanel } from './components/DocSwapPanel';
@@ -486,6 +487,9 @@ export default function App() {
               {/* Step 3: Career Analysis */}
               {step === 3 && confirmedData && (
                 <>
+                  {/* Plain-English guide for junior officers (O4 and below) */}
+                  {isJuniorRank(confirmedData.currentRank) && <HowToReadRecord />}
+
                   <DashboardPanel
                     officerData={confirmedData}
                     docStatus={docStatus}

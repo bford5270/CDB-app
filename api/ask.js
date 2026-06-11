@@ -86,9 +86,197 @@ function cleanDocumentText(text, docType) {
     .replace(/\n{5,}/g, '\n\n\n');
 }
 
+// ── PSR date transposition repair ───────────────────────────────────────────
+// PSR period dates are MMDDYY. When both the month and the day are <= 12 the
+// value is ambiguous (e.g. "070124" is Jul 01 or Jan 07), and the model
+// occasionally emits the swapped orientation. The "DD > 31 → swap" rule in the
+// prompt cannot catch this because both orientations are valid calendar dates.
+//
+// PSR FITREPs are strictly sequential and contiguous (each period starts the
+// day after the previous one ends), so we recover the correct orientation by
+// choosing, across the whole sequence, the set of per-date orientations that
+// best fits that chain. Only ambiguous dates are candidates for swapping, and a
+// per-swap cost keeps already-correct dates untouched. Dates that no swap can
+// reconcile (genuinely garbled OCR, not a clean transposition) are left as-is
+// and flagged rather than guessed.
+
+const dayDiff = (a, b) =>
+  (Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000;
+
+// Return the MM/DD-swapped ISO date, or null when the date is unambiguous
+// (month or day > 12, so it cannot be a transposition) or malformed.
+function swapMonthDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return null;
+  const mm = +m[2], dd = +m[3];
+  if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 12 && mm !== dd) {
+    return `${m[1]}-${m[3]}-${m[2]}`;
+  }
+  return null;
+}
+
+// Repair transposed FITREP dates in place. `fitreps` is assumed to be in
+// document order (the model emits rows top-to-bottom = chronological).
+// Returns an array of human-readable warnings for corrections and residual
+// sequence breaks. CC (concurrent) reports overlap by design and are excluded
+// from the contiguity chain.
+function repairTransposedDates(fitreps) {
+  const WSWAP = 8; // cost of one swap, in "gap-day" units; a swap must improve
+                   // contiguity by more than this to be chosen.
+  const warnings = [];
+
+  const chain = fitreps
+    .map((f, idx) => ({ f, idx }))
+    .filter(({ f }) => f.startDate && f.endDate && f.reportType !== 'CC');
+  if (chain.length < 2) return warnings;
+  const n = chain.length;
+
+  // Lock confidently-correct dates so the optimizer can never "fix" a good row by
+  // sacrificing it to chase a garbled neighbor. A report is locked to its original
+  // orientation when it sits inside a run of >=2 reports joined by tight (contiguous)
+  // junctions that contains at least one UNAMBIGUOUS date (month or day > 12, which
+  // cannot be a transposition) — or when both of its own dates are unambiguous.
+  const tight = new Array(n).fill(false);
+  for (let i = 1; i < n; i++) {
+    const g = dayDiff(chain[i - 1].f.endDate, chain[i].f.startDate);
+    tight[i] = g >= -2 && g <= 25;
+  }
+  const locked = new Array(n).fill(false);
+  for (let i = 0; i < n; ) {
+    let j = i;
+    while (j + 1 < n && tight[j + 1]) j++;
+    if (j > i) {
+      let hasUnambiguous = false;
+      for (let k = i; k <= j; k++) {
+        if (!swapMonthDay(chain[k].f.startDate) || !swapMonthDay(chain[k].f.endDate)) {
+          hasUnambiguous = true; break;
+        }
+      }
+      if (hasUnambiguous) for (let k = i; k <= j; k++) locked[k] = true;
+    }
+    i = j + 1;
+  }
+  for (let k = 0; k < n; k++) {
+    if (!swapMonthDay(chain[k].f.startDate) && !swapMonthDay(chain[k].f.endDate)) locked[k] = true;
+  }
+
+  // Penalty for the gap between one report's end and the next report's start.
+  const gapPenalty = (prevEnd, currStart) => {
+    const g = dayDiff(prevEnd, currStart);
+    if (g < 0) return -g * 3 + 100;   // overlap / backwards — heavily penalized
+    if (g <= 45) return g;            // normal report-to-report gap
+    return 45 + (g - 45) * 0.5;       // tolerate genuine gaps without forcing them shut
+  };
+
+  // Candidate (start, end) orientations per report, each with a swap count.
+  // Locked reports contribute only their original orientation.
+  const cands = chain.map(({ f }, idx) => {
+    if (locked[idx]) return [{ start: f.startDate, end: f.endDate, swaps: 0 }];
+
+    const starts = [{ d: f.startDate, s: 0 }];
+    const ss = swapMonthDay(f.startDate); if (ss) starts.push({ d: ss, s: 1 });
+    const ends = [{ d: f.endDate, s: 0 }];
+    const se = swapMonthDay(f.endDate); if (se) ends.push({ d: se, s: 1 });
+
+    const list = [];
+    for (const a of starts) {
+      for (const b of ends) {
+        if (dayDiff(a.d, b.d) > 0) list.push({ start: a.d, end: b.d, swaps: a.s + b.s });
+      }
+    }
+    if (list.length === 0) {
+      // No orientation yields start < end — keep original and flag.
+      list.push({ start: f.startDate, end: f.endDate, swaps: 0, invalid: true });
+    }
+    return list;
+  });
+
+  // Min-cost orientation sequence via DP over the chain.
+  const dp = cands.map(c => c.map(() => Infinity));
+  const back = cands.map(c => c.map(() => -1));
+  cands[0].forEach((c, j) => { dp[0][j] = c.swaps * WSWAP; });
+  for (let r = 1; r < cands.length; r++) {
+    cands[r].forEach((c, j) => {
+      for (let k = 0; k < cands[r - 1].length; k++) {
+        const cost = dp[r - 1][k] + gapPenalty(cands[r - 1][k].end, c.start) + c.swaps * WSWAP;
+        if (cost < dp[r][j]) { dp[r][j] = cost; back[r][j] = k; }
+      }
+    });
+  }
+
+  // Backtrack to the chosen orientation per report.
+  let best = 0;
+  dp[cands.length - 1].forEach((v, j) => { if (v < dp[cands.length - 1][best]) best = j; });
+  const chosen = new Array(cands.length);
+  for (let r = cands.length - 1; r >= 0; r--) {
+    chosen[r] = best;
+    best = back[r][best] >= 0 ? back[r][best] : 0;
+  }
+
+  // Apply corrections and collect warnings.
+  chain.forEach(({ f }, r) => {
+    const c = cands[r][chosen[r]];
+    if (!c.invalid && c.swaps > 0 && (c.start !== f.startDate || c.end !== f.endDate)) {
+      warnings.push(
+        `Corrected transposed PSR date for ${f.payGrade || '?'} ${f.station || ''}`.trim() +
+        `: ${f.startDate}…${f.endDate} → ${c.start}…${c.end}`,
+      );
+      f.startDate = c.start;
+      f.endDate = c.end;
+    } else if (c.invalid) {
+      warnings.push(
+        `Unresolved PSR date for ${f.payGrade || '?'} ${f.station || ''}`.trim() +
+        ` (${f.startDate}…${f.endDate}) — could not reconcile to a valid period; verify against source.`,
+      );
+    }
+  });
+
+  // Flag residual sequence breaks no swap could fix (e.g. a garbled date).
+  for (let r = 1; r < chain.length; r++) {
+    if (dayDiff(cands[r - 1][chosen[r - 1]].end, cands[r][chosen[r]].start) < -31) {
+      warnings.push(
+        `PSR reports appear out of sequence near ${chain[r].f.startDate} ` +
+        `(${chain[r].f.payGrade || '?'} ${chain[r].f.station || ''})`.trim() +
+        ` — possible unreadable date; verify against source.`,
+      );
+    }
+  }
+
+  return warnings;
+}
+
+// Override FITREP promotion recommendations with values read deterministically
+// from the PSR's geometry (the X-mark column), supplied by the frontend. The
+// vision model reads this field unreliably (it defaults to "P" or grabs the
+// adjacent PRT letter), whereas the X-mark column position is exact. Match each
+// FITREP to its authoritative rec by end date (rarely transposed), then start
+// date, then the MM/DD-swapped start (covers a residual transposed start).
+// Returns the number of recommendations changed.
+function applyPromotionRecOverride(fitreps, psrRecs) {
+  if (!Array.isArray(psrRecs) || psrRecs.length === 0) return 0;
+  const VALID = new Set(['EP', 'MP', 'P', 'PR', 'SP', 'NOB']);
+  let changed = 0;
+  for (const f of fitreps) {
+    if (!f.startDate && !f.endDate) continue;
+    const swappedStart = swapMonthDay(f.startDate);
+    const m = psrRecs.find(r =>
+      (f.endDate && r.end === f.endDate) ||
+      (f.startDate && r.start === f.startDate) ||
+      (swappedStart && r.start === swappedStart),
+    );
+    if (m && VALID.has(m.rec) && m.rec !== f.promotionRec) {
+      f.promotionRec = m.rec;
+      changed++;
+    }
+  }
+  return changed;
+}
+
 // Post-parse validation: remove impossible rank dates and backward progressions,
 // and normalize the two-letter clearance code to a human-readable level.
-function validateParsed(parsed) {
+// `psrRecs` (optional) carries authoritative promotion recommendations read from
+// the PSR geometry; when present they override the model's promotionRec values.
+function validateParsed(parsed, psrRecs) {
   if (!parsed || typeof parsed !== 'object') return parsed;
 
   const RANK_ORDER = ['ENS', 'LTJG', 'LT', 'LCDR', 'CDR', 'CAPT'];
@@ -202,6 +390,14 @@ function validateParsed(parsed) {
       return isNaN(yr) || (yr >= minFitrepYear && yr <= maxYear);
     });
 
+    // Repair MM/DD transpositions BEFORE sorting — a transposed startDate would
+    // otherwise sort to the wrong position. Operates on document order, which is
+    // chronological as emitted by the model.
+    const dateWarnings = repairTransposedDates(parsed.fitreps);
+    if (dateWarnings.length > 0) {
+      parsed.warnings = [...(parsed.warnings || []), ...dateWarnings];
+    }
+
     // Sort by startDate so overlap detection is sequential.
     parsed.fitreps.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
 
@@ -233,6 +429,16 @@ function validateParsed(parsed) {
     if (removed > 0) {
       parsed.warnings = [...(parsed.warnings || []),
         `Removed ${removed} phantom FITREP(s) (period < 7 days or startDate equals previous endDate — LINE 2 misread as new entry)`,
+      ];
+    }
+
+    // Override promotion recommendations with authoritative values read from the
+    // PSR grid geometry. Runs AFTER date repair so the date-based match keys align,
+    // and BEFORE the analytics recompute below so counts/trend use the corrected recs.
+    const recsChanged = applyPromotionRecOverride(parsed.fitreps, psrRecs);
+    if (recsChanged > 0) {
+      parsed.warnings = [...(parsed.warnings || []),
+        `Corrected ${recsChanged} promotion recommendation(s) from the PSR grid (the X-mark column was misread during extraction).`,
       ];
     }
 
@@ -727,24 +933,87 @@ function buildPsrSystemPrompt(odcResult) {
     '  read the PSR summary row for these values, as that row contains RS historical totals,',
     '  not this officer\'s personal counts.',
     '',
-    'Return ONLY this JSON (0 for unknown numbers, [] for unknown arrays, "insufficient_data" for unknown trend):',
+    'Return ONLY this JSON:',
     '{',
-    '  "fitrepAverage": 0,',
-    '  "rscaAverage": 0,',
-    '  "fitrepCount": 0,',
-    '  "earlyPromotes": 0,',
-    '  "mustPromotes": 0,',
-    '  "promotables": 0,',
-    '  "progressings": 0,',
-    '  "psrTrend": "insufficient_data",',
-    '  "psrIssues": [],',
-    '  "belowRSAverageCount": 0,',
-    '  "belowRSAveragePercentage": 0,',
     '  "fitreps": [{"payGrade":"","station":"","startDate":"","endDate":"","rsName":"","individualAverage":0,"rsAverage":0,"promotionRec":"","reportType":""}],',
     '  "warnings": [],',
-    '  "confidence": {"psrData": "medium"}',
+    '  "confidence": {"psrData": "high"}',
     '}',
   ].join('\n');
+}
+
+// Compute all PSR analytics from raw fitrep rows in deterministic JS.
+// Claude's only job is accurate row extraction — counts, averages, trend, and
+// issues are computed here so there is nothing left for the model to hallucinate.
+function computePsrAnalytics(fitreps) {
+  if (!Array.isArray(fitreps) || fitreps.length === 0) {
+    return {
+      fitrepCount: 0, earlyPromotes: 0, mustPromotes: 0, promotables: 0, progressings: 0,
+      fitrepAverage: 0, rscaAverage: 0, belowRSAverageCount: 0, belowRSAveragePercentage: 0,
+      psrTrend: 'insufficient_data', psrIssues: [],
+    };
+  }
+
+  const graded = fitreps.filter(f =>
+    (f.individualAverage ?? 0) > 0 && f.promotionRec !== 'NOB' && f.reportType !== 'AT',
+  );
+
+  const fitrepCount    = fitreps.length;
+  const earlyPromotes  = fitreps.filter(f => f.promotionRec === 'EP').length;
+  const mustPromotes   = fitreps.filter(f => f.promotionRec === 'MP').length;
+  const promotables    = fitreps.filter(f => f.promotionRec === 'P').length;
+  const progressings   = fitreps.filter(f => f.promotionRec === 'PR').length;
+  const round2         = n => Math.round(n * 100) / 100;
+  const fitrepAverage  = graded.length > 0
+    ? round2(graded.reduce((s, f) => s + (f.individualAverage ?? 0), 0) / graded.length) : 0;
+  const rscaAverage    = graded.length > 0
+    ? round2(graded.reduce((s, f) => s + (f.rsAverage ?? 0), 0) / graded.length) : 0;
+
+  const withRS                = graded.filter(f => (f.rsAverage ?? 0) > 0);
+  const belowRSAverageCount   = withRS.filter(f => (f.individualAverage ?? 0) < (f.rsAverage ?? 0)).length;
+  const belowRSAveragePercentage = withRS.length > 0
+    ? Math.round(belowRSAverageCount / withRS.length * 100) : 0;
+
+  const PROMO_RANK = { SP: 1, PR: 2, P: 3, MP: 4, EP: 5 };
+  let psrTrend = 'insufficient_data';
+  if (graded.length >= 4) {
+    const avg  = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const diff = avg(graded.slice(-3).map(f => PROMO_RANK[f.promotionRec] ?? 0))
+               - avg(graded.slice(0, 3).map(f => PROMO_RANK[f.promotionRec] ?? 0));
+    psrTrend = diff > 0.5 ? 'improving' : diff < -0.5 ? 'declining' : 'stable';
+  }
+
+  const PROMO_ORDER = ['SP', 'PR', 'P', 'MP', 'EP'];
+  const psrIssues = [];
+
+  const byDate = [...fitreps]
+    .filter(f => f.startDate && f.endDate && f.reportType !== 'CC')
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  for (let i = 1; i < byDate.length; i++) {
+    const gap = Math.round((new Date(byDate[i].startDate) - new Date(byDate[i - 1].endDate)) / 86400000);
+    if (gap > 90) psrIssues.push(`Gap of ${gap} days between ${byDate[i - 1].endDate} and ${byDate[i].startDate}`);
+  }
+
+  for (let i = 1; i < graded.length; i++) {
+    const pi = PROMO_ORDER.indexOf(graded[i - 1].promotionRec);
+    const ci = PROMO_ORDER.indexOf(graded[i].promotionRec);
+    if (pi >= 2 && ci >= 0 && ci < pi - 1 && graded[i - 1].payGrade === graded[i].payGrade) {
+      psrIssues.push(`Leftward movement: ${graded[i - 1].promotionRec} → ${graded[i].promotionRec} at ${graded[i].payGrade} (ending ${graded[i].endDate})`);
+    }
+  }
+
+  let streak = 0;
+  for (const f of graded) {
+    if (PROMO_ORDER.indexOf(f.promotionRec) <= 2) {
+      if (++streak >= 2) { psrIssues.push('Two or more consecutive P or below recommendations'); break; }
+    } else { streak = 0; }
+  }
+
+  return {
+    fitrepCount, earlyPromotes, mustPromotes, promotables, progressings,
+    fitrepAverage, rscaAverage, belowRSAverageCount, belowRSAveragePercentage,
+    psrTrend, psrIssues,
+  };
 }
 
 // Merge ODC, OSR, and PSR parsed results into the full ExtractedOfficerData shape.
@@ -798,17 +1067,8 @@ function mergeResults(odcResult, osrResult, psrResult) {
     aqds,
     hasUndergrad: osrResult.hasUndergrad ?? false,
     hasMedicalSchool: osrResult.hasMedicalSchool ?? false,
-    fitrepAverage: psrResult.fitrepAverage ?? 0,
-    rscaAverage: psrResult.rscaAverage ?? 0,
-    fitrepCount: psrResult.fitrepCount ?? 0,
-    earlyPromotes: psrResult.earlyPromotes ?? 0,
-    mustPromotes: psrResult.mustPromotes ?? 0,
-    promotables: psrResult.promotables ?? 0,
-    progressings: psrResult.progressings ?? 0,
-    psrTrend: psrResult.psrTrend ?? 'insufficient_data',
-    psrIssues: psrResult.psrIssues ?? [],
-    belowRSAverageCount: psrResult.belowRSAverageCount ?? 0,
-    belowRSAveragePercentage: psrResult.belowRSAveragePercentage ?? 0,
+    // Analytics computed deterministically from extracted rows — nothing hallucinated.
+    ...computePsrAnalytics(psrResult.fitreps ?? []),
     fitreps: psrResult.fitreps ?? [],
     warnings,
     confidence: {
@@ -851,7 +1111,7 @@ export default async function handler(req, res) {
     // MODE 1: DOCUMENT PARSING — three focused sequential/parallel Claude calls
     // =========================================================================
     if (action === 'parse-documents') {
-      const { odc, osr, psr, odcBase64, osrBase64, psrBase64 } = body;
+      const { odc, osr, psr, odcBase64, osrBase64, psrBase64, psrRecs } = body;
 
       if (!odc && !osr && !psr) {
         return res.status(400).json({ error: 'At least one document is required' });
@@ -887,13 +1147,8 @@ export default async function handler(req, res) {
 
       // --- Calls 2 + 3: OSR and PSR in parallel after ODC ---
       const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [] };
-      const psrDefault = {
-        fitrepAverage: 0, rscaAverage: 0, fitrepCount: 0,
-        earlyPromotes: 0, mustPromotes: 0, promotables: 0, progressings: 0,
-        psrTrend: 'insufficient_data', psrIssues: [], belowRSAverageCount: 0,
-        belowRSAveragePercentage: 0, fitreps: [], warnings: [],
-        confidence: { psrData: 'medium' },
-      };
+      // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
+      const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
 
       const [osrResult, psrResult] = await Promise.all([
         osr
@@ -920,7 +1175,7 @@ export default async function handler(req, res) {
                 apiKey,
                 'PSR',
                 psrBase64 || null,
-                'claude-haiku-4-5-20251001',
+                'claude-sonnet-4-6',
               ).catch(e => {
                 console.error('PSR parse failed (using defaults):', e.message);
                 return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
@@ -930,7 +1185,7 @@ export default async function handler(req, res) {
       ]);
 
       const merged = mergeResults(odcResult, osrResult, psrResult);
-      const validated = validateParsed(merged);
+      const validated = validateParsed(merged, psrRecs);
       return res.status(200).json(validated);
     }
 

@@ -1,11 +1,13 @@
 import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useState, useCallback } from 'react';
-import { extractTextFromPDF, extractBase64FromPDF, isPDF } from '../utils/pdfUtils';
+import { extractTextFromPDF, extractBase64FromPDF, extractPSRPromotionRecs, isPDF } from '../utils/pdfUtils';
+import type { PSRPromotionRec } from '../utils/pdfUtils';
 
 export interface UploadedDocument {
   file: File;
   text: string;
   base64?: string;  // raw PDF bytes base64-encoded; set only for PDF files ≤1.5 MB
+  promotionRecs?: PSRPromotionRec[];  // PSR only: recommendations read deterministically from geometry
   status: 'pending' | 'processing' | 'success' | 'error';
   uploadedAt?: string;
   error?: string;
@@ -43,20 +45,26 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
     try {
       let text: string;
       let base64: string | undefined;
+      let promotionRecs: PSRPromotionRec[] | undefined;
 
       if (isPDF(file)) {
         // Run text extraction and base64 encoding in parallel.
         // base64 is only populated for PDFs ≤1.5 MB to stay within Vercel's 4.5 MB body limit.
-        const tasks: [Promise<string>, Promise<string | undefined>] = [
+        // For the PSR, also read promotion recommendations deterministically from the
+        // PDF geometry (the X-mark column) — the vision model reads this field unreliably.
+        const tasks: [Promise<string>, Promise<string | undefined>, Promise<PSRPromotionRec[]>] = [
           extractTextFromPDF(file),
           file.size <= 1_500_000 ? extractBase64FromPDF(file) : Promise.resolve(undefined),
+          type === 'psr' ? extractPSRPromotionRecs(file) : Promise.resolve([]),
         ];
-        [text, base64] = await Promise.all(tasks);
+        let recs: PSRPromotionRec[];
+        [text, base64, recs] = await Promise.all(tasks);
+        if (recs.length > 0) promotionRecs = recs;
       } else {
         text = await file.text();
       }
 
-      console.log(`Extracted ${text.length} chars from ${type.toUpperCase()}${base64 ? ' + base64' : ''}`);
+      console.log(`Extracted ${text.length} chars from ${type.toUpperCase()}${base64 ? ' + base64' : ''}${promotionRecs ? ` + ${promotionRecs.length} promo recs` : ''}`);
       console.log(`${type.toUpperCase()} text sample:`, text.substring(0, 500));
 
       const updated: UploadedDocuments = {
@@ -65,6 +73,7 @@ export function DocumentUpload({ onDocumentsChange }: DocumentUploadProps) {
           file,
           text,
           base64,
+          promotionRecs,
           status: 'success' as const,
           uploadedAt: new Date().toISOString(),
         },

@@ -402,6 +402,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
     const body: {
       odc?: string; osr?: string; psr?: string;
       odcBase64?: string; osrBase64?: string; psrBase64?: string;
+      psrRecs?: Array<{ start: string; end: string; rec: string }>;
     } = {};
 
     if (uploadedDocuments.odc?.status === 'success' && uploadedDocuments.odc.text) {
@@ -417,6 +418,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
     if (uploadedDocuments.psr?.status === 'success' && uploadedDocuments.psr.text) {
       body.psr = uploadedDocuments.psr.text;
       if (uploadedDocuments.psr.base64) body.psrBase64 = uploadedDocuments.psr.base64;
+      if (uploadedDocuments.psr.promotionRecs?.length) body.psrRecs = uploadedDocuments.psr.promotionRecs;
       analyzed.push('PSR');
     }
 

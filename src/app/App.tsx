@@ -65,6 +65,7 @@ export default function App() {
     hasUndergrad: boolean;
     hasMedicalSchool: boolean;
     aqds: string[];
+    specialQualifications?: string[];
     warnings: string[];
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
@@ -108,6 +109,7 @@ export default function App() {
       boardCertified: data.boardCertified,
       certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
       aqds: data.aqds,
+      specialQualifications: data.specialQualifications || [],
       fitrepAverage: data.fitrepAverage || 0,
       rscaAverage: data.rscaAverage || 0,
       fitrepCount: data.fitrepCount || 0,

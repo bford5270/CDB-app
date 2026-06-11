@@ -33,6 +33,10 @@ export interface ParsedOfficerData {
   // From ODC - AQDs
   aqds: string[];
 
+  // From OSR - completed special qualifications + service-school courses
+  // (used to suppress recommendations for training already done)
+  specialQualifications: string[];
+
   // From PSR
   fitrepAverage: number;
   rscaAverage?: number;
@@ -127,6 +131,7 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     boardCertified: parsedData.boardCertified ?? null,
     certificationCode: parsedData.certificationCode || null,
     aqds: parsedData.aqds || [],
+    specialQualifications: parsedData.specialQualifications || [],
     fitrepAverage: parsedData.fitrepAverage || 0,
     fitrepCount: parsedData.fitrepCount || 0,
     earlyPromotes: parsedData.earlyPromotes || 0,

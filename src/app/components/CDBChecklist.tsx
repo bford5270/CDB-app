@@ -423,6 +423,21 @@ function buildSections(data: ParsedOfficerData): Section[] {
   const has67A_aqd = aqdsUpper.includes('67A');
   const hasJPME_aqd = aqdsUpper.some(a => ['JS7', 'JS8', 'JP1', 'JP2'].includes(a));
 
+  // Completed training the officer already holds — drawn from AQDs plus the OSR's
+  // Special Qualifications and Service Schools Attended (e.g. "NMQSLA GRAD",
+  // "MEDXELLENCE", "JPME PHASE1"). Used to hide recommendations for things already done.
+  const completedBlob = [...data.aqds, ...(data.specialQualifications || [])].join(' ').toUpperCase();
+  // A recommendation is "already done" when its leading course code/keyword (the token
+  // before the em-dash or first space) appears as a whole word in the completed blob.
+  const recAlreadyDone = (rec: string): boolean => {
+    const key = rec.trim().split(/[\s—–-]+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (key.length < 3) return false;
+    if (new RegExp(`\\b${key}\\b`).test(completedBlob)) return true;
+    // NMQSLA is commonly listed as "NMQSLA GRAD" or just "QSLA".
+    if (key === 'NMQSLA' && /\bN?M?QSLA\b/.test(completedBlob)) return true;
+    return false;
+  };
+
   courseItems.push({
     label: `Required courses for ${rank || 'current rank'}`,
     status: 'info',
@@ -432,6 +447,7 @@ function buildSections(data: ParsedOfficerData): Section[] {
   const filteredRecommended = courses.recommended.filter(c => {
     if (has67A_aqd && c.includes('IESC')) return false;
     if (hasJPME_aqd && c.includes('JPME')) return false;
+    if (recAlreadyDone(c)) return false; // already completed per OSR quals / service schools
     return true;
   });
 
@@ -440,7 +456,17 @@ function buildSections(data: ParsedOfficerData): Section[] {
       label: 'Recommended courses',
       status: 'info',
       detail: filteredRecommended.join('\n'),
-      action: 'Courses already reflected in your AQDs are automatically hidden from this list.',
+      action: 'Courses already reflected in your AQDs, OSR special qualifications, or service schools are automatically hidden from this list.',
+    });
+  }
+
+  // Positive confirmation that completed training was recognized from the OSR.
+  if ((data.specialQualifications || []).length > 0) {
+    courseItems.push({
+      label: `Completed per OSR (${data.specialQualifications.length})`,
+      status: 'good',
+      detail: data.specialQualifications.join(', '),
+      action: 'Pulled from your OSR Special Qualifications and Service Schools Attended. Recommendations for these are suppressed above.',
     });
   }
 

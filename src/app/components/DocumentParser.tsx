@@ -29,6 +29,7 @@ export interface ExtractedOfficerData {
   clearanceDate: string;
 
   aqds: string[];
+  specialQualifications: string[];  // OSR-listed completed quals + service-school courses
 
   hasUndergrad: boolean;
   hasMedicalSchool: boolean;
@@ -76,6 +77,7 @@ interface DocumentParserProps {
     hasUndergrad: boolean;
     hasMedicalSchool: boolean;
     aqds: string[];
+    specialQualifications?: string[];
     warnings: string[];
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
@@ -488,6 +490,7 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       hasUndergrad: extracted.hasUndergrad,
       hasMedicalSchool: extracted.hasMedicalSchool,
       aqds: extracted.aqds,
+      specialQualifications: extracted.specialQualifications,
       warnings: extracted.warnings,
       psrIssues: extracted.psrIssues,
       clearanceLevel: extracted.clearanceLevel,

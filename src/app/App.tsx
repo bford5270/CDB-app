@@ -188,6 +188,15 @@ export default function App() {
           {/* Step 1: Upload & Parse */}
           {step === 1 && !showParser && (
             <>
+              <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Before you start:</strong> The most important part of a CDB is
+                  a meaningful conversation about your career with senior officers. This
+                  site is not meant to replace those discussions — it is meant to
+                  minimize the administrative portions of the CDB process so you can
+                  focus on them.
+                </p>
+              </div>
               <DocumentUpload onDocumentsChange={handleDocumentsUploaded} />
               <div className="mt-8 flex justify-end">
                 <button

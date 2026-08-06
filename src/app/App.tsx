@@ -435,7 +435,8 @@ export default function App() {
                 {/* Attribution */}
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
                   <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, lineHeight: 1.65, maxWidth: 560 }}>
-                    With gratitude to <span style={{ color: '#FFC72C', fontWeight: 600 }}>CAPT Schofer</span> and{' '}
+                    With gratitude to <span style={{ color: '#FFC72C', fontWeight: 600 }}>CAPT Schofer</span>,{' '}
+                    <span style={{ color: '#FFC72C', fontWeight: 600 }}>CAPT Fu</span>, and{' '}
                     <a
                       href="https://mccareer.org"
                       target="_blank"

@@ -431,6 +431,22 @@ export default function App() {
                     promotion board readiness scoring, and a personalized action plan.
                   </p>
                 </div>
+
+                {/* Attribution */}
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, lineHeight: 1.65, maxWidth: 560 }}>
+                    With gratitude to <span style={{ color: '#FFC72C', fontWeight: 600 }}>CAPT Schofer</span> and{' '}
+                    <a
+                      href="https://mccareer.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#FFC72C', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                    >
+                      mccareer.org
+                    </a>{' '}
+                    for consolidating and advancing the resources and framework that this tool builds on.
+                  </p>
+                </div>
               </div>
 
               {/* Upload form */}

@@ -5,6 +5,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { PDFDocument } from 'pdf-lib';
 
 function buildCoursesKnowledge() {
   try {
@@ -806,7 +807,7 @@ function buildOsrSystemPrompt(odcResult) {
   ].join('\n');
 }
 
-function buildPsrSystemPrompt(odcResult) {
+function buildPsrSystemPrompt(odcResult, pageInfo) {
   // Build grade-period context from rankHistory so AI can sanity-check payGrades.
   let gradeContext = '';
   if (Array.isArray(odcResult.rankHistory) && odcResult.rankHistory.length > 0) {
@@ -822,11 +823,29 @@ function buildPsrSystemPrompt(odcResult) {
   const ctx = odcResult.rank
     ? `Officer context from ODC: rank=${odcResult.rank}, name=${odcResult.name || 'unknown'}.${gradeContext}`
     : 'ODC data not available.';
+  // When the PSR is parsed page-by-page (see splitPsrTextPages), each call sees
+  // exactly one page. The row-ownership rule below keeps a FITREP whose two
+  // physical lines straddle a page boundary from being dropped by both pages or
+  // emitted by both.
+  const pageScope = pageInfo
+    ? [
+        '=== THIS REQUEST IS ONE PAGE OF A MULTI-PAGE PSR ===',
+        `You are parsing page ${pageInfo.pageNumber} of ${pageInfo.totalPages}. The other pages are parsed separately.`,
+        'Extract ONLY the FITREP rows present in the text below. Never carry over, infer, or re-emit rows from another page.',
+        'PAGE-BOUNDARY ROW OWNERSHIP: a row belongs to the page its LINE 1 is on.',
+        '  If this page OPENS with a LINE 2 continuation (no leading pay grade) whose LINE 1 is not on this page,',
+        '  SKIP it — the previous page owns that row.',
+        '  If this page ENDS with a LINE 1 whose LINE 2 is not on this page, still emit the row using the fields',
+        '  you can see and set endDate to "" rather than guessing.',
+        '',
+      ]
+    : [];
   return [
     'You are a Navy personnel record parser. You are parsing ONLY the Performance Summary Record (PSR).',
     'RETURN ONLY a valid JSON object. No markdown, no code fences, no explanation.',
     ctx,
     '',
+    ...pageScope,
     '=== PSR PARSING (CRITICAL — NO HALLUCINATION) ===',
     'STRICT RULE: Every field you extract must come VERBATIM from the document text. Do NOT infer, guess, or fill in missing values.',
     'Station/command names: copy EXACTLY as they appear. Do NOT substitute, abbreviate, or invent command names.',
@@ -952,6 +971,69 @@ function buildPsrSystemPrompt(odcResult) {
     '  "confidence": {"psrData": "high"}',
     '}',
   ].join('\n');
+}
+
+// ── PSR page splitting ──────────────────────────────────────────────────────
+// The PSR is by far the slowest parse in the pipeline: it is the only Sonnet
+// call, it is not streamed, and it emits one JSON object per FITREP row — so a
+// long career (4+ pages, 40+ rows) generates thousands of output tokens and can
+// exceed the function's time budget on its own, even when run concurrently with
+// ODC/OSR. Splitting the record into pages and parsing them in parallel puts the
+// critical path at the slowest single page rather than the whole document.
+
+const PSR_PAGE_BREAK = '--- PAGE BREAK ---';
+
+// Split extracted PSR text on the page markers emitted by extractTextFromPDF.
+// Pages with no usable content are dropped, but each surviving page keeps its
+// 1-based pageNumber so it can still be paired with the right PDF page.
+function splitPsrTextPages(psrText) {
+  const raw = psrText.split(PSR_PAGE_BREAK);
+  return {
+    totalPages: raw.length,
+    pages: raw
+      .map((text, i) => ({ pageNumber: i + 1, text: text.trim() }))
+      .filter(p => p.text.length > 0),
+  };
+}
+
+// Split a base64 PDF into one base64 single-page PDF per page, so each per-page
+// call gets only its own page instead of the whole document. Returns null when
+// the PDF cannot be read — callers fall back to text-only page parsing.
+async function splitPdfToPageBase64(base64Pdf) {
+  try {
+    const src = await PDFDocument.load(Buffer.from(base64Pdf, 'base64'), { ignoreEncryption: true });
+    const out = [];
+    for (let i = 0; i < src.getPageCount(); i++) {
+      const single = await PDFDocument.create();
+      const [copied] = await single.copyPages(src, [i]);
+      single.addPage(copied);
+      out.push(Buffer.from(await single.save()).toString('base64'));
+    }
+    return out;
+  } catch (e) {
+    console.warn('PSR PDF split failed (parsing pages from text only):', e.message);
+    return null;
+  }
+}
+
+const PSR_CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
+
+// Merge per-page PSR results in document order. FITREP rows concatenate — the
+// downstream date repair (repairTransposedDates) assumes document order, and
+// page order preserves it. Confidence takes the weakest page.
+function mergePsrPages(results) {
+  const fitreps = [];
+  const warnings = [];
+  let confidence = 'high';
+  for (const r of results) {
+    if (Array.isArray(r?.fitreps)) fitreps.push(...r.fitreps);
+    if (Array.isArray(r?.warnings)) warnings.push(...r.warnings);
+    const c = r?.confidence?.psrData;
+    if (c in PSR_CONFIDENCE_RANK && PSR_CONFIDENCE_RANK[c] < PSR_CONFIDENCE_RANK[confidence]) {
+      confidence = c;
+    }
+  }
+  return { fitreps, warnings, confidence: { psrData: confidence } };
 }
 
 // Compute all PSR analytics from raw fitrep rows in deterministic JS.
@@ -1136,26 +1218,69 @@ export default async function handler(req, res) {
       // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
       const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
 
-      // Start the slow PSR call (Sonnet, reads the PDF) IMMEDIATELY, concurrent with
-      // the ODC/OSR calls, so the function's wall-clock stays under Vercel's 60s
-      // maxDuration. Previously PSR waited for ODC to finish first (ODC + PSR could
-      // exceed 60s → 504 Gateway Timeout). The PSR carries its own payGrade in every
-      // row, so it does not need ODC's grade-history context.
+      // Start the slow PSR work IMMEDIATELY, concurrent with the ODC/OSR calls.
+      // The PSR carries its own payGrade in every row, so it does not need ODC's
+      // grade-history context and never has to wait for it.
+      //
+      // Multi-page PSRs are additionally split into one Sonnet call per page, run
+      // in parallel and merged, so the critical path is the slowest single page
+      // rather than the whole record. Running PSR alongside ODC/OSR alone was not
+      // enough — a 4-page record still exceeded the function budget by itself.
       const psrPromise = psr
-        ? (() => {
+        ? (async () => {
             const psrText = scrubPII(cleanDocumentText(psr, 'psr'));
             console.log('PSR input text (first 3000):\n', psrText.substring(0, 3000));
-            return callClaude(
-              buildPsrSystemPrompt({ rank: null, name: null, rankHistory: [] }),
-              'Parse this Performance Summary Record (PSR):\n\n' + psrText,
-              apiKey,
-              'PSR',
-              psrBase64 || null,
-              'claude-sonnet-4-6',
-            ).catch(e => {
-              console.error('PSR parse failed (using defaults):', e.message);
-              return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
-            });
+
+            const psrContext = { rank: null, name: null, rankHistory: [] };
+            const { totalPages, pages } = splitPsrTextPages(psrText);
+
+            // Single page, or text with no page markers: one call, whole document.
+            if (pages.length <= 1) {
+              return callClaude(
+                buildPsrSystemPrompt(psrContext),
+                'Parse this Performance Summary Record (PSR):\n\n' + psrText,
+                apiKey,
+                'PSR',
+                psrBase64 || null,
+                'claude-sonnet-4-6',
+              ).catch(e => {
+                console.error('PSR parse failed (using defaults):', e.message);
+                return { ...psrDefault, warnings: ['PSR parsing failed — FITREP data not extracted'] };
+              });
+            }
+
+            // Pair each page's text with that page's PDF. If the PDF's page count
+            // disagrees with the text's, the two cannot be aligned safely — send
+            // text only rather than pairing a page with the wrong image.
+            const pdfPages = psrBase64 ? await splitPdfToPageBase64(psrBase64) : null;
+            const alignedPdfPages = pdfPages && pdfPages.length === totalPages ? pdfPages : null;
+            if (pdfPages && !alignedPdfPages) {
+              console.warn(`PSR: PDF has ${pdfPages.length} pages but text has ${totalPages} — parsing pages from text only`);
+            }
+            console.log(`PSR: parsing ${pages.length} pages concurrently${alignedPdfPages ? ' with per-page PDFs' : ' (text only)'}`);
+
+            // One failed page costs only that page's rows, not the whole record.
+            const results = await Promise.all(pages.map(page =>
+              callClaude(
+                buildPsrSystemPrompt(psrContext, { pageNumber: page.pageNumber, totalPages }),
+                `Parse page ${page.pageNumber} of ${totalPages} of this Performance Summary Record (PSR):\n\n${page.text}`,
+                apiKey,
+                `PSR p${page.pageNumber}`,
+                alignedPdfPages ? alignedPdfPages[page.pageNumber - 1] : null,
+                'claude-sonnet-4-6',
+              ).catch(e => {
+                console.error(`PSR page ${page.pageNumber} parse failed:`, e.message);
+                return {
+                  fitreps: [],
+                  warnings: [`PSR page ${page.pageNumber} could not be parsed — FITREPs on that page are missing`],
+                  confidence: { psrData: 'low' },
+                };
+              })
+            ));
+
+            const mergedPsr = mergePsrPages(results);
+            console.log(`PSR: merged ${mergedPsr.fitreps.length} FITREPs from ${pages.length} pages`);
+            return mergedPsr;
           })()
         : Promise.resolve(psrDefault);
 

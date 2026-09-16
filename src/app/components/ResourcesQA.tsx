@@ -4,10 +4,14 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { NotionDocument, extractDocumentYear, sortDocumentsByRecency } from '../utils/notionClient';
 import { extractTextFromPDF, isPDF } from '../utils/pdfUtils';
+import { buildRetrievalContext } from '../utils/documentRetrieval';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  /** Documents the answer was retrieved from, shown under assistant replies. */
+  sources?: string[];
+  isError?: boolean;
 }
 
 type UploadStatus = 'idle' | 'extracting' | 'saving' | 'done' | 'error';
@@ -21,6 +25,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
   const [staticDocs, setStaticDocs] = useState<NotionDocument[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
   const [docsError, setDocsError] = useState<string | null>(null);
+  const [staticDocsError, setStaticDocsError] = useState<string | null>(null);
 
   const documents = useMemo(() => [...staticDocs, ...notionDocs], [staticDocs, notionDocs]);
 
@@ -57,9 +62,13 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
   }
 
   async function loadStaticDocs() {
+    setStaticDocsError(null);
     try {
       const res = await fetch('/api/static-docs');
-      if (!res.ok) return;
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.error || `Built-in library unavailable (HTTP ${res.status})`);
+      }
       const { files } = await res.json() as { files: { name: string; url: string }[] };
       if (!files?.length) return;
 
@@ -69,7 +78,9 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           if (!fileRes.ok) throw new Error(`Failed to fetch ${name}`);
           const blob = await fileRes.blob();
           const file = new File([blob], `${name}.pdf`, { type: 'application/pdf' });
-          const text = await extractTextFromPDF(file);
+          // Prose layout: the Q&A path never reads column positions, and the
+          // pipe padding used by the parser inflates the text by ~60%.
+          const text = await extractTextFromPDF(file, { layout: 'prose' });
           return { id: `static-${name}`, name, text, updatedAt: new Date().toISOString() } as NotionDocument;
         })
       );
@@ -79,8 +90,11 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           .filter((r): r is PromiseFulfilledResult<NotionDocument> => r.status === 'fulfilled')
           .map(r => r.value)
       );
-    } catch {
-      // static docs are best-effort — fail silently
+
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed) setStaticDocsError(`${failed} of ${files.length} built-in document(s) failed to load.`);
+    } catch (err) {
+      setStaticDocsError(err instanceof Error ? err.message : 'Failed to load built-in documents');
     }
   }
 
@@ -96,7 +110,7 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
     try {
       let text: string;
       if (isPDF(file)) {
-        text = await extractTextFromPDF(file);
+        text = await extractTextFromPDF(file, { layout: 'prose' });
       } else {
         text = await file.text();
       }
@@ -146,14 +160,9 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
     setIsAsking(true);
 
     try {
-      const sorted = sortDocumentsByRecency(documents);
-      const docsContext = sorted
-        .filter(doc => doc.text)
-        .map(doc => {
-          const year = extractDocumentYear(doc);
-          return `--- Document: ${doc.name} [Year: ${year}] ---\n${doc.text}`;
-        })
-        .join('\n\n');
+      // Retrieve only the passages relevant to this question. Sending the whole
+      // library overflowed the model's context window and failed every request.
+      const { context: docsContext, stats } = buildRetrievalContext(documents, userMessage);
 
       const response = await fetch('/api/ask', {
         method: 'POST',
@@ -161,17 +170,24 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
         body: JSON.stringify({
           question: userMessage,
           context: docsContext,
-          documentCount: documents.length,
+          documentCount: stats.documentsRepresented || documents.length,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to get response');
-      const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
-    } catch {
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.error || `Request failed (HTTP ${response.status})`);
+      }
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: data.answer,
+        sources: stats.documentNames,
+      }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        isError: true,
+        content: err instanceof Error ? err.message : 'Sorry, I encountered an error. Please try again.',
       }]);
     } finally {
       setIsAsking(false);
@@ -222,14 +238,26 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
                 {docsError && (
                   <p className="text-xs mt-2 text-amber-600">{docsError}</p>
                 )}
+                {staticDocsError && (
+                  <p className="text-xs mt-1 text-amber-600">{staticDocsError}</p>
+                )}
               </div>
             ) : (
               messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
+                    msg.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : msg.isError
+                      ? 'bg-red-50 text-red-800 border border-red-200'
+                      : 'bg-gray-100 text-gray-800'
                   }`}>
                     <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                    {msg.sources && msg.sources.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                        Sources: {msg.sources.join(' · ')}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))
@@ -349,9 +377,10 @@ export function ResourcesQA({ className = '' }: ResourcesQAProps) {
           />
 
           {/* Error state */}
-          {docsError && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-              {docsError}
+          {(docsError || staticDocsError) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
+              {docsError && <p>{docsError}</p>}
+              {staticDocsError && <p>{staticDocsError}</p>}
             </div>
           )}
 

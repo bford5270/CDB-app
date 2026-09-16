@@ -44,6 +44,11 @@ function buildCoursesKnowledge() {
 
 const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
 
+// Ceiling on retrieved reference text per Q&A request. The system prompt also
+// embeds the course catalog and AQD list, so this leaves ample headroom inside
+// the Q&A model's 200k-token context window.
+const QA_CONTEXT_CHAR_LIMIT = 280_000;
+
 function buildAQDReference() {
   try {
     const raw = readFileSync(join(process.cwd(), 'public', 'aqd-master-list.json'), 'utf8');
@@ -1343,7 +1348,16 @@ export default async function handler(req, res) {
     }
 
     const question = scrubPII(rawQuestion);
-    const context = scrubPII(rawContext);
+    let context = scrubPII(rawContext);
+
+    // Safety clamp. The client retrieves only the passages relevant to the
+    // question, but an oversized context is the one failure that breaks every
+    // request (the model rejects the whole prompt), so cap it here too.
+    if (context.length > QA_CONTEXT_CHAR_LIMIT) {
+      console.warn(`Q&A context ${context.length} chars exceeds limit; truncating to ${QA_CONTEXT_CHAR_LIMIT}`);
+      context = context.slice(0, QA_CONTEXT_CHAR_LIMIT)
+        + '\n\n[Context truncated — ask a narrower question to see the remaining documents.]';
+    }
 
     const coursesSupplement = FY26_COURSES_KNOWLEDGE
       ? '\n\n## EMBEDDED STRUCTURED DATA — FY26 NAVMED COURSE CATALOG\n\nUse this as authoritative course/AQD data. It supplements (does not replace) uploaded catalog documents.\n\n' + FY26_COURSES_KNOWLEDGE
@@ -1408,8 +1422,17 @@ export default async function handler(req, res) {
 
     if (!qaRes.ok) {
       const errorText = await qaRes.text();
-      console.error('Claude Q&A error:', qaRes.status, errorText);
-      return res.status(500).json({ error: 'Failed to get AI response' });
+      console.error('Claude Q&A error:', qaRes.status, errorText.substring(0, 500));
+      let detail = '';
+      try {
+        detail = JSON.parse(errorText)?.error?.message || '';
+      } catch {
+        detail = errorText.substring(0, 200);
+      }
+      return res.status(502).json({
+        error: 'Failed to get AI response',
+        detail: detail ? `Claude API ${qaRes.status}: ${detail}` : `Claude API ${qaRes.status}`,
+      });
     }
 
     const qaData = await qaRes.json();
@@ -1422,6 +1445,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('API error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Internal server error',
+      detail: error instanceof Error ? error.message : String(error),
+    });
   }
 }

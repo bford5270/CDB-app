@@ -7,13 +7,18 @@
   ],
   "functions": {
     "api/ask.js": {
-      "maxDuration": 300
+      "maxDuration": 300,
+      "includeFiles": "public/**"
     },
     "api/docs.js": {
       "maxDuration": 30
     },
     "api/upload-doc.js": {
       "maxDuration": 30
+    },
+    "api/static-docs.js": {
+      "maxDuration": 30,
+      "includeFiles": "public/guidelines/**"
     }
   }
 }

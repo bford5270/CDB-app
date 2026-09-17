@@ -32,7 +32,24 @@ function assignToBand(x: number, bands: number[]): number {
   return nearest;
 }
 
-export async function extractTextFromPDF(file: File): Promise<string> {
+export interface PdfExtractOptions {
+  /**
+   * 'columns' (default) emits pipe-separated column slots on pages that look
+   * tabular. The ODC/OSR/PSR parser depends on this to read the FITREP grid.
+   *
+   * 'prose' joins each row with spaces instead. The column padding inflates
+   * text by ~60% on dense pages (the AQD master list goes from 150k to 244k
+   * characters), which is wasted budget for the Q&A path since it never reads
+   * column positions.
+   */
+  layout?: 'columns' | 'prose';
+}
+
+export async function extractTextFromPDF(
+  file: File,
+  options: PdfExtractOptions = {}
+): Promise<string> {
+  const preserveColumns = options.layout !== 'prose';
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -52,7 +69,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       // Collect all X positions to detect column structure for this page.
       const allX = items.filter(i => i.str.trim()).map(i => i.transform[4]);
       const bands = detectColumnBands(allX);
-      const isTabular = bands.length >= 3;
+      const isTabular = preserveColumns && bands.length >= 3;
 
       // Sort top-to-bottom, left-to-right.
       const sorted = [...items].sort((a, b) => {

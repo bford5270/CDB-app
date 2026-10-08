@@ -7,12 +7,19 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFDocument } from 'pdf-lib';
 
+// The structured course catalog bundled under public/. Swapping fiscal years is a
+// one-line change here plus the matching file; every label below is derived from
+// the file's own fiscalYear field.
+const COURSES_CATALOG_FILE = 'fy27-courses.json';
+const COURSES_CATALOG_LABEL = 'FY27';
+
 function buildCoursesKnowledge() {
   try {
-    const raw = readFileSync(join(process.cwd(), 'public', 'fy26-courses.json'), 'utf8');
+    const raw = readFileSync(join(process.cwd(), 'public', COURSES_CATALOG_FILE), 'utf8');
     const d = JSON.parse(raw);
+    const fy = d.fiscalYear ? `FY${String(d.fiscalYear).slice(-2)}` : 'CURRENT';
     const lines = [
-      `=== FY26 NAVMED COURSE CATALOG (MEDICAL CORPS) — STRUCTURED DATA ===`,
+      `=== ${fy} NAVMED COURSE CATALOG (MEDICAL CORPS) — STRUCTURED DATA ===`,
       `Source: ${d.source} | Updated: ${d.lastUpdated}`,
       `Career Planner POC: ${d.pocCareerPlanner.name} | ${d.pocCareerPlanner.email}`,
       '',
@@ -37,12 +44,12 @@ function buildCoursesKnowledge() {
     }
     return lines.join('\n');
   } catch (e) {
-    console.warn('Could not load FY26 courses:', e.message);
+    console.warn(`Could not load ${COURSES_CATALOG_FILE}:`, e.message);
     return '';
   }
 }
 
-const FY26_COURSES_KNOWLEDGE = buildCoursesKnowledge();
+const COURSES_KNOWLEDGE = buildCoursesKnowledge();
 
 // Ceiling on retrieved reference text per Q&A request. The system prompt also
 // embeds the course catalog and AQD list, so this leaves ample headroom inside
@@ -1359,8 +1366,8 @@ export default async function handler(req, res) {
         + '\n\n[Context truncated — ask a narrower question to see the remaining documents.]';
     }
 
-    const coursesSupplement = FY26_COURSES_KNOWLEDGE
-      ? '\n\n## EMBEDDED STRUCTURED DATA — FY26 NAVMED COURSE CATALOG\n\nUse this as authoritative course/AQD data. It supplements (does not replace) uploaded catalog documents.\n\n' + FY26_COURSES_KNOWLEDGE
+    const coursesSupplement = COURSES_KNOWLEDGE
+      ? '\n\n## EMBEDDED STRUCTURED DATA — ' + COURSES_CATALOG_LABEL + ' NAVMED COURSE CATALOG\n\nUse this as authoritative course/AQD data. It supplements (does not replace) uploaded catalog documents.\n\n' + COURSES_KNOWLEDGE
       : '';
 
     const systemPrompt = 'You are a pragmatic, detail-oriented assistant for Navy Medical Corps officers preparing for Career Development Boards (CDB).\n\n'
@@ -1385,7 +1392,7 @@ export default async function handler(req, res) {
       + '- Use "consider" / "you may want to" rather than "you must" unless the doc explicitly requires it\n\n'
       + (documentCount > 0
         ? 'You have access to ' + documentCount + ' document(s), ordered most-recent-year first. Prefer the newest year when making recommendations.'
-        : 'No documents uploaded yet. Use the embedded FY26 course catalog data above to answer course-related questions.')
+        : 'No documents uploaded yet. Use the embedded ' + COURSES_CATALOG_LABEL + ' course catalog data above to answer course-related questions.')
       + coursesSupplement;
 
     let userMessage = question;

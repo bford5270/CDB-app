@@ -1,0 +1,1671 @@
+{
+  "fiscalYear": 2027,
+  "lastUpdated": "2026-10-06",
+  "source": "FY27 Navy Medicine Leadership Course Catalog, Medical Corps Edition",
+  "sourceReleased": "Released 6 October 2026 by the Office of the Corps Chiefs & Navy Medicine Career Planners, BUMED",
+  "pocCareerPlanner": {
+    "name": "CDR Marshall Hoffman",
+    "title": "Medical Corps Career Planner",
+    "email": "marshall.m.hoffman.mil@health.mil"
+  },
+  "disclaimer": "Inclusion of a course does not guarantee seat allocation, quota availability or funding. Convening dates, instructional formats, quotas and nomination deadlines are subject to change — verify via CeTARS/eNTRS, the NMLPDC Academic Course Registration (ACR) site, or the course POC. Purely clinical courses are intentionally excluded from this catalog.",
+  "courses": [
+    {
+      "id": "swmdoic",
+      "name": "Surface Warfare Medical Department Officer Indoctrination Course (SWMDOIC)",
+      "category": "Operational",
+      "cin": "B-6A-2301",
+      "description": "Orientation to Fleet operations for Medical Department (DC, MC, MSC, NC) Officers with assignments aboard ship. Prepares officers to provide leadership, logistic, and administrative skills for operational readiness.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 04A",
+      "duration": "12 days",
+      "format": "In-person",
+      "seats": 35,
+      "sessions": [
+        {
+          "location": "San Diego, CA (SWMI)",
+          "cdp": "630B",
+          "registration": "Nomination via command education & training dept with CeTARS/eNTRS access; funded TAD or I-Stop required; high-risk training physical required",
+          "poc": "usn.san-diego.navmedotcswmica.mbx.fleet-training@health.mil",
+          "phone": "(619) 532-6195",
+          "dates": [
+            {
+              "start": "2026-10-19",
+              "end": "2026-10-30",
+              "nomDue": "40 days prior"
+            },
+            {
+              "start": "2027-05-03",
+              "end": "2027-05-14",
+              "nomDue": "40 days prior"
+            },
+            {
+              "start": "2027-07-12",
+              "end": "2027-07-23",
+              "nomDue": "40 days prior"
+            }
+          ]
+        }
+      ],
+      "funding": "Parent Command",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Offered in May, July, October every fiscal year. Course POC: Ms. Bettye Love, bettye.j.love.civ@health.mil."
+    },
+    {
+      "id": "catfs",
+      "name": "Commander Amphibious Task Force Surgeon Course (CATF-S)",
+      "category": "Operational",
+      "cin": "B-6A-1000",
+      "description": "Prepares Navy Medical Staff Officers (2XXX) to serve as Senior Medical Advisor to an Amphibious Task Force Commander and meets eligibility requirements for a CATF-S assignment.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 077",
+      "duration": "12 days",
+      "format": "In-person",
+      "seats": 35,
+      "sessions": [
+        {
+          "location": "San Diego, CA (SWMI)",
+          "cdp": "630C",
+          "registration": "Request via command education & training dept with CeTARS/eNTRS access; funded TAD or I-Stop required",
+          "poc": "usn.san-diego.navmedotcswmica.mbx.fleet-training@health.mil",
+          "phone": "(619) 532-6195",
+          "dates": [
+            {
+              "start": "2026-10-19",
+              "end": "2026-10-30",
+              "nomDue": "40 days prior"
+            },
+            {
+              "start": "2027-03-15",
+              "end": "2027-03-26",
+              "nomDue": "40 days prior"
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-24",
+              "nomDue": "40 days prior"
+            }
+          ]
+        }
+      ],
+      "funding": "Parent Command",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Offered in March and September every fiscal year. Priority to MC officers (21XX) filling or with orders to a CATF-S billet. Active and reserve eligible."
+    },
+    {
+      "id": "broc",
+      "name": "Basic Readiness Officer Course (BROC)",
+      "category": "Leadership",
+      "description": "Second course in the Medical Department Officer's Learning Continuum. Four-unit online course covering organization, structure, business practices, and operational policies of the Naval Medical Department.",
+      "targetRank": [
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "requirement": "Prerequisite for the Advanced Readiness Officer Course (AROC)",
+      "duration": "Self-paced online (4 units)",
+      "format": "Online (Navy E-Learning)",
+      "sessions": [
+        {
+          "location": "Navy E-Learning (self-paced)",
+          "registration": "Navy E-Learning: https://learning.nel.navy.mil/ — search course catalog numbers CFHP-NMLPDC-21-BROC-U1-V02 through U4-V02; enroll in each unit",
+          "link": "https://learning.nel.navy.mil/",
+          "poc": "clinton.a.garrett.civ@health.mil"
+        }
+      ],
+      "funding": "None (web-based)",
+      "prerequisites": [],
+      "jmespCompetencies": "Fulfills 6 of the 28 JMESP competencies",
+      "notes": "All four units must be completed for credit. Service School: No. If all three units of BMDOC were completed, BROC is not required."
+    },
+    {
+      "id": "aroc",
+      "name": "Advanced Readiness Officer Course (AROC)",
+      "category": "Leadership",
+      "description": "Third course in the Medical Department Officer's Learning Continuum (after DIVOLC and BROC). Emphasizes strategic thinking and healthcare operations to prepare officers for Executive Medicine roles.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 102",
+      "format": "In-person",
+      "sessions": [],
+      "funding": "NMLPDC (full funding for Active Component; no rental cars). Reserve Component funds via Training Officer / Regional Program Director.",
+      "prerequisites": [
+        "Paygrade O4 to O6",
+        "Secret clearance",
+        "Completion of BROC"
+      ],
+      "jmespCompetencies": "Approved for 10 of the 28 JMESP competencies",
+      "status": "NO FY27 SCHEDULE PUBLISHED — as of the FY27 catalog release there is no guidance on the FY27 AROC schedule; check the NMLPDC Academic Course Registration site for active offerings",
+      "notes": "Quota based on seniority in rank and current position, selected by Corps Career Planners with priority to officers filling or selected for executive positions. Course Director: CDR Richard J. Delinsky, MSC, USN, richard.j.delinsky.mil@health.mil.",
+      "registrationLink": "https://obiwan2.health.mil/sites/nmfsc/apps/ACR/SitePages/courseInfo.aspx"
+    },
+    {
+      "id": "iaifhl",
+      "name": "Interagency Institute for Federal Health Leaders (IAIFHL)",
+      "category": "Executive",
+      "description": "Two-week course for seasoned federal health care executives examining current issues in health care policy and management and their impact on the federal health care system. Held under the auspices of USUHS.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 059; senior O5 to O6 tracking toward Executive Medicine",
+      "duration": "2 weeks",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Washington, DC",
+          "registration": "Nominations solicited through Corps leadership and selected by the Corps Chief's Office",
+          "link": "https://www.fhceiaa.org/iiffhce-course",
+          "dates": [
+            {
+              "start": "2027-04-12",
+              "end": "2027-04-23",
+              "nomDue": "30 days prior"
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-24",
+              "nomDue": "30 days prior"
+            }
+          ]
+        }
+      ],
+      "funding": "NMLPDC",
+      "prerequisites": [],
+      "jmespCompetencies": "Counts toward 67A (listed among approved courses)",
+      "contributesToAQD": "67A",
+      "notes": "148th convenes Apr 2027, 149th convenes Sep 2027. Navy Medicine is usually allocated 11 quotas shared across the four Corps. Contact your Corps Career Planner if interested."
+    },
+    {
+      "id": "hcm",
+      "name": "Healthcare Management Course (HMC)",
+      "category": "Executive",
+      "description": "Tri-service course for first-time clinical supervisors providing administrative tools to manage clinical areas: civilian personnel, contracting, budgeting, quality management, TRICARE Operations Center tools, scheduling and utilization management.",
+      "targetRank": [
+        "O2",
+        "O3",
+        "O4"
+      ],
+      "requirement": "Service School code 10K",
+      "duration": "4 days (plus Phase 1 distance learning)",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "registration": "Complete prerequisite JMESI Healthcare Management Course (Phase 1) distance learning on JKO, then register for JMESI-US300. Registration opens ~60 days prior; capped at 200.",
+          "link": "https://www.health.mil/jmesi",
+          "poc": "dha.ncr.Ed-Training-J-7.mbx.jmesi@health.mil",
+          "dates": [
+            {
+              "start": "2027-02-08",
+              "end": "2027-02-11",
+              "virtual": true,
+              "nomDue": "3 weeks prior"
+            },
+            {
+              "start": "2027-05-10",
+              "end": "2027-05-13",
+              "virtual": true,
+              "nomDue": "3 weeks prior"
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-16",
+              "virtual": true,
+              "nomDue": "3 weeks prior"
+            }
+          ]
+        }
+      ],
+      "funding": "None (virtual)",
+      "prerequisites": [
+        "JMESI Healthcare Management Course Phase 1 (distance learning, JKO)"
+      ],
+      "jmespCompetencies": "One of three JMESI courses designed to fulfill JMESP competencies",
+      "contributesToAQD": "67A",
+      "notes": "Self-nomination. Held three times per year; max class size 200. Open to officer, enlisted and civilian MHS personnel (Officer O2-O4, Enlisted E5-E7, Civ GS9-11)."
+    },
+    {
+      "id": "iesc",
+      "name": "Intermediate Executive Skills Course (IESC)",
+      "category": "Executive",
+      "description": "JMESI course on leadership and management skills needed to serve in an intermediate-level leadership position within a DHA medical treatment facility. Eight web-based modules followed by a 4-day live virtual course.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5"
+      ],
+      "requirement": "Service School code 10L",
+      "duration": "4 days (plus Phase 1 web-based modules)",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "registration": "Complete prerequisite JMESI-IES Phase 1 curriculum on JKO, then register for JMESI-US400. Registration opens 90 days prior; capped at 300.",
+          "link": "https://health.mil/JMESI",
+          "poc": "dha.jbsa.education-trng.list.jmesi@health.mil",
+          "dates": [
+            {
+              "start": "2026-10-19",
+              "end": "2026-10-22",
+              "virtual": true,
+              "nomDue": "2 weeks prior"
+            },
+            {
+              "start": "2027-03-08",
+              "end": "2027-03-11",
+              "virtual": true,
+              "nomDue": "2 weeks prior"
+            },
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-10",
+              "virtual": true,
+              "nomDue": "2 weeks prior"
+            },
+            {
+              "start": "2027-11-15",
+              "end": "2027-11-18",
+              "virtual": true,
+              "nomDue": "2 weeks prior"
+            }
+          ]
+        }
+      ],
+      "funding": "None (virtual)",
+      "prerequisites": [
+        "JMESI-IES Course Phase 1 curriculum (JKO)"
+      ],
+      "jmespCompetencies": "One of three JMESI courses designed to fulfill JMESP competencies",
+      "contributesToAQD": "67A (Market Financial Regulations competency)",
+      "notes": "Named explicitly in the 67A education requirement. Recommended grade O4-O5; minimum O-3. Max class size 300."
+    },
+    {
+      "id": "divolc",
+      "name": "Division Officer Leadership Course (DIVOLC)",
+      "category": "Leadership",
+      "cin": "P-7C-0100",
+      "description": "First course in the Medical Department Officer's Learning Continuum. Five-day course giving Junior Officers the tools to function as effective leaders at the Division Officer level, aligned to the Navy Leader Development Strategy and Navy Leadership Competency Model.",
+      "targetRank": [
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "requirement": "Service school requirement for all officers per MILPERSMAN 1301-906 (Service School code 00G)",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Bethesda, MD (NMLPDC)",
+          "cdp": "20XD",
+          "registration": "NMLPDC Academic Course Registration site",
+          "link": "https://obiwan2.health.mil/sites/nmfsc/apps/ACR/SitePages/courseInfo.aspx",
+          "poc": "usn.bethesda.navmedleadprodevcmd.list.nmpdc-ldr-devacademy@health.mil"
+        },
+        {
+          "location": "Portsmouth, VA (NMRTC)",
+          "cdp": "26KG",
+          "registration": "Email SEAT Department",
+          "poc": "usn.hampton-roads.navhospporsva.list.nmcp-seat-prodevelopment@health.mil"
+        },
+        {
+          "location": "San Diego, CA (NMRTC)",
+          "cdp": "26M5",
+          "poc": "usn.san-diego.navmedcensanca.mbx.nmcsd-seatadm@health.mil",
+          "phone": "(619) 532-7900"
+        }
+      ],
+      "funding": "Parent Command (travel, lodging, per diem)",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Required for O1-O3 Medical Community Officers who did not attend ODS before 1 January 2018. Course offerings and quotas vary by site; contact your command SEAT Officer. The FY27 catalog lists no fixed FY27 session dates for any site."
+    },
+    {
+      "id": "ilc",
+      "name": "Intermediate Leadership Course (ILC)",
+      "category": "Leadership",
+      "cin": "H-7C-0104",
+      "description": "One week of professional learning for intermediate-level officers, focused on human interaction, team building, and implementing command vision. Replaces the Department Head Leadership Course (DHLC), CIN P-7C-0101.",
+      "targetRank": [
+        "O3",
+        "O4"
+      ],
+      "requirement": "Required for all intermediate-level officers with 7 to 12 years of commissioned service (Service School code 00E)",
+      "duration": "4-5 days",
+      "format": "Virtual and in-person (varies by CDP)",
+      "sessions": [
+        {
+          "location": "CDP 17ZP (see notes on CDP/location)",
+          "cdp": "17ZP",
+          "registration": "Contact your command SEAT officer; SEAT registers participants via CeTARS/eNTRS at least five weeks prior. ENTRS is the preferred method.",
+          "link": "https://app.prod.cetars.training.navy.mil/cantrac/vol2.html",
+          "dates": [
+            {
+              "start": "2026-10-13",
+              "end": "2026-10-16"
+            },
+            {
+              "start": "2026-10-19",
+              "end": "2026-10-23"
+            },
+            {
+              "start": "2026-10-26",
+              "end": "2026-10-30"
+            },
+            {
+              "start": "2027-01-19",
+              "end": "2027-01-22"
+            },
+            {
+              "start": "2027-01-25",
+              "end": "2027-01-29"
+            },
+            {
+              "start": "2027-02-01",
+              "end": "2027-02-05"
+            },
+            {
+              "start": "2027-03-22",
+              "end": "2027-03-26"
+            },
+            {
+              "start": "2027-03-29",
+              "end": "2027-04-02"
+            },
+            {
+              "start": "2027-04-05",
+              "end": "2027-04-09"
+            },
+            {
+              "start": "2027-06-01",
+              "end": "2027-06-05"
+            },
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-11"
+            },
+            {
+              "start": "2027-06-14",
+              "end": "2027-06-17"
+            },
+            {
+              "start": "2027-08-09",
+              "end": "2027-08-12"
+            },
+            {
+              "start": "2027-08-16",
+              "end": "2027-08-20"
+            },
+            {
+              "start": "2027-08-23",
+              "end": "2027-08-27"
+            },
+            {
+              "start": "2027-10-12",
+              "end": "2027-10-15"
+            },
+            {
+              "start": "2027-10-18",
+              "end": "2027-10-22"
+            },
+            {
+              "start": "2027-10-25",
+              "end": "2027-10-29"
+            },
+            {
+              "start": "2027-01-18",
+              "end": "2027-01-21"
+            }
+          ]
+        }
+      ],
+      "funding": "Parent Command",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "SOURCE DISCREPANCY: the FY27 schedule table is headed 'Newport, RI' for CDP 17ZP, but the course text states 17ZP is the Dam Neck general (virtual) class, 17ZM is San Diego in-person at NBSD, and 17ZN is San Diego virtual; only 17ZP sessions are tabulated. Verify location in CeTARS before travel. The final four rows (SEQ 10-40 beginning 2027-OCT-12) appear to belong to the FY28 cycle, and the printed '2027-JAN-18' start in that block is inconsistent with that sequence. Quota 8 minimum, 24 maximum. Students use iPads and must complete a personality assessment before convening."
+    },
+    {
+      "id": "slc",
+      "name": "Senior Leadership Course (SLC)",
+      "category": "Leadership",
+      "cin": "H-7C-0107",
+      "description": "Five-day seminar for Active-duty senior officers O5 and above, CWO4/CWO5, and E-9 Senior Enlisted Leaders, covering ethics, self-awareness, leader development and decision making in support of Fleet Centered Leader Development.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 00C",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Dam Neck, VA (NLEC)",
+          "cdp": "19UV",
+          "registration": "Contact your command SEAT officer; SEAT registers via CeTARS/eNTRS",
+          "poc": "NLEC_DMNK_STUDENT_MANAGEMENT@us.navy.mil",
+          "phone": "(757) 492-7759",
+          "dates": [
+            {
+              "start": "2026-10-05",
+              "end": "2026-10-09"
+            },
+            {
+              "start": "2027-02-01",
+              "end": "2027-02-05"
+            },
+            {
+              "start": "2027-03-22",
+              "end": "2027-03-26"
+            },
+            {
+              "start": "2027-04-19",
+              "end": "2027-04-23"
+            },
+            {
+              "start": "2027-07-12",
+              "end": "2027-07-16"
+            },
+            {
+              "start": "2027-08-16",
+              "end": "2027-08-20"
+            },
+            {
+              "start": "2027-09-20",
+              "end": "2027-09-24"
+            }
+          ]
+        },
+        {
+          "location": "San Diego, CA (NLEC)",
+          "cdp": "19UU",
+          "registration": "Contact your command SEAT officer; SEAT registers via CeTARS/eNTRS",
+          "poc": "NLEC-SD-SLC/ILC-DISTRO@US.NAVY.MIL",
+          "phone": "(619) 556-8341",
+          "dates": [
+            {
+              "start": "2026-10-19",
+              "end": "2026-10-23"
+            },
+            {
+              "start": "2026-11-02",
+              "end": "2026-11-06"
+            },
+            {
+              "start": "2027-01-25",
+              "end": "2027-01-29"
+            },
+            {
+              "start": "2027-03-01",
+              "end": "2027-03-05"
+            },
+            {
+              "start": "2027-05-03",
+              "end": "2027-05-07"
+            },
+            {
+              "start": "2027-07-19",
+              "end": "2027-07-23"
+            }
+          ]
+        }
+      ],
+      "funding": "Parent Command",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Quota varies per course. The FY27 catalog does not state ILC as a formal prerequisite, but describes ILC as the formal linkage between DIVOLC and senior leader courses. Several sessions are annotated NSCDL non-resident distance learning. Personality assessment required before convening."
+    },
+    {
+      "id": "sllc",
+      "name": "Senior Leader Legal Course (SLLC)",
+      "category": "Legal",
+      "cin": "S-5F-0011",
+      "description": "Three-day Naval Justice School course preparing O5/O6 commanding officers, executive officers and senior enlisted leaders/advisors for the legal issues they face as a command triad: investigations, NJP, administrative separations, officer misconduct, government ethics, military justice, and more.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 595; CO, XO, OIC, E9, E8 given priority",
+      "duration": "3 days",
+      "format": "In-person and virtual",
+      "sessions": [
+        {
+          "location": "Newport, RI (Naval Justice School)",
+          "cdp": "0258",
+          "registration": "Quota requests via ENTRS (https://main.prod.cetars.training.navy.mil/cetars). Detailers contact regional POC to register incoming COs/XOs. An email address in CeTARS registration notes is required or the quota is denied.",
+          "poc": "njs-registrar@njsonline.onmincrosoft.com",
+          "dates": [
+            {
+              "start": "2026-10-13",
+              "end": "2026-10-15"
+            },
+            {
+              "start": "2026-11-03",
+              "end": "2026-11-05"
+            },
+            {
+              "start": "2026-11-17",
+              "end": "2026-11-19"
+            },
+            {
+              "start": "2027-01-19",
+              "end": "2027-01-21"
+            },
+            {
+              "start": "2027-02-09",
+              "end": "2027-02-11"
+            },
+            {
+              "start": "2027-03-09",
+              "end": "2027-03-11"
+            },
+            {
+              "start": "2027-03-30",
+              "end": "2027-04-01"
+            },
+            {
+              "start": "2027-04-20",
+              "end": "2027-04-22"
+            },
+            {
+              "start": "2027-05-11",
+              "end": "2027-05-13"
+            },
+            {
+              "start": "2027-05-25",
+              "end": "2027-05-27"
+            },
+            {
+              "start": "2027-06-22",
+              "end": "2027-06-24"
+            },
+            {
+              "start": "2027-06-29",
+              "end": "2027-07-01"
+            },
+            {
+              "start": "2027-07-20",
+              "end": "2027-07-22"
+            },
+            {
+              "start": "2027-08-10",
+              "end": "2027-08-12"
+            },
+            {
+              "start": "2027-08-31",
+              "end": "2027-09-02"
+            }
+          ]
+        },
+        {
+          "location": "Virtual (NSCDL non-resident distance learning)",
+          "cdp": "24M5",
+          "registration": "Quota requests via ENTRS",
+          "dates": [
+            {
+              "start": "2026-09-22",
+              "end": "2026-09-24",
+              "virtual": true
+            },
+            {
+              "start": "2026-11-17",
+              "end": "2026-11-19",
+              "virtual": true
+            },
+            {
+              "start": "2027-02-16",
+              "end": "2027-02-18",
+              "virtual": true
+            },
+            {
+              "start": "2027-03-23",
+              "end": "2027-03-25",
+              "virtual": true
+            }
+          ]
+        }
+      ],
+      "funding": "Participant's command — nomination implies funding has been secured",
+      "prerequisites": [],
+      "jmespCompetencies": "Counts toward 67A (Senior Legal Officer Course listed among approved courses)",
+      "contributesToAQD": "67A",
+      "notes": "Previously the Senior Officer Course (SOC); now integrated with the Senior Enlisted Legal Course (SELC), which is no longer offered. Other paygrades space-available. Welcome email 4-6 weeks prior."
+    },
+    {
+      "id": "jpmei-fsp",
+      "name": "JPME I - Naval War College Fleet Seminar Program",
+      "category": "JPME",
+      "description": "Delivers NWC Joint Professional Military Education Phase I to students who cannot attend in residence. Expands critical and creative thinking and problem-solving for decision-making and leadership in the maritime domain.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 422; awards AQD JS7 (JPME Phase I Graduate). Navy/USMC/USCG O3 and above",
+      "duration": "Typically 3 years (one evening per week, 3 hours)",
+      "format": "In-person seminar at Navy bases nationwide",
+      "sessions": [
+        {
+          "location": "Multiple Naval bases and stations across the United States",
+          "registration": "Online application. Application period for AY 2026-2027 was 1 April - 31 May 2026. Look for AY 2027-2028 application information from NWC in March 2027.",
+          "link": "https://usnwc.edu/college-of-distance-education/Fleet-Seminar-Program.html",
+          "poc": "fsp@usnwc.edu"
+        }
+      ],
+      "funding": "NWC provides all study materials on loan",
+      "prerequisites": [],
+      "jmespCompetencies": "JPME I counts toward 67A and is required for 67B",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Reference NAVADMIN 069/26. Three core courses: Strategy and War, Theater Security Decision Making, Joint Maritime Operations. Open to active, reserve, and federal civilians GS11+. Contractors not eligible."
+    },
+    {
+      "id": "jpmei-online",
+      "name": "JPME I - Naval War College Naval Command and Staff (NC&S) Online",
+      "category": "JPME",
+      "description": "Online program covering US national security policy and military strategy across five modules (Fundamentals of Strategy, The Security Environment, Operational Art, Joint Capabilities, Joint Planning Process). All modules must be completed for JPME Phase I credit.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Awards AQD JS7 (JPME Phase I Graduate). Navy/USMC/USCG O3+; baccalaureate degree required",
+      "duration": "322 days / 46 weeks per session (program typically 40 weeks)",
+      "format": "Online (Blackboard)",
+      "sessions": [
+        {
+          "location": "Online",
+          "registration": "Online application; program manager reviews eligibility. Accepted students are added to the waitlist.",
+          "link": "https://usnwc.edu/college-of-distance-education/Online-Program/JPME-Phase-I.html",
+          "poc": "ncsonline@usnwc.edu",
+          "phone": "(401) 856-5550",
+          "dates": [
+            {
+              "start": "2026-12-04",
+              "end": "2027-11-04"
+            },
+            {
+              "start": "2027-06-04",
+              "end": "2028-05-11"
+            }
+          ]
+        }
+      ],
+      "funding": "No cost to enrolled officers",
+      "prerequisites": [
+        "Baccalaureate degree"
+      ],
+      "jmespCompetencies": "JPME I counts toward 67A and is required for 67B",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Listed sessions are AY2026-2027 Term C (start 12/4/26) and AY2027-2028 Term A (start 6/4/27). SOURCE DISCREPANCY: AY2026-2027 Term D is printed as 'Fri 3/12/26' to 'Thu 2/10/28', which is not a 46-week span; the start year appears to be a typo. Confirm Term D dates with NWC. Class size 17-20."
+    },
+    {
+      "id": "nwc-resident",
+      "name": "Naval War College JPME I & Master's Degree Resident Program",
+      "category": "JPME",
+      "description": "Accredited 10-month resident postgraduate program in Newport, RI across three trimesters covering Joint Maritime Operations, Theater Security Decision Making, Strategy and War, and Leadership in the Profession of Arms. Awards a Master of Arts in Defense and Strategic Studies plus JPME Phase I credit.",
+      "targetRank": [
+        "O4",
+        "O5"
+      ],
+      "requirement": "Service School code 414",
+      "duration": "10 months",
+      "format": "In-person (Newport, RI)",
+      "sessions": [
+        {
+          "location": "Newport, RI",
+          "registration": "Contact your Corps detailer at Navy Personnel Command to be added to the interest list",
+          "link": "https://usnwc.edu/college-of-naval-command-and-staff/JPME-Phase-I-and-Masters-Degree"
+        }
+      ],
+      "funding": "PCS orders to the Naval War College",
+      "prerequisites": [],
+      "jmespCompetencies": "War College degree counts toward the 67A operational education requirement",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Quota varies by class. Satisfies both the master's degree and JPME I elements of the 67A pathway."
+    },
+    {
+      "id": "acsc-dl",
+      "name": "Air Command and Staff College (IDE) Distance Learning Program",
+      "category": "JPME",
+      "description": "Intermediate developmental education program with full JPME Phase I accreditation, delivered online through self-paced courses and asynchronous facilitated seminars. Emphasizes airpower in joint campaign planning and the operational art of war.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 700; offered to O-4 selects and above",
+      "duration": "Self-paced online",
+      "format": "Online",
+      "sessions": [
+        {
+          "location": "Online",
+          "registration": "Follow the eSchool admissions step-by-step guide",
+          "link": "https://www.airuniversity.af.edu/eSchool/ACSC/"
+        }
+      ],
+      "funding": "No cost to enrolled officers",
+      "prerequisites": [],
+      "jmespCompetencies": "JPME I counts toward 67A and is required for 67B",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Quota unlimited. A separate Online Master's Program (OLMP) curriculum is available for officers who also want a master's degree."
+    },
+    {
+      "id": "mccsc-cdet",
+      "name": "Marine Corps Command and Staff College - Distance Education and Training (CDET)",
+      "category": "JPME",
+      "description": "Graduate-level distance education program (CSCDEP) developing critical thinkers and ethical leaders to serve as commanders and staff officers in service, joint, interagency and multinational organizations, applying MAGTF doctrine.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 746; O-4 and above",
+      "duration": "Varies by seminar schedule",
+      "format": "Weekday, weekend, online, or blended seminar",
+      "sessions": [
+        {
+          "location": "Regional seminars and online (CDET Moodle)",
+          "registration": "CDET regional offices build a schedule with each student",
+          "link": "https://www.usmcu.edu/CDET/#command-and-staff-dep"
+        }
+      ],
+      "funding": "Not stated",
+      "prerequisites": [],
+      "jmespCompetencies": "JPME I counts toward 67A and is required for 67B",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Four seminar schedule types offered: weekday, weekend, online, and blended."
+    },
+    {
+      "id": "mccsc-resident",
+      "name": "Marine Corps Command and Staff College Resident Program",
+      "category": "JPME",
+      "description": "Ten-month graduate program at Marine Corps University, Quantico, VA, for O4s, fulfilling JPME I requirements with the option to complete a Master of Military Studies (MMS) degree.",
+      "targetRank": [
+        "O4"
+      ],
+      "requirement": "Service School code 746",
+      "duration": "10 months",
+      "format": "In-person (Quantico, VA)",
+      "sessions": [
+        {
+          "location": "Quantico, VA (Marine Corps University)",
+          "registration": "Contact your detailer to join the interest list",
+          "link": "https://www.usmcu.edu/Colleges-and-Schools/Command-and-Staff-College/",
+          "poc": "mcu_csc@usmcu.edu",
+          "dates": [
+            {
+              "start": "2027-08-02",
+              "end": "2027-08-02"
+            }
+          ]
+        }
+      ],
+      "funding": "PCS orders written from PERS",
+      "prerequisites": [],
+      "jmespCompetencies": "JPME I counts toward 67A and is required for 67B",
+      "contributesToAQD": "67A, 67B, JS7",
+      "notes": "Catalog lists report NLT 27 July 2027 (TBD) and class start 2 August 2027 (TBD); both marked tentative and the end date is not published. Quota varies by class."
+    },
+    {
+      "id": "nsls",
+      "name": "Navy Senior Leadership Seminar (NSLS)",
+      "category": "Executive",
+      "description": "Intensive five-day executive education program for senior Navy officers, civilians and Command Master Chiefs covering strategic thinking, goal setting, effects-based thinking, risk management, financial management, innovative thinking, strategic communication, and organizational change.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No",
+      "duration": "5 days",
+      "format": "In-person (NPS Monterey) and virtual (MS Teams)",
+      "sessions": [
+        {
+          "location": "Monterey, CA (Naval Postgraduate School) — NSLS-NPS",
+          "registration": "Nominations solicited through Corps leadership and selected by the Corps Chief's Office; commands coordinate with NPS Extended Campus on registration, enrollment and payment",
+          "link": "https://online.nps.edu/-/navy-senior-leader-seminar",
+          "poc": "online@nps.edu",
+          "dates": [
+            {
+              "start": "2027-04-19",
+              "end": "2027-04-23"
+            },
+            {
+              "start": "2027-08-23",
+              "end": "2027-08-27"
+            }
+          ]
+        },
+        {
+          "location": "Virtual (MS Teams) — NSLS-O",
+          "poc": "online@nps.edu",
+          "dates": [
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-11",
+              "virtual": true
+            }
+          ]
+        }
+      ],
+      "funding": "Not centrally funded — participants must be sponsored by their organization for course cost and travel",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Course quota is 2 seats for Navy Medicine to share among all Corps. NSLS-O requires high-speed internet, webcam and microphone; a private computer works better than NMCI."
+    },
+    {
+      "id": "hcmodsim",
+      "name": "Healthcare Modeling and Simulation Certificate Program",
+      "category": "Education",
+      "description": "Distance-learning graduate certificate from NPS in partnership with USUHS on the effective use of modeling and simulation in healthcare. Four courses totalling 16 graduate credit hours.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No",
+      "duration": "Four quarters (completable in 12 months)",
+      "format": "Distance learning",
+      "sessions": [
+        {
+          "location": "Distance learning (NPS)",
+          "link": "https://movesinstitute.nps.edu/healthcare-certificate",
+          "poc": "charles.rowan@nps.edu",
+          "phone": "(831) 656-7872"
+        }
+      ],
+      "funding": "Free program",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "contributesToAQD": "Modeling and simulation AQD (per catalog; code not specified)",
+      "notes": "Required courses: MV4002 Simulation and Training; MV3403 Research Methods and Statistics for Healthcare Simulation; MV4003 Technology and Simulation in Healthcare Education; MV4460 Management of Modeling and Simulation Development."
+    },
+    {
+      "id": "ghe-intro",
+      "name": "Introduction to DoD Global Health Engagement",
+      "category": "Global Health",
+      "description": "Asynchronous online course familiarizing deploying personnel with the strategic rationale, opportunities, challenges and basic considerations of Global Health Engagement operations, activities and investments. Module 1 covers strategic rationale; Modules 2-4 cover planning and execution.",
+      "targetRank": [
+        "O1",
+        "O2",
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No; open to all DoD personnel",
+      "duration": "Module 1 ~30 minutes; Modules 2-4 ~100 minutes",
+      "format": "Virtual (asynchronous, JKO VCLASS)",
+      "sessions": [
+        {
+          "location": "Virtual (JKO VCLASS)",
+          "registration": "Enroll via https://jkodirect.jten.mil/ — VCLASS > Enter Classroom > Membership > Joinable Sites > search 'Global Health Engagement'",
+          "link": "https://nidhc.usuhs.edu/node/172231",
+          "poc": "NIDHC-Education@usuhs.edu",
+          "dates": [
+            {
+              "start": "2026-12-07",
+              "end": "2026-12-11",
+              "virtual": true
+            },
+            {
+              "start": "2027-04-19",
+              "end": "2027-04-23",
+              "virtual": true
+            },
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-11",
+              "virtual": true
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-16",
+              "virtual": true
+            }
+          ]
+        }
+      ],
+      "funding": "Online (no cost)",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Quota varies."
+    },
+    {
+      "id": "foghe",
+      "name": "Fundamentals of Global Health Engagement (FOGHE)",
+      "category": "Global Health",
+      "description": "USU NIDHC flagship course increasing readiness of US military medical personnel to develop and execute DoW GHE programs: strategic/operational/civil-military considerations, establishing engagement context, and planning, executing and monitoring GHE activities.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No",
+      "duration": "5 days virtual (~3 hrs/day) or 3 days in person (~8 hrs/day)",
+      "format": "Virtual or in-person (mobile)",
+      "sessions": [
+        {
+          "location": "Virtual (or mobile in-person by CCMD/Service Component request)",
+          "registration": "Enrollment at the discretion of the Course Director and/or host unit; contact the course POC",
+          "link": "https://nidhc.usuhs.edu/directorates/training-education/ghe-readiness/foghe-ghe-201",
+          "poc": "NIDHC-EDUCATION@USUHS.EDU",
+          "dates": [
+            {
+              "start": "2026-09-10",
+              "end": "2026-09-14",
+              "virtual": true
+            },
+            {
+              "start": "2026-12-07",
+              "end": "2026-12-11",
+              "virtual": true
+            },
+            {
+              "start": "2027-04-19",
+              "end": "2027-04-23",
+              "virtual": true
+            },
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-11",
+              "virtual": true
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-16",
+              "virtual": true
+            }
+          ]
+        }
+      ],
+      "funding": "Varies",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Offered about once per quarter virtually. Over 500 US military personnel complete it each year. Offers AMA CME/CNE credits."
+    },
+    {
+      "id": "gheoc",
+      "name": "Global Health Engagement Operations Course (GHEOC)",
+      "category": "Global Health",
+      "description": "Joint GHE planning course hosted by USU Center for Global Health Engagement, preparing personnel in GHE-focused positions to develop steady-state operations, activities and investments supporting CCMD campaign plan objectives. Covers GHE program lifecycle, security assistance/cooperation, and assessment, monitoring and evaluation.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No; max 60 participants",
+      "duration": "Varies by iteration",
+      "format": "In residence",
+      "sessions": [
+        {
+          "location": "In residence (location varies)",
+          "registration": "Contact GHEOC@usuhs.edu to receive an application; command approval required",
+          "link": "https://nidhc.usuhs.edu/directorates/training-education/ghe-readiness/gheoc-ghe-301",
+          "poc": "GHEOC@usuhs.edu",
+          "dates": [
+            {
+              "start": "2026-11-19",
+              "end": "2026-11-20",
+              "location": "Falls Church, VA"
+            },
+            {
+              "start": "2027-05-17",
+              "end": "2027-05-21",
+              "location": "Bethesda, MD"
+            }
+          ]
+        }
+      ],
+      "funding": "No course fees; TDY costs borne by the Service/organization",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "A third FY27 iteration is listed as TBD November 2027 at a TBD location. Previously facilitated by the USAF International Health Specialist program. Open to Active Duty, Guard, Reserve, Civilian and Contractor personnel with GHE duties."
+    },
+    {
+      "id": "medxellence",
+      "name": "MedXellence",
+      "category": "Executive",
+      "description": "USU course giving current and aspiring MHS leaders 40 hours of continuing education and a one-week curriculum of lectures, discussions and small-group case study exercises based on real-world MHS scenarios.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 04C",
+      "duration": "1 week (40 CE hours)",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Multiple (San Antonio TX, Bethesda MD, Pendleton CA)",
+          "registration": "Nomination by supervisor or self-nomination; MedXellence staff select for Service, rank, corps and job-title balance",
+          "link": "https://medschool.usuhs.edu/pmb/education/medxellence",
+          "poc": "kevin.jackson@usuhs.edu",
+          "dates": [
+            {
+              "start": "2027-03-29",
+              "end": "2027-04-02",
+              "location": "Bethesda, MD"
+            },
+            {
+              "start": "2027-06-07",
+              "end": "2027-06-11",
+              "location": "Pendleton, CA"
+            },
+            {
+              "start": "2027-10-25",
+              "end": "2027-10-29",
+              "location": "Bethesda, MD"
+            }
+          ]
+        }
+      ],
+      "funding": "No tuition fee; command funds travel, per diem and lodging — nomination implies funding secured",
+      "prerequisites": [],
+      "jmespCompetencies": "Counts toward 67A (listed among approved courses)",
+      "contributesToAQD": "67A",
+      "notes": "ALL FY27 DATES ARE MARKED TENTATIVE in the catalog. A fourth iteration in San Antonio, TX is listed as TBD January 2027. Delivered approximately five times per year. Officers must have at least 2 years of service remaining to be considered."
+    },
+    {
+      "id": "jmoc-basic",
+      "name": "Joint Medical Operations Course - Basic (JMOC-Basic)",
+      "category": "Operational",
+      "description": "Five-day classroom course on joint and combined operational and medical planning from point of injury/illness to the appropriate capability of care during military operations, with policy guidance from Joint Staff publications.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 081; self-nomination",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Varies (Falls Church VA; JBSA Fort Sam Houston TX; TBD)",
+          "registration": "Self-nomination via DMRTI. Nomination forms do NOT carry over — officers not selected must resubmit.",
+          "link": "https://health.mil/Education-and-Training/DMRTI",
+          "poc": "dha.jbsa.j7.list.dmrti-ops@health.mil",
+          "phone": "210-221-8159",
+          "dates": [
+            {
+              "start": "2027-03-15",
+              "end": "2027-03-19",
+              "nomDue": "2027-01-15",
+              "location": "Falls Church, VA"
+            },
+            {
+              "start": "2027-04-12",
+              "end": "2027-04-16",
+              "nomDue": "2027-02-12",
+              "location": "TBD (MTT pending)"
+            },
+            {
+              "start": "2027-05-03",
+              "end": "2027-05-07",
+              "nomDue": "2027-03-03",
+              "location": "JBSA Fort Sam Houston, TX"
+            },
+            {
+              "start": "2027-07-19",
+              "end": "2027-07-23",
+              "nomDue": "2027-05-19",
+              "location": "Falls Church, VA"
+            },
+            {
+              "start": "2027-09-13",
+              "end": "2027-09-17",
+              "nomDue": "2027-07-13",
+              "location": "TBD"
+            }
+          ]
+        }
+      ],
+      "funding": "No registration fees; funding through your unit",
+      "prerequisites": [],
+      "jmespCompetencies": "Plans, Operations and Medical Intelligence courses are listed among 67A approved courses",
+      "contributesToAQD": "67A",
+      "notes": "Course dates may be rescheduled if the minimum student quota is not met."
+    },
+    {
+      "id": "jmoc-advanced",
+      "name": "Joint Medical Operations Course - Advanced (JMOC-Advanced)",
+      "category": "Operational",
+      "description": "Five-day classroom course on planning activities associated with joint military operations by combatant commanders and subordinate joint force commanders in response to contingencies and crises, including readiness reporting policy and procedures.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 08C; self-nomination",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Varies (JBSA Fort Sam Houston TX; National Capital Region)",
+          "registration": "Self-nomination via DMRTI",
+          "link": "https://health.mil/Education-and-Training/DMRTI",
+          "poc": "dha.jbsa.j7.list.dmrti-ops@health.mil",
+          "dates": [
+            {
+              "start": "2027-01-25",
+              "end": "2027-01-29",
+              "nomDue": "2026-11-25",
+              "location": "JBSA Fort Sam Houston, TX"
+            },
+            {
+              "start": "2027-06-21",
+              "end": "2027-06-25",
+              "nomDue": "2027-04-21",
+              "location": "National Capital Region"
+            }
+          ]
+        }
+      ],
+      "funding": "No registration fees; funding through your unit",
+      "prerequisites": [],
+      "jmespCompetencies": "Plans, Operations and Medical Intelligence courses are listed among 67A approved courses",
+      "contributesToAQD": "67A",
+      "notes": "Course dates may be rescheduled if the minimum student quota is not met."
+    },
+    {
+      "id": "jmpt",
+      "name": "Joint Medical Planning Tool Course (JMPT)",
+      "category": "Operational",
+      "description": "Five-day classroom course providing hands-on training on the Joint Medical Planning Tool and the Medical Planners' Toolkit, using crawl-walk-run exercises to model patient flow from point of injury through definitive care.",
+      "targetRank": [
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 08A; self-nomination",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "Varies (Falls Church VA; Joint Base San Antonio TX)",
+          "registration": "Self-nomination via DMRTI",
+          "link": "https://health.mil/Education-and-Training/DMRTI",
+          "poc": "dha.jbsa.j7.list.dmrti-ops@health.mil",
+          "dates": [
+            {
+              "start": "2027-03-22",
+              "end": "2027-03-26",
+              "nomDue": "2027-02-05",
+              "location": "Falls Church, VA"
+            },
+            {
+              "start": "2027-05-10",
+              "end": "2027-05-14",
+              "nomDue": "2027-03-25",
+              "location": "Joint Base San Antonio, TX"
+            }
+          ]
+        }
+      ],
+      "funding": "No registration fees; funding through your unit",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "This is the in-depth JMPT training; the NHRC Executive MPTk overview does not satisfy its requirements."
+    },
+    {
+      "id": "jsmlc",
+      "name": "Joint Senior Medical Leaders Course (JSMLC)",
+      "category": "Executive",
+      "description": "Five-day classroom course preparing senior medical leaders with a high probability of being named Joint Task Force Surgeon, JTF senior medical leader, or occupying a senior medical planning position in a joint environment.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School code 08B; senior O5 to O6; self-nomination",
+      "duration": "5 days",
+      "format": "In-person",
+      "sessions": [
+        {
+          "location": "National Capital Region, Falls Church, VA",
+          "registration": "Self-nomination via DMRTI",
+          "link": "https://health.mil/Education-and-Training/DMRTI",
+          "poc": "dha.jbsa.j7.list.dmrti-ops@health.mil",
+          "dates": [
+            {
+              "start": "2027-03-22",
+              "end": "2027-03-26",
+              "nomDue": "2027-02-05"
+            },
+            {
+              "start": "2027-07-26",
+              "end": "2027-07-30",
+              "nomDue": "2027-06-11"
+            }
+          ]
+        }
+      ],
+      "funding": "No registration fees; funding through your unit",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "Also valuable for officers serving in senior departments training and preparing forces for joint operations and deployment."
+    },
+    {
+      "id": "dmrti-readiness",
+      "name": "DMRTI Combat, Trauma, Disaster and Emergency Preparedness Course Families",
+      "category": "Readiness",
+      "description": "Tri-service resident and non-resident joint medical readiness training offered by the Defense Medical Readiness Training Institute at JBSA Fort Sam Houston. Course offerings and dates are published per course on the DMRTI site.",
+      "targetRank": [
+        "O1",
+        "O2",
+        "O3",
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "All DMRTI courses require SELF-NOMINATION",
+      "format": "Resident and non-resident",
+      "sessions": [
+        {
+          "location": "Joint Base San Antonio, Fort Sam Houston, TX and other sites",
+          "registration": "Self-nomination; view offerings per course on the DMRTI site",
+          "link": "https://health.mil/Education-and-Training/DMRTI",
+          "poc": "dha.jbsa.j7.list.dmrti-ops@health.mil",
+          "phone": "210-221-8159"
+        }
+      ],
+      "funding": "No registration fees; funding through your unit",
+      "prerequisites": [],
+      "jmespCompetencies": "Combat Casualty Course is listed in the 67A operational education requirement",
+      "contributesToAQD": "67A (Combat Casualty Care Course)",
+      "notes": "Combat and Trauma: Combat Casualty Care Course (C4), Emergency War Surgery Course (EWSC), ABLS, ATLS, TNCC, PHTLS. Disaster Medicine: Federal Coordinating Center (FCC), Hospital ICS (HICS), Incident Command System (ICS) courses, PH MED DSCA. Emergency Preparedness Response Course variants: EPRC-B, EPRC-C, EPRC-E, EPRC-O, EPRC-MPFR. No fixed dates are published in the catalog for these families — use the DMRTI link."
+    },
+    {
+      "id": "nmqsla",
+      "name": "Navy Medicine Quality, Safety, and Leadership Academy (NMQSLA)",
+      "category": "Quality & Safety",
+      "description": "High Reliability Organization and quality & safety training for Navy Medicine leaders, delivered as a mix of didactic and interactive sessions facilitated by subject matter experts. Scholars come from both MTFs and operational medicine settings.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Required and prioritized for all milestone and command billets; highly recommended for Senior Medical Officers",
+      "duration": "Three half-day kick-off sessions plus virtual classroom and tabletop exercise sessions",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "registration": "Nominations based on milestone and command slates, collected through leadership nominations and selected by the Office of the Chief Medical Officer with the Office of the Corps Chiefs and Fleet/FMF leadership",
+          "poc": "usn.ncr.bumedfchva.mbx.qualityand-safetyleadershipacademy@health.mil",
+          "dates": [
+            {
+              "start": "2027-01-12",
+              "end": "2027-02-25",
+              "virtual": true
+            }
+          ]
+        }
+      ],
+      "funding": "Free to attend virtually; travel funding determined cohort by cohort",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "contributesToAQD": "68R (NMQSLA Graduate)",
+      "notes": "Service School: No — instead awards AQD 68R 'NMQSLA Graduate'. Future milestone applicants must have completed, be actively participating in, or hold a confirmed seat. Required for slated CMOs, CNOs, DDSs, DFAs and Fleet and Force Surgeons before moving into billet. Cohorts have ranged 30-40 Scholars. Must attend 80% of VC and TTX sessions. POC: CAPT Tracy Krauss, NC, USN."
+    },
+    {
+      "id": "mhsc",
+      "name": "Maritime Headquarters Staff Course (MHSC)",
+      "category": "Operational",
+      "description": "Three-week online synchronous/asynchronous course exposing personnel to the maritime operational level of war and maritime headquarters / maritime operations center (MHQ/MOC) concepts, organizational structure, processes and procedures. Total commitment 54 hours over three weeks.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No. Completion awards the JSM AQD.",
+      "duration": "3 weeks (54 hours)",
+      "format": "Online (synchronous and asynchronous)",
+      "sessions": [
+        {
+          "location": "Online",
+          "registration": "Request a spot via the Quick Links on the course page. Priority to personnel in or en route to MOC billets identified in OPNAV M-3500.42 (series), then active duty over reserve, reserve over civilian.",
+          "link": "https://usnwc.edu/college-of-maritime-operational-warfare/Core-Curriculum/Maritime-Headquarters-Staff-Course",
+          "poc": "MHSC@usnwc.edu",
+          "phone": "(401) 856-5840",
+          "dates": [
+            {
+              "start": "2026-10-27",
+              "end": "2026-11-20"
+            },
+            {
+              "start": "2027-01-04",
+              "end": "2027-01-29"
+            },
+            {
+              "start": "2027-03-01",
+              "end": "2027-03-26"
+            },
+            {
+              "start": "2027-05-03",
+              "end": "2027-05-28"
+            },
+            {
+              "start": "2027-07-06",
+              "end": "2027-07-30"
+            },
+            {
+              "start": "2027-09-06",
+              "end": "2027-09-30"
+            }
+          ]
+        }
+      ],
+      "funding": "Not stated",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "contributesToAQD": "JSM",
+      "notes": "Six FY27 iterations (MHSC 27-1 through 27-6); nomination deadlines listed as Pending. Each week concludes with a two-hour live session."
+    },
+    {
+      "id": "mptk",
+      "name": "Executive Medical Planners' Toolkit (MPTk)",
+      "category": "Operational",
+      "description": "Three-hour virtual executive overview of two medical modeling tools: the Medical Planners' Toolkit (MPTk) and the Joint Medical Planning Tool (JMPT), covering how they are used across DoD, their importance to Navy Medicine, and how to interpret their outputs.",
+      "targetRank": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "requirement": "Service School: No. No CME/CEU offered. Does not satisfy any requirement of the DMRTI JMPT course.",
+      "duration": "3 hours",
+      "format": "Virtual",
+      "sessions": [
+        {
+          "location": "Virtual",
+          "registration": "Contact NHRC; officers wanting in-depth training and authorized-user status should enroll in the DMRTI JMPT course instead",
+          "link": "https://www.med.navy.mil/Navy-Medicine-Research-and-Development-Command/R-D-Commands/Naval-Health-Research-Center/Core-Research/Operational-Readiness/MEDICAL-PLANNERS-TOOLKIT-MPTk/"
+        }
+      ],
+      "funding": "Not stated",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "notes": "No FY27 dates published in the catalog. MPTk combines the PCOF tool, CREstT, EMRE and ESP. Audience: commanders, staff section planners, medical leadership, medical planners, researchers and exercise planners."
+    },
+    {
+      "id": "capstone",
+      "name": "Capstone Course for MHS Leaders",
+      "category": "Executive",
+      "description": "JMESI capstone course for MHS leaders. The FY27 catalog's course-recommendation map shows this as 'MHS Capstone Replacement - TBD' and the course has no detail section or FY27 dates.",
+      "targetRank": [
+        "O5",
+        "O6"
+      ],
+      "requirement": "See status",
+      "sessions": [],
+      "funding": "Not stated",
+      "prerequisites": [],
+      "jmespCompetencies": "Listed among 67A approved courses and named as one of three JMESI competency courses",
+      "contributesToAQD": "67A",
+      "status": "REPLACEMENT TBD — the FY27 catalog shows 'MHS Capstone Replacement - TBD' in its course-recommendation map and publishes no FY27 dates or detail section for this course",
+      "notes": "SOURCE DISCREPANCY: page 17 still names 'Capstone Course for MHS Leaders' as one of three JMESI courses designed to fulfil competencies and says each is detailed in the guide, but no Capstone section appears in the FY27 catalog or its table of contents. Confirm status with the JMESP Program Manager before planning around it."
+    },
+    {
+      "id": "mslp",
+      "name": "Medical Strategic Leadership Program (MSLP)",
+      "category": "Executive",
+      "description": "Appears in the FY27 catalog's expanded course-recommendation map as a senior-officer (approximately 24-year) development option. No course detail section is published.",
+      "targetRank": [
+        "O6"
+      ],
+      "requirement": "Not published in the FY27 catalog",
+      "sessions": [],
+      "funding": "Not stated",
+      "prerequisites": [],
+      "jmespCompetencies": "Not stated",
+      "status": "LISTED WITHOUT DETAIL — MSLP appears only in the FY27 course-recommendation map; the catalog publishes no description, dates, eligibility or POC",
+      "notes": "Contact the Medical Corps Career Planner for current MSLP guidance."
+    }
+  ],
+  "aqds": {
+    "67A": {
+      "name": "Executive Medicine",
+      "description": "The only AQD required per the NDAA and BUMEDINST 1412.1B/1412.1C for the Command Qualification Program, in preparation for the 2D1 AQD. Four areas are reviewed: Education, Experience, Professional Certifications, and Approved Courses.",
+      "requirements": {
+        "education": "Master's degree or higher (waivers have not been granted)",
+        "rank": "O-4 (SEL) and above",
+        "applicable": "All Corps",
+        "experience": "Department/Division Head (Clinical, Administrative or Science) or higher, 2-year minimum tour",
+        "courses": [
+          "JMESI Intermediate Executive Skills Course (Market Financial Regulations competency) or equivalent"
+        ],
+        "operational": "Operational tour of 2 years, or two of: combined operational tours/deployment experience (IA, EMF, hospital ship, humanitarian, Role III or equivalent); operational educational training (War College degree/NDU, JPME I, Combat Casualty Course or equivalent); LEADS JMESI JKO Joint Operations 1-4 / NDMS 1-2 and Contingency Planning One",
+        "certifications": "ACHE (membership alone does not count), ADA, AMA, or ANCC",
+        "enhancers": "GME above primary role; NPS/Army-Baylor/USUHS; JMESI JKO and other approved courses; collateral duties of at least 1 year (executive steering/board membership, public affairs, emergency management, ethics committee, safety/QA/risk management/environment of care committee, command legal officer, IRB)",
+        "verification": "Verified and validated by the JMESP Program Manager using the competency matrix",
+        "references": "DHA Procedural Instruction 6000.07 dtd 03 Sep 2021; BUMEDINST 1412.1C dtd 23 Apr 2021; NOOCS Manual Volume 1 Part D"
+      },
+      "contributingCourses": [
+        "iesc",
+        "hcm",
+        "capstone",
+        "medxellence",
+        "iaifhl",
+        "sllc",
+        "jmoc-basic",
+        "jmoc-advanced",
+        "jpmei-fsp",
+        "jpmei-online",
+        "nwc-resident",
+        "acsc-dl",
+        "mccsc-cdet",
+        "mccsc-resident",
+        "dmrti-readiness"
+      ],
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager",
+        "phone": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    "67B": {
+      "name": "Expeditionary Medicine",
+      "description": "Expeditionary Medicine AQD requiring a warfare designator, JPME, and a defined set of core and additional courses.",
+      "requirements": {
+        "warfare": "Warfare Designator",
+        "jpme": "JPME required — JPME I is specifically required for 67B",
+        "courses": "7 Core and 7 Additional courses — contact the JMESP Program Manager for the required course listings"
+      },
+      "contributingCourses": [
+        "jpmei-fsp",
+        "jpmei-online",
+        "nwc-resident",
+        "acsc-dl",
+        "mccsc-cdet",
+        "mccsc-resident"
+      ],
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager",
+        "phone": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    "67G": {
+      "name": "Managed Care",
+      "description": "Managed Care AQD for officers who have met all 67A requirements plus managed care experience.",
+      "requirements": {
+        "prerequisite": "All requirements for JMESP 67A",
+        "experience": "1 year of managed care experience and assignment to DHA, TRO, Market or Region-MTF UBO",
+        "documentation": "Provide FITREPs demonstrating 1 year of experience in Healthcare Business Operations at headquarters (DHA, BUMED, Region or Market) or in an MTF directorate, department or Market",
+        "references": "NOOCS Manual, Part D"
+      },
+      "contributingCourses": [
+        "iesc",
+        "hcm"
+      ],
+      "poc": {
+        "name": "Clinton (Clint) A. Garrett Sr., USN (Ret.)",
+        "title": "JMESP Program Manager",
+        "phone": "(301) 295-6088",
+        "email": "clinton.a.garrett.civ@health.mil"
+      }
+    },
+    "68R": {
+      "name": "NMQSLA Graduate",
+      "description": "Awarded on completion of the Navy Medicine Quality, Safety, and Leadership Academy. NMQSLA is not a service school; completion is reflected by this AQD.",
+      "requirements": {
+        "course": "Completion of NMQSLA",
+        "attendance": "Three half-day kick-off sessions plus 80% of virtual classroom and tabletop exercise sessions",
+        "eligibility": "Currently serving in a quality, safety and/or leadership role within Navy Medicine"
+      },
+      "contributingCourses": [
+        "nmqsla"
+      ]
+    },
+    "JS7": {
+      "name": "JPME Phase I Graduate",
+      "description": "Awarded for completion of any program that satisfies Joint Professional Military Education Phase I requirements.",
+      "requirements": {
+        "courses": "Any accredited JPME Phase I program — NWC Fleet Seminar Program, NWC NC&S Online, NWC resident, Air Command and Staff College DL, or Marine Corps Command and Staff College (CDET or resident)"
+      },
+      "contributingCourses": [
+        "jpmei-fsp",
+        "jpmei-online",
+        "nwc-resident",
+        "acsc-dl",
+        "mccsc-cdet",
+        "mccsc-resident"
+      ]
+    },
+    "JSM": {
+      "name": "Maritime Headquarters Staff Course Graduate",
+      "description": "Awarded on completion of the Maritime Headquarters Staff Course (MHSC).",
+      "requirements": {
+        "course": "Completion of MHSC (3 weeks, 54 hours, online)"
+      },
+      "contributingCourses": [
+        "mhsc"
+      ]
+    },
+    "2D1": {
+      "name": "Command Qualification",
+      "description": "Command qualification AQD. BUMEDINST 1412.1C requires the 67A Executive Medicine AQD as part of the 2D1 process.",
+      "requirements": {
+        "prerequisite": "67A Executive Medicine AQD",
+        "reference": "BUMEDINST 1412.1C dtd 23 Apr 2021, Command Qualification Program"
+      },
+      "contributingCourses": []
+    }
+  },
+  "careerMilestones": {
+    "O3": {
+      "typicalYears": "0-6",
+      "focus": [
+        "Clinical competency",
+        "Board certification",
+        "Junior Operational Medical Officer tour"
+      ],
+      "recommendedCourses": [
+        "divolc",
+        "broc",
+        "swmdoic"
+      ],
+      "operationalOptions": [
+        "Surface Fleet Physician",
+        "Marine Battalion Surgeon",
+        "Flight Surgeon (FS)",
+        "Undersea Medical Officer",
+        "Alternative Junior Billet"
+      ]
+    },
+    "O4": {
+      "typicalYears": "6-12",
+      "focus": [
+        "Division/Department Head experience",
+        "Senior Operational Medical Officer tour",
+        "Begin JPME I",
+        "Begin 67A pathway"
+      ],
+      "recommendedCourses": [
+        "ilc",
+        "iesc",
+        "aroc",
+        "hcm",
+        "jpmei-fsp",
+        "jpmei-online"
+      ],
+      "operationalOptions": [
+        "Ship or Group SMO",
+        "Regimental Surgeon or Group FS",
+        "Senior FS/UMO",
+        "GHE Staff Officer",
+        "FST/MedBN Specialty Staff"
+      ]
+    },
+    "O5": {
+      "typicalYears": "12-18",
+      "focus": [
+        "Executive Operational Medical Officer tour",
+        "Complete JPME I",
+        "67A Executive Medicine AQD",
+        "Command screening"
+      ],
+      "recommendedCourses": [
+        "slc",
+        "aroc",
+        "iesc",
+        "sllc",
+        "nmqsla",
+        "medxellence",
+        "jsmlc"
+      ],
+      "operationalOptions": [
+        "LHA/LHD/CVN SMO",
+        "Group UMO",
+        "GHE/HQ/PERS Staff",
+        "FST OIC / CATF Surgeon",
+        "Alternative Senior Billet"
+      ]
+    },
+    "O6": {
+      "typicalYears": "18-24+",
+      "focus": [
+        "Command tour (XO/CO)",
+        "Senior Executive Medical Officer positions",
+        "Flag track preparation"
+      ],
+      "recommendedCourses": [
+        "iaifhl",
+        "nsls",
+        "nmqsla",
+        "mslp",
+        "capstone"
+      ],
+      "operationalOptions": [
+        "TYCOM/Fleet Surgeon",
+        "Division/Group/Wing Surgeon",
+        "Senior HQ/PERS",
+        "Senior GHE Billet",
+        "COCOM Surgeon (flag track)",
+        "MEF/MARFOR Surgeon (flag track)",
+        "Deputy TMO (flag track)",
+        "Senior HQ Director (flag track)",
+        "MEDCEN Director (flag track)"
+      ]
+    }
+  }
+}

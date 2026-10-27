@@ -12,6 +12,11 @@ import type { UploadedDocuments } from './DocumentUpload';
 // TYPES
 // ============================================================================
 
+export interface AwardEntry {
+  name: string;
+  count: number;
+}
+
 export interface ExtractedOfficerData {
   name: string | null;
   rank: string | null;
@@ -30,6 +35,11 @@ export interface ExtractedOfficerData {
 
   aqds: string[];
   specialQualifications: string[];  // OSR-listed completed quals + service-school courses
+
+  // OSR personal decorations (NAM and above). Unit citations are not recorded on
+  // the OSR, so any found are reported separately as a record-accuracy problem.
+  awards: AwardEntry[];
+  unitAwardsFound: string[];
 
   hasUndergrad: boolean;
   hasMedicalSchool: boolean;
@@ -78,6 +88,8 @@ interface DocumentParserProps {
     hasMedicalSchool: boolean;
     aqds: string[];
     specialQualifications?: string[];
+    awards?: AwardEntry[];
+    unitAwardsFound?: string[];
     warnings: string[];
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
@@ -491,6 +503,8 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       hasMedicalSchool: extracted.hasMedicalSchool,
       aqds: extracted.aqds,
       specialQualifications: extracted.specialQualifications,
+      awards: extracted.awards,
+      unitAwardsFound: extracted.unitAwardsFound,
       warnings: extracted.warnings,
       psrIssues: extracted.psrIssues,
       clearanceLevel: extracted.clearanceLevel,

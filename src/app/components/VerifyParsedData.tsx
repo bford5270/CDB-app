@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import type { RankDate } from './RankHistoryForm';
+import type { AwardEntry } from './DocumentParser';
 
 // Types
 export interface FitrepEntry {
@@ -36,6 +37,11 @@ export interface ParsedOfficerData {
   // From OSR - completed special qualifications + service-school courses
   // (used to suppress recommendations for training already done)
   specialQualifications: string[];
+
+  // From OSR - personal decorations (NAM and above), plus any unit citations
+  // found there, which the OSR should not list at all.
+  awards: AwardEntry[];
+  unitAwardsFound: string[];
 
   // From PSR
   fitrepAverage: number;
@@ -132,6 +138,8 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     certificationCode: parsedData.certificationCode || null,
     aqds: parsedData.aqds || [],
     specialQualifications: parsedData.specialQualifications || [],
+    awards: parsedData.awards || [],
+    unitAwardsFound: parsedData.unitAwardsFound || [],
     fitrepAverage: parsedData.fitrepAverage || 0,
     fitrepCount: parsedData.fitrepCount || 0,
     earlyPromotes: parsedData.earlyPromotes || 0,

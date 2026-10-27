@@ -808,13 +808,27 @@ function buildOsrSystemPrompt(odcResult) {
     '  so downstream logic can avoid recommending things already done.',
     'Return [] if neither section is present.',
     '',
+    '=== PERSONAL AWARDS / DECORATIONS (OSR) ===',
+    'Extract personal decorations from the OSR awards block (often "PERSONAL AWARDS",',
+    '  "DECORATIONS" or "AWARDS").',
+    'Only PERSONAL awards are recorded on the OSR — Navy Achievement Medal (NAM) and above.',
+    'For each award return the award NAME verbatim and the COUNT if the record shows one',
+    '  (awards are often listed with a numeral or multiple award rows for repeat awards).',
+    'Set "name" to the label as printed (e.g. "NAVY COMMENDATION MEDAL", "NAM", "MSM").',
+    'Set "count" to the number of that award if shown, otherwise 1.',
+    'UNIT awards and unit citations (e.g. "MERITORIOUS UNIT COMMENDATION", "BATTLE E",',
+    '  "NAVY UNIT COMMENDATION", any label containing "UNIT") are NOT recorded on the OSR.',
+    '  If you see one anyway, still return it but set "isUnitAward": true so it can be flagged.',
+    'Return [] if no awards block is present.',
+    '',
     'Return ONLY this JSON:',
     '{',
     '  "hasUndergrad": false,',
     '  "hasMedicalSchool": false,',
     '  "rankHistory": [{"rank": "CDR", "date": "YYYY-MM-DD"}],',
     '  "aqds": [],',
-    '  "specialQualifications": []',
+    '  "specialQualifications": [],',
+    '  "awards": [{"name": "NAVY COMMENDATION MEDAL", "count": 2, "isUnitAward": false}]',
     '}',
   ].join('\n');
 }
@@ -1122,6 +1136,46 @@ function computePsrAnalytics(fitreps) {
   };
 }
 
+// Normalize the OSR awards block. Per the Medical Corps CDB brief, the OSR records
+// PERSONAL decorations (NAM and above) only; unit citations are not listed there, so
+// anything that looks like a unit award is surfaced as a record-accuracy warning
+// rather than silently kept as a personal award.
+const UNIT_AWARD_PATTERN = /\bUNIT\b|BATTLE\s*["“]?E|MERITORIOUS\s+UNIT|NAVY\s+"?E"?\b/i;
+
+function normalizeAwards(rawAwards) {
+  if (!Array.isArray(rawAwards)) return { awards: [], unitAwards: [] };
+  const awards = [];
+  const unitAwards = [];
+  const seen = new Map();
+
+  for (const entry of rawAwards) {
+    const name = typeof entry === 'string' ? entry : entry?.name;
+    if (typeof name !== 'string') continue;
+    const label = name.trim().replace(/\s+/g, ' ');
+    if (!label) continue;
+
+    const rawCount = typeof entry === 'object' ? Number(entry.count) : NaN;
+    const count = Number.isFinite(rawCount) && rawCount > 0 ? Math.floor(rawCount) : 1;
+    const isUnit = (typeof entry === 'object' && entry.isUnitAward === true)
+      || UNIT_AWARD_PATTERN.test(label);
+
+    if (isUnit) {
+      if (!unitAwards.includes(label)) unitAwards.push(label);
+      continue;
+    }
+    // Repeat awards may arrive as separate rows or as one row with a count.
+    const key = label.toUpperCase();
+    const existing = seen.get(key);
+    if (existing) existing.count += count;
+    else {
+      const rec = { name: label, count };
+      seen.set(key, rec);
+      awards.push(rec);
+    }
+  }
+  return { awards, unitAwards };
+}
+
 // Merge ODC, OSR, and PSR parsed results into the full ExtractedOfficerData shape.
 function mergeResults(odcResult, osrResult, psrResult) {
   // Deduplicate AQDs from ODC and OSR.
@@ -1130,8 +1184,17 @@ function mergeResults(odcResult, osrResult, psrResult) {
   // Merge warnings from all three calls.
   const warnings = [
     ...(odcResult.warnings || []),
+    ...(osrResult.warnings || []),
     ...(psrResult.warnings || []),
   ];
+
+  const { awards, unitAwards } = normalizeAwards(osrResult.awards);
+  if (unitAwards.length > 0) {
+    warnings.push(
+      `Unit citation(s) found in the OSR awards block (${unitAwards.join(', ')}) — `
+      + 'the OSR records personal awards only (NAM and above). Verify against NDAWS.'
+    );
+  }
 
   // Prefer OSR rank dates when ODC dates failed the sanity check.
   // OSR uses unambiguous YYMMDD (month 01-12 constraint eliminates ambiguity),
@@ -1172,6 +1235,8 @@ function mergeResults(odcResult, osrResult, psrResult) {
     clearanceDate: odcResult.clearanceDate ?? '',
     aqds,
     specialQualifications: Array.isArray(osrResult.specialQualifications) ? osrResult.specialQualifications : [],
+    awards,
+    unitAwardsFound: unitAwards,
     hasUndergrad: osrResult.hasUndergrad ?? false,
     hasMedicalSchool: osrResult.hasMedicalSchool ?? false,
     // Analytics computed deterministically from extracted rows — nothing hallucinated.
@@ -1226,7 +1291,7 @@ export default async function handler(req, res) {
 
       const today = new Date().toISOString().split('T')[0];
 
-      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [] };
+      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [], awards: [] };
       // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
       const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
 
@@ -1333,7 +1398,7 @@ export default async function handler(req, res) {
             'claude-haiku-4-5-20251001',
           ).catch(e => {
             console.error('OSR parse failed (using defaults):', e.message);
-            return { ...osrDefault, warnings: ['OSR parsing failed — education and OSR AQDs not extracted'] };
+            return { ...osrDefault, warnings: ['OSR parsing failed — education, OSR AQDs and awards not extracted'] };
           })
         : osrDefault;
 

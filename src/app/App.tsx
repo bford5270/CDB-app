@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
+import type { AwardEntry } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
@@ -12,6 +13,8 @@ import { DashboardPanel } from './components/DashboardPanel';
 import { DocSwapPanel } from './components/DocSwapPanel';
 import ResourcesQA from './components/ResourcesQA';
 import { PSRTimeline } from './components/PSRTimeline';
+import { WOOPGoals, useWoopGoals } from './components/WOOPGoals';
+import { CDBWorksheet } from './components/CDBWorksheet';
 import type { RankDate } from './components/RankHistoryForm';
 import { calculateRankData } from './components/RankHistoryForm';
 import type { OfficerData } from './components/OfficerDataForm';
@@ -37,7 +40,10 @@ function MCDevice({ size = 24, color = '#FFC72C' }: { size?: number; color?: str
 
 export default function App() {
   const [step, setStep] = useState(1);
-  const [analysisTab, setAnalysisTab] = useState<'checklist' | 'analysis'>('checklist');
+  const [analysisTab, setAnalysisTab] = useState<'checklist' | 'analysis' | 'woop' | 'worksheet'>('checklist');
+
+  // WOOP goals live at app level so the printable worksheet can read them.
+  const { goals: woopGoals, updateGoal: updateWoopGoal, resetGoals: resetWoopGoals } = useWoopGoals();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -67,6 +73,8 @@ export default function App() {
     hasMedicalSchool: boolean;
     aqds: string[];
     specialQualifications?: string[];
+    awards?: AwardEntry[];
+    unitAwardsFound?: string[];
     warnings: string[];
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
@@ -111,6 +119,8 @@ export default function App() {
       certificationCode: data.certificationCode || (data.boardCertified === true ? 'K' : data.boardCertified === false ? 'J' : null),
       aqds: data.aqds,
       specialQualifications: data.specialQualifications || [],
+      awards: data.awards || [],
+      unitAwardsFound: data.unitAwardsFound || [],
       fitrepAverage: data.fitrepAverage || 0,
       rscaAverage: data.rscaAverage || 0,
       fitrepCount: data.fitrepCount || 0,
@@ -531,8 +541,11 @@ export default function App() {
 
                   {/* Tab bar */}
                   <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
-                    {(['checklist', 'analysis'] as const).map((tab) => {
-                      const label = tab === 'checklist' ? 'CDB Checklist' : 'Record Analysis';
+                    {(['checklist', 'analysis', 'woop', 'worksheet'] as const).map((tab) => {
+                      const label = tab === 'checklist' ? 'CDB Checklist'
+                        : tab === 'analysis' ? 'Record Analysis'
+                        : tab === 'woop' ? 'WOOP Goals'
+                        : 'Print Worksheet';
                       const active = analysisTab === tab;
                       return (
                         <button
@@ -555,6 +568,16 @@ export default function App() {
 
                   {analysisTab === 'checklist' && <CDBChecklist officerData={confirmedData} />}
                   {analysisTab === 'analysis' && <AnalysisResults officerData={getOfficerDataForAnalysis()!} />}
+                  {analysisTab === 'woop' && (
+                    <WOOPGoals
+                      goals={woopGoals}
+                      onChange={updateWoopGoal}
+                      onReset={resetWoopGoals}
+                    />
+                  )}
+                  {analysisTab === 'worksheet' && (
+                    <CDBWorksheet officerData={confirmedData} goals={woopGoals} />
+                  )}
 
                   <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between">
                     <button

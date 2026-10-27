@@ -71,7 +71,7 @@ const STOPWORDS = new Set([
 // Light suffix stripping. Deliberately conservative: it must not mangle the
 // acronyms and course codes that carry most of the signal in these documents.
 function stem(token: string): string {
-  if (/\d/.test(token)) return token;          // 67A, FY26, O4 — leave alone
+  if (/\d/.test(token)) return token;          // 67A, FY27, O4 — leave alone
   if (token.length <= 4) return token;
   if (token.endsWith('ies') && token.length > 5) return token.slice(0, -3) + 'y';
   if (token.endsWith('sses')) return token.slice(0, -2);

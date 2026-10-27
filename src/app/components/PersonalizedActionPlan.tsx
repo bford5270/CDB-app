@@ -50,7 +50,7 @@ interface AIRecommendations {
 
 async function loadCourseCatalog() {
   try {
-    const response = await fetch('/fy26-courses.json');
+    const response = await fetch('/fy27-courses.json');
     if (!response.ok) throw new Error('Failed to load course catalog');
     return await response.json();
   } catch (error) {
@@ -94,11 +94,11 @@ IMPORTANT GUIDELINES:
 - Tailor recommendations to the officer's current rank and career stage
 - Identify gaps tactfully and suggest concrete ways to address them
 - Highlight strengths in their record
-- Reference specific courses from the FY26 catalog with actual dates
+- Reference specific courses from the FY27 catalog with actual dates
 - For senior officers (O5+), emphasize executive-level courses and AQDs
 - For junior officers, focus on foundational training and warfare qualifications
 
-FY26 COURSE CATALOG DATA:
+FY27 COURSE CATALOG DATA:
 ${catalogSummary}
 
 ${refDocs ? `ADDITIONAL REFERENCE MATERIAL:\n${refDocs.substring(0, 8000)}` : ''}`;
@@ -188,7 +188,7 @@ Limit to 3-5 course recommendations and 1-2 AQD recommendations, prioritized by 
           <RefreshCw className="w-6 h-6 absolute -bottom-1 -right-1 animate-spin" style={{ color: NAVY, opacity: 0.5 }} />
         </div>
         <h3 className="mt-4 text-lg font-semibold text-gray-900">Generating Your Personalized Action Plan</h3>
-        <p className="mt-2 text-gray-600">Analyzing your record and matching with FY26 course offerings…</p>
+        <p className="mt-2 text-gray-600">Analyzing your record and matching with FY27 course offerings…</p>
       </div>
     );
   }
@@ -243,7 +243,7 @@ Limit to 3-5 course recommendations and 1-2 AQD recommendations, prioritized by 
           <Sparkles className="w-6 h-6" style={{ color: NAVY }} />
           <h2 className="text-2xl font-bold text-gray-900">Your Personalized Action Plan</h2>
         </div>
-        <p className="text-gray-600">AI-generated recommendations based on your record and FY26 course offerings</p>
+        <p className="text-gray-600">AI-generated recommendations based on your record and FY27 course offerings</p>
       </div>
 
       {/* Summary */}
@@ -449,7 +449,7 @@ Limit to 3-5 course recommendations and 1-2 AQD recommendations, prioritized by 
       </div>
 
       <div className="text-center text-sm text-gray-500 border-t border-gray-200 pt-4">
-        <p>These recommendations are AI-generated based on your record and FY26 course offerings.
+        <p>These recommendations are AI-generated based on your record and FY27 course offerings.
           Always verify dates and requirements with official sources before registering.</p>
       </div>
     </div>
@@ -496,13 +496,15 @@ function buildCatalogSummary(catalog: Record<string, unknown>): string {
   const aqds = catalog.aqds as Record<string, Record<string, unknown>>;
   const milestones = catalog.careerMilestones as Record<string, Record<string, unknown>>;
 
-  let summary = `COURSES AVAILABLE (FY26):\n`;
+  const fy = catalog.fiscalYear ? `FY${String(catalog.fiscalYear).slice(-2)}` : 'CURRENT';
+  let summary = `COURSES AVAILABLE (${fy}):\n`;
 
   courses.forEach((course: Record<string, unknown>) => {
     summary += `\n[${course.id}] ${course.name}\n`;
     summary += `  Category: ${course.category}\n`;
     summary += `  Target Rank: ${Array.isArray(course.targetRank) ? course.targetRank.join(', ') : course.targetRank || 'All'}\n`;
     if (course.requirement) summary += `  Requirement: ${course.requirement}\n`;
+    if (course.status) summary += `  STATUS: ${course.status}\n`;
     if (course.duration) summary += `  Duration: ${course.duration}\n`;
     if (course.format) summary += `  Format: ${course.format}\n`;
 

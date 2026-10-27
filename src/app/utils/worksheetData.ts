@@ -36,6 +36,7 @@ export interface WorksheetInput {
   specialQualifications: string[];
   awards: Array<{ name: string; count: number }>;
   unitAwardsFound: string[];
+  subspecialtyCodes?: string[];
   fitreps?: WorksheetFitrep[];
 }
 
@@ -145,6 +146,21 @@ export function buildRecordActions(d: WorksheetInput): RecordAction[] {
       item: 'No AQDs found on the record',
       action: 'Detailers add AQDs. Email your detailer the reference code, AQD name, and a qualifying document (FITREP statement, appointment letter, certification). Allow 2-3 weeks to populate.',
     });
+  }
+
+  if (!(d.subspecialtyCodes || []).length) {
+    actions.push({
+      item: 'No subspecialty code read from the ODC (Blocks 66-68)',
+      action: 'The board reads this code directly. Codes are in the NOOCS Manual Volume 1 Part B; updates go to Anthony W. Frabutt (anthony.w.frabutt.civ@health.mil).',
+    });
+  } else {
+    const inTraining = (d.subspecialtyCodes || []).filter(c => /T$/i.test(c.trim()));
+    if (inTraining.length) {
+      actions.push({
+        item: `Subspecialty code(s) ending in "T" — in training: ${inTraining.join(', ')}`,
+        action: 'If training is complete, the code should move to "J", and to "K" once board certified. Send documentation to Anthony W. Frabutt at BUMED.',
+      });
+    }
   }
 
   if (!d.clearanceLevel) {

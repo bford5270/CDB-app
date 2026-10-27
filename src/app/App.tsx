@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, Upload, CheckCircle, TrendingUp, Sparkles } from 'lucide-react';
 import { DocumentUpload, type UploadedDocuments } from './components/DocumentUpload';
 import { DocumentParser } from './components/DocumentParser';
-import type { AwardEntry } from './components/DocumentParser';
+import type { AwardEntry, SummaryGroup, ServiceSchoolEntry } from './components/DocumentParser';
 import { VerifyParsedData, type ParsedOfficerData } from './components/VerifyParsedData';
 import { AnalysisResults } from './components/AnalysisResults';
 import { PersonalizedActionPlan } from './components/PersonalizedActionPlan';
@@ -75,6 +75,9 @@ export default function App() {
     specialQualifications?: string[];
     awards?: AwardEntry[];
     unitAwardsFound?: string[];
+    summaryGroups?: SummaryGroup[];
+    serviceSchools?: ServiceSchoolEntry[];
+    subspecialtyCodes?: string[];
     warnings: string[];
     psrIssues: string[];
     clearanceLevel?: 'Secret' | 'Top Secret' | 'None' | '';
@@ -128,6 +131,9 @@ export default function App() {
       mustPromotes: data.mustPromotes || 0,
       promotables: data.promotables || 0,
       fitreps: data.fitreps || [],
+      summaryGroups: data.summaryGroups || [],
+      serviceSchools: data.serviceSchools || [],
+      subspecialtyCodes: data.subspecialtyCodes || [],
       psrTrend: data.psrTrend,
       hasUndergrad: data.hasUndergrad,
       hasMedicalSchool: data.hasMedicalSchool,

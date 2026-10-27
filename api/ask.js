@@ -51,6 +51,57 @@ function buildCoursesKnowledge() {
 
 const COURSES_KNOWLEDGE = buildCoursesKnowledge();
 
+// Service school codes as printed in OSR Block 52. Loaded once; a missing file
+// simply means codes stay undecoded rather than breaking the parse.
+const SERVICE_SCHOOL_CODES = (() => {
+  try {
+    const raw = readFileSync(join(process.cwd(), 'public', 'service-school-codes.json'), 'utf8');
+    return JSON.parse(raw).codes || {};
+  } catch (e) {
+    console.warn('Could not load service-school-codes.json:', e.message);
+    return {};
+  }
+})();
+
+/**
+ * Resolve the service-school rows the OSR printed. A bare code such as "082" is
+ * meaningless on screen and invisible to the "already completed" matcher, so each
+ * known code is decoded to its canonical course name.
+ *
+ * Returns the decoded rows plus the extra names to fold into specialQualifications.
+ */
+function decodeServiceSchools(rawRows) {
+  if (!Array.isArray(rawRows)) return { serviceSchools: [], decodedNames: [], unknownCodes: [] };
+
+  const serviceSchools = [];
+  const decodedNames = [];
+  const unknownCodes = [];
+  const seen = new Set();
+
+  for (const row of rawRows) {
+    if (!row || typeof row !== 'object') continue;
+    const rawCode = typeof row.code === 'string' ? row.code.trim().toUpperCase() : '';
+    const printed = typeof row.name === 'string' ? row.name.trim().replace(/\s+/g, ' ') : '';
+    if (!rawCode && !printed) continue;
+
+    const entry = rawCode ? SERVICE_SCHOOL_CODES[rawCode] : undefined;
+    const key = `${rawCode}|${printed.toUpperCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    serviceSchools.push({
+      code: rawCode || null,
+      printedName: printed || null,
+      resolvedName: entry ? entry.name : null,
+    });
+
+    if (entry) decodedNames.push(entry.name);
+    else if (rawCode && !printed) unknownCodes.push(rawCode);
+  }
+
+  return { serviceSchools, decodedNames, unknownCodes };
+}
+
 // Ceiling on retrieved reference text per Q&A request. The system prompt also
 // embeds the course catalog and AQD list, so this leaves ample headroom inside
 // the Q&A model's 200k-token context window.
@@ -725,6 +776,12 @@ function buildOdcSystemPrompt(today) {
     '  67 = Operational/Expeditionary Medicine',
     'Return the specialty NAME string (e.g. "Internal Medicine"). Return null if not MC or code not found.',
     '',
+    'ALSO return subspecialtyCodes: every subspecialty code VERBATIM as printed, in order.',
+    'The ODC carries up to three (Blocks 66-68). Copy the exact 5-character string',
+    '  including its final letter — "16Q0K", "16Q1J", "15A0T" — do not normalize or',
+    '  de-duplicate them. The board reads these codes directly, so the literal text matters.',
+    'Return [] if no subspecialty code is present.',
+    '',
     '=== SELECTED FOR PROMOTION (not yet frocked) ===',
     `If the Promotion History block contains a rank with a date strictly in the FUTURE (date > ${today}),`,
     'the officer has been selected for that rank but has not yet been promoted.',
@@ -748,6 +805,7 @@ function buildOdcSystemPrompt(today) {
     '  "boardCertified": null,',
     '  "certificationCode": null,',
     '  "clinicalSpecialty": null,',
+    '  "subspecialtyCodes": [],',
     '  "selectedForNextRank": null,',
     '  "clearanceLevel": "",',
     '  "clearanceDate": "",',
@@ -804,6 +862,14 @@ function buildOsrSystemPrompt(odcResult) {
     '     "ASSTPROF", "ASSCPROF", "DIR HS/PGM", "CMD QUAL PRGM", "HLTH SEC COOP", "HOSPSHIP").',
     '  2. "SERVICE SCHOOLS ATTENDED" block — each COURSE name listed (e.g. "MEDXELLENCE", "AROC",',
     '     "MTM-DIDACTICS", "COMBAT CASE CA", "INT CLNMAN DEC"). Take the course NAME, not the date/weeks.',
+    '',
+    '=== SERVICE SCHOOL CODES (OSR Block 52) ===',
+    'The "SERVICE SCHOOLS ATTENDED" block often prints a 3-character school CODE beside each',
+    '  course (e.g. "082", "102", "04C", "421", "00E"). Codes may be digits or mixed, and a',
+    '  leading zero is significant — return "082", never "82".',
+    'For each row return {"code": "082", "name": "COMBAT CASE CA"} using the code and name as',
+    '  printed. If a row shows only one of the two, return that one and omit the other.',
+    'Return [] if the block has no rows.',
     'Copy each label/name VERBATIM. These represent training/qualifications the officer has FINISHED,',
     '  so downstream logic can avoid recommending things already done.',
     'Return [] if neither section is present.',
@@ -828,6 +894,7 @@ function buildOsrSystemPrompt(odcResult) {
     '  "rankHistory": [{"rank": "CDR", "date": "YYYY-MM-DD"}],',
     '  "aqds": [],',
     '  "specialQualifications": [],',
+    '  "serviceSchools": [{"code": "082", "name": "COMBAT CASE CA"}],',
     '  "awards": [{"name": "NAVY COMMENDATION MEDAL", "count": 2, "isUnitAward": false}]',
     '}',
   ].join('\n');
@@ -1062,6 +1129,77 @@ function mergePsrPages(results) {
   return { fitreps, warnings, confidence: { psrData: confidence } };
 }
 
+// A FITREP summary group is the population a reporting senior ranks the officer
+// against. Per the Medical Corps CDB brief, it resets on a new duty station, a new
+// reporting senior, or a change of rank — which is why a promotion recommendation
+// can legitimately drop right after a move without being a performance signal.
+//
+// Concurrent reports (CC) come from a separate chain of command, so they are grouped
+// on their own rather than splitting the regular-report chain every time one appears.
+function assignSummaryGroups(fitreps) {
+  const groups = [];
+
+  const keyOf = f => [
+    (f.rsName || '').trim().toUpperCase(),
+    (f.payGrade || '').trim().toUpperCase(),
+    (f.station || '').trim().toUpperCase(),
+  ].join('|');
+
+  for (const concurrent of [false, true]) {
+    const chain = fitreps
+      .filter(f => (f.reportType === 'CC') === concurrent && f.startDate)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    let prev = null;
+    for (const f of chain) {
+      const isNew = !prev || keyOf(prev) !== keyOf(f);
+      if (isNew) {
+        const reasons = [];
+        if (prev) {
+          if ((prev.rsName || '').trim().toUpperCase() !== (f.rsName || '').trim().toUpperCase()) {
+            reasons.push('new reporting senior');
+          }
+          if ((prev.payGrade || '').trim().toUpperCase() !== (f.payGrade || '').trim().toUpperCase()) {
+            reasons.push('change of rank');
+          }
+          if ((prev.station || '').trim().toUpperCase() !== (f.station || '').trim().toUpperCase()) {
+            reasons.push('new duty station');
+          }
+        }
+        groups.push({
+          index: groups.length,
+          rsName: f.rsName || '',
+          payGrade: f.payGrade || '',
+          station: f.station || '',
+          concurrent,
+          startDate: f.startDate,
+          endDate: f.endDate,
+          reportCount: 0,
+          resetReason: reasons.join(' + '),
+        });
+      }
+      const group = groups[groups.length - 1];
+      group.reportCount += 1;
+      if (f.endDate && (!group.endDate || f.endDate > group.endDate)) group.endDate = f.endDate;
+      f.summaryGroupIndex = group.index;
+      prev = f;
+    }
+  }
+
+  // Below-RS tally per group. Each row's rsAverage already belongs to that row's
+  // own group, so this slices an already-correct comparison rather than fixing it.
+  for (const g of groups) {
+    const rows = fitreps.filter(f =>
+      f.summaryGroupIndex === g.index
+      && (f.individualAverage ?? 0) > 0
+      && (f.rsAverage ?? 0) > 0);
+    g.gradedCount = rows.length;
+    g.belowRSCount = rows.filter(f => f.individualAverage < f.rsAverage).length;
+  }
+
+  return groups;
+}
+
 // Compute all PSR analytics from raw fitrep rows in deterministic JS.
 // Claude's only job is accurate row extraction — counts, averages, trend, and
 // issues are computed here so there is nothing left for the model to hallucinate.
@@ -1070,9 +1208,12 @@ function computePsrAnalytics(fitreps) {
     return {
       fitrepCount: 0, earlyPromotes: 0, mustPromotes: 0, promotables: 0, progressings: 0,
       fitrepAverage: 0, rscaAverage: 0, belowRSAverageCount: 0, belowRSAveragePercentage: 0,
-      psrTrend: 'insufficient_data', psrIssues: [],
+      psrTrend: 'insufficient_data', psrIssues: [], summaryGroups: [],
     };
   }
+
+  // Tags each row with summaryGroupIndex, which the checks below rely on.
+  const summaryGroups = assignSummaryGroups(fitreps);
 
   const graded = fitreps.filter(f =>
     (f.individualAverage ?? 0) > 0 && f.promotionRec !== 'NOB' && f.reportType !== 'AT',
@@ -1114,10 +1255,15 @@ function computePsrAnalytics(fitreps) {
     if (gap > 90) psrIssues.push(`Gap of ${gap} days between ${byDate[i - 1].endDate} and ${byDate[i].startDate}`);
   }
 
+  // Leftward movement is only a signal inside one summary group. Across a reset
+  // the officer starts over against a new population, so a drop there is expected
+  // and flagging it produced false positives.
   for (let i = 1; i < graded.length; i++) {
     const pi = PROMO_ORDER.indexOf(graded[i - 1].promotionRec);
     const ci = PROMO_ORDER.indexOf(graded[i].promotionRec);
-    if (pi >= 2 && ci >= 0 && ci < pi - 1 && graded[i - 1].payGrade === graded[i].payGrade) {
+    const sameGroup = graded[i - 1].summaryGroupIndex !== undefined
+      && graded[i - 1].summaryGroupIndex === graded[i].summaryGroupIndex;
+    if (sameGroup && pi >= 2 && ci >= 0 && ci < pi - 1) {
       psrIssues.push(`Leftward movement: ${graded[i - 1].promotionRec} → ${graded[i].promotionRec} at ${graded[i].payGrade} (ending ${graded[i].endDate})`);
     }
   }
@@ -1132,7 +1278,7 @@ function computePsrAnalytics(fitreps) {
   return {
     fitrepCount, earlyPromotes, mustPromotes, promotables, progressings,
     fitrepAverage, rscaAverage, belowRSAverageCount, belowRSAveragePercentage,
-    psrTrend, psrIssues,
+    psrTrend, psrIssues, summaryGroups,
   };
 }
 
@@ -1188,6 +1334,14 @@ function mergeResults(odcResult, osrResult, psrResult) {
     ...(psrResult.warnings || []),
   ];
 
+  const { serviceSchools, decodedNames, unknownCodes } = decodeServiceSchools(osrResult.serviceSchools);
+  if (unknownCodes.length > 0) {
+    warnings.push(
+      `Service school code(s) not in the lookup (${unknownCodes.join(', ')}) — `
+      + 'check NOOCS Manual Volume II, Appendix C for the course name.'
+    );
+  }
+
   const { awards, unitAwards } = normalizeAwards(osrResult.awards);
   if (unitAwards.length > 0) {
     warnings.push(
@@ -1227,6 +1381,7 @@ function mergeResults(odcResult, osrResult, psrResult) {
     designator: odcResult.designator ?? null,
     yearGroup: odcResult.yearGroup ?? null,
     clinicalSpecialty: odcResult.clinicalSpecialty ?? null,
+    subspecialtyCodes: Array.isArray(odcResult.subspecialtyCodes) ? odcResult.subspecialtyCodes : [],
     selectedForNextRank: odcResult.selectedForNextRank ?? null,
     rankHistory,
     boardCertified: odcResult.boardCertified ?? null,
@@ -1234,7 +1389,13 @@ function mergeResults(odcResult, osrResult, psrResult) {
     clearanceLevel: odcResult.clearanceLevel ?? '',
     clearanceDate: odcResult.clearanceDate ?? '',
     aqds,
-    specialQualifications: Array.isArray(osrResult.specialQualifications) ? osrResult.specialQualifications : [],
+    // Decoded school names join the OSR's own labels so "already completed"
+    // suppression sees a course listed only by its numeric code.
+    specialQualifications: [...new Set([
+      ...(Array.isArray(osrResult.specialQualifications) ? osrResult.specialQualifications : []),
+      ...decodedNames,
+    ])],
+    serviceSchools,
     awards,
     unitAwardsFound: unitAwards,
     hasUndergrad: osrResult.hasUndergrad ?? false,
@@ -1291,7 +1452,7 @@ export default async function handler(req, res) {
 
       const today = new Date().toISOString().split('T')[0];
 
-      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [], awards: [] };
+      const osrDefault = { hasUndergrad: false, hasMedicalSchool: false, aqds: [], awards: [], serviceSchools: [] };
       // PSR default only needs raw rows — analytics computed by computePsrAnalytics.
       const psrDefault = { fitreps: [], warnings: [], confidence: { psrData: 'medium' } };
 

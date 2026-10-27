@@ -3,18 +3,21 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import type { RankDate } from './RankHistoryForm';
-import type { AwardEntry } from './DocumentParser';
+import type { AwardEntry, SummaryGroup, ServiceSchoolEntry } from './DocumentParser';
 
 // Types
 export interface FitrepEntry {
   payGrade?: string;
   station?: string;
+  /** Reporting senior's last name — defines the summary group with grade and station. */
+  rsName?: string;
   startDate: string;
   endDate: string;
   individualAverage?: number;
   rsAverage?: number;
   promotionRec?: string;
   reportType?: string;
+  summaryGroupIndex?: number;
 }
 
 export interface ParsedOfficerData {
@@ -43,6 +46,10 @@ export interface ParsedOfficerData {
   awards: AwardEntry[];
   unitAwardsFound: string[];
 
+  // OSR Block 52 with codes decoded; ODC Blocks 66-68 verbatim.
+  serviceSchools: ServiceSchoolEntry[];
+  subspecialtyCodes: string[];
+
   // From PSR
   fitrepAverage: number;
   rscaAverage?: number;
@@ -51,6 +58,7 @@ export interface ParsedOfficerData {
   mustPromotes: number;
   promotables: number;
   fitreps?: FitrepEntry[];
+  summaryGroups: SummaryGroup[];
   psrTrend?: string;
   psrIssues?: string[];
 
@@ -140,6 +148,9 @@ export function VerifyParsedData({ parsedData, onDataConfirmed, onBack }: Verify
     specialQualifications: parsedData.specialQualifications || [],
     awards: parsedData.awards || [],
     unitAwardsFound: parsedData.unitAwardsFound || [],
+    summaryGroups: parsedData.summaryGroups || [],
+    serviceSchools: parsedData.serviceSchools || [],
+    subspecialtyCodes: parsedData.subspecialtyCodes || [],
     fitrepAverage: parsedData.fitrepAverage || 0,
     fitrepCount: parsedData.fitrepCount || 0,
     earlyPromotes: parsedData.earlyPromotes || 0,

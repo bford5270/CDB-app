@@ -12,6 +12,31 @@ import type { UploadedDocuments } from './DocumentUpload';
 // TYPES
 // ============================================================================
 
+export interface SummaryGroup {
+  index: number;
+  rsName: string;
+  payGrade: string;
+  station: string;
+  /** Concurrent reports come from a separate chain of command. */
+  concurrent: boolean;
+  startDate: string;
+  endDate: string;
+  reportCount: number;
+  gradedCount: number;
+  belowRSCount: number;
+  /** What reset the group: new reporting senior / change of rank / new duty station. Empty for the first group. */
+  resetReason: string;
+}
+
+export interface ServiceSchoolEntry {
+  /** Code as printed in OSR Block 52, e.g. "082". Null when only a name was shown. */
+  code: string | null;
+  /** Name as printed on the OSR, if any. */
+  printedName: string | null;
+  /** Canonical course name when the code is in the lookup. */
+  resolvedName: string | null;
+}
+
 export interface AwardEntry {
   name: string;
   count: number;
@@ -35,6 +60,12 @@ export interface ExtractedOfficerData {
 
   aqds: string[];
   specialQualifications: string[];  // OSR-listed completed quals + service-school courses
+
+  // OSR Block 52 rows, with codes resolved to course names where known.
+  serviceSchools: ServiceSchoolEntry[];
+  // ODC Blocks 66-68 verbatim, e.g. ["16Q0K"]. The final letter is the
+  // certification state: K certified, J trained not certified, T in training.
+  subspecialtyCodes: string[];
 
   // OSR personal decorations (NAM and above). Unit citations are not recorded on
   // the OSR, so any found are reported separately as a record-accuracy problem.
@@ -67,7 +98,12 @@ export interface ExtractedOfficerData {
     rsAverage: number;
     promotionRec: string;
     reportType: string;
+    summaryGroupIndex?: number;
   }>;
+
+  // Populations the officer was ranked against; reset by a new reporting senior,
+  // a change of rank, or a new duty station.
+  summaryGroups: SummaryGroup[];
 
   warnings: string[];
   confidence: {
@@ -101,7 +137,10 @@ interface DocumentParserProps {
     earlyPromotes?: number;
     mustPromotes?: number;
     promotables?: number;
-    fitreps?: Array<{ payGrade?: string; station?: string; startDate: string; endDate: string; individualAverage?: number; rsAverage?: number; promotionRec?: string; reportType?: string }>;
+    fitreps?: Array<{ payGrade?: string; station?: string; rsName?: string; startDate: string; endDate: string; individualAverage?: number; rsAverage?: number; promotionRec?: string; reportType?: string; summaryGroupIndex?: number }>;
+    summaryGroups?: SummaryGroup[];
+    serviceSchools?: ServiceSchoolEntry[];
+    subspecialtyCodes?: string[];
     psrTrend?: string;
   }) => void;
   onSkip?: () => void;
@@ -517,6 +556,9 @@ const DocumentParser: React.FC<DocumentParserProps> = ({
       mustPromotes: extracted.mustPromotes,
       promotables: extracted.promotables,
       fitreps: extracted.fitreps,
+      summaryGroups: extracted.summaryGroups,
+      serviceSchools: extracted.serviceSchools,
+      subspecialtyCodes: extracted.subspecialtyCodes,
       psrTrend: extracted.psrTrend,
     });
   }

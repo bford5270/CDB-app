@@ -1,0 +1,107 @@
+{
+  "description": "Navy service school codes relevant to Medical Corps officers, as they appear in the OSR 'Service Schools Attended' block (Block 52). Only codes with a named source are listed; the authoritative full list is the NOOCS Manual Volume II, Appendix C.",
+  "reference": "https://www.mynavyhr.navy.mil/References/NOOCS-Manual/NOOCS-VOL-2/",
+  "priorTrainingLookup": "https://jst.doded.mil/jst/",
+  "howToAdd": "Email askmncc@navy.mil with the course completion certificate.",
+  "lastUpdated": "2026-10-27",
+  "codes": {
+    "082": {
+      "name": "Combat Casualty Care Course (C4)",
+      "source": "CDB brief"
+    },
+    "102": {
+      "name": "Advanced Readiness Officer Course (AROC)",
+      "source": "CDB brief + FY27 catalog",
+      "note": "The CDB brief lists code 102 as the Advanced Medical Department Officer Course (AMDOC); the FY27 catalog lists the same code for AROC, which superseded it."
+    },
+    "075": {
+      "name": "Field Medical Service Officer Training",
+      "source": "CDB brief"
+    },
+    "064": {
+      "name": "Military Tropical Medicine",
+      "source": "CDB brief"
+    },
+    "045": {
+      "name": "Surface Warfare Medical Officer",
+      "source": "CDB brief"
+    },
+    "04C": {
+      "name": "MedXellence Course",
+      "source": "CDB brief + FY27 catalog"
+    },
+    "421": {
+      "name": "Naval War College Nonresident",
+      "source": "CDB brief"
+    },
+    "04A": {
+      "name": "Surface Warfare Medical Department Officer Indoctrination Course (SWMDOIC)",
+      "source": "FY27 catalog"
+    },
+    "077": {
+      "name": "Commander Amphibious Task Force Surgeon Course (CATF-S)",
+      "source": "FY27 catalog"
+    },
+    "059": {
+      "name": "Interagency Institute for Federal Health Leaders (IAIFHL)",
+      "source": "FY27 catalog"
+    },
+    "10K": {
+      "name": "Healthcare Management Course (HMC)",
+      "source": "FY27 catalog"
+    },
+    "10L": {
+      "name": "Intermediate Executive Skills Course (IESC)",
+      "source": "FY27 catalog"
+    },
+    "00G": {
+      "name": "Division Officer Leadership Course (DIVOLC)",
+      "source": "FY27 catalog"
+    },
+    "00E": {
+      "name": "Intermediate Leadership Course (ILC)",
+      "source": "FY27 catalog"
+    },
+    "00C": {
+      "name": "Senior Leadership Course (SLC)",
+      "source": "FY27 catalog"
+    },
+    "595": {
+      "name": "Senior Leader Legal Course (SLLC)",
+      "source": "FY27 catalog"
+    },
+    "422": {
+      "name": "Naval War College Fleet Seminar Program (JPME I)",
+      "source": "FY27 catalog"
+    },
+    "414": {
+      "name": "Naval War College JPME I & Master's Resident Program",
+      "source": "FY27 catalog"
+    },
+    "700": {
+      "name": "Air Command and Staff College Distance Learning (JPME I)",
+      "source": "FY27 catalog"
+    },
+    "746": {
+      "name": "Marine Corps Command and Staff College (JPME I)",
+      "source": "FY27 catalog",
+      "note": "The FY27 catalog uses code 746 for both the CDET distance program and the resident program."
+    },
+    "081": {
+      "name": "Joint Medical Operations Course - Basic (JMOC-Basic)",
+      "source": "FY27 catalog"
+    },
+    "08C": {
+      "name": "Joint Medical Operations Course - Advanced (JMOC-Advanced)",
+      "source": "FY27 catalog"
+    },
+    "08A": {
+      "name": "Joint Medical Planning Tool Course (JMPT)",
+      "source": "FY27 catalog"
+    },
+    "08B": {
+      "name": "Joint Senior Medical Leaders Course (JSMLC)",
+      "source": "FY27 catalog"
+    }
+  }
+}

@@ -131,8 +131,22 @@ export function CDBWorksheet({ officerData: d, goals, className = '' }: CDBWorks
               {(d.awards || []).length
                 ? d.awards.map(a => `${a.name}${a.count > 1 ? ` (×${a.count})` : ''}`).join(', ')
                 : '— none found on the OSR'}</p>
+            <p><span className="font-semibold">Subspecialty codes:</span>{' '}
+              {(d.subspecialtyCodes || []).length
+                ? d.subspecialtyCodes.join(', ')
+                : '— not read from the ODC'}
+              {(d.subspecialtyCodes || []).length > 0 && (
+                <span className="text-gray-600"> (final letter: K certified · J trained, not certified · T in training)</span>
+              )}</p>
             <p><span className="font-semibold">Completed per OSR ({(d.specialQualifications || []).length}):</span>{' '}
               {(d.specialQualifications || []).join(', ') || '—'}</p>
+            {(d.serviceSchools || []).length > 0 && (
+              <p><span className="font-semibold">Service schools (Block 52):</span>{' '}
+                {d.serviceSchools.map(ss => {
+                  const label = ss.resolvedName || ss.printedName || '';
+                  return ss.code ? `${ss.code} — ${label || 'not in lookup'}` : label;
+                }).filter(Boolean).join(' · ')}</p>
+            )}
           </div>
         </section>
 
@@ -162,7 +176,7 @@ export function CDBWorksheet({ officerData: d, goals, className = '' }: CDBWorks
             <table className="w-full mt-3 text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-100">
-                  {['Period', 'Pay grade', 'Station', 'Type', 'Ind avg', 'RS avg', 'Δ', 'Promotion rec'].map(h => (
+                  {['Period', 'Grp', 'Pay grade', 'Station', 'RS', 'Type', 'Ind avg', 'RS avg', 'Δ', 'Promotion rec'].map(h => (
                     <th key={h} className="border border-gray-300 px-1.5 py-1 text-left font-semibold">{h}</th>
                   ))}
                 </tr>
@@ -177,8 +191,12 @@ export function CDBWorksheet({ officerData: d, goals, className = '' }: CDBWorks
                       <td className="border border-gray-300 px-1.5 py-1 whitespace-nowrap">
                         {fmtMonth(f.startDate)} – {fmtMonth(f.endDate)}
                       </td>
+                      <td className="border border-gray-300 px-1.5 py-1">
+                        {typeof f.summaryGroupIndex === 'number' ? f.summaryGroupIndex + 1 : '—'}
+                      </td>
                       <td className="border border-gray-300 px-1.5 py-1">{f.payGrade || '—'}</td>
                       <td className="border border-gray-300 px-1.5 py-1">{f.station || '—'}</td>
+                      <td className="border border-gray-300 px-1.5 py-1">{f.rsName || '—'}</td>
                       <td className="border border-gray-300 px-1.5 py-1">{f.reportType || '—'}</td>
                       <td className="border border-gray-300 px-1.5 py-1">{fmtNum(f.individualAverage)}</td>
                       <td className="border border-gray-300 px-1.5 py-1">{fmtNum(f.rsAverage)}</td>
@@ -197,6 +215,44 @@ export function CDBWorksheet({ officerData: d, goals, className = '' }: CDBWorks
             </table>
           ) : (
             <p className="text-sm text-gray-600 mt-2">No FITREP rows were parsed from the PSR.</p>
+          )}
+
+          {(d.summaryGroups || []).length > 0 && (
+            <div className="mt-3 avoid-break">
+              <h3 className="text-sm font-semibold">Summary groups</h3>
+              <p className="text-xs text-gray-600">
+                The population each report was ranked against. A group resets on a new reporting
+                senior, a change of rank, or a new duty station — a promotion recommendation that
+                drops right after a reset is expected, not a performance signal.
+              </p>
+              <table className="w-full mt-1 text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    {['#', 'Reporting senior', 'Grade', 'Station', 'Period', 'Reports', 'Below RS avg', 'Reset by'].map(h => (
+                      <th key={h} className="border border-gray-300 px-1.5 py-1 text-left font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.summaryGroups.map(g => (
+                    <tr key={g.index}>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.index + 1}{g.concurrent && ' (CC)'}</td>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.rsName || '—'}</td>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.payGrade || '—'}</td>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.station || '—'}</td>
+                      <td className="border border-gray-300 px-1.5 py-1 whitespace-nowrap">
+                        {fmtMonth(g.startDate)} – {fmtMonth(g.endDate)}
+                      </td>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.reportCount}</td>
+                      <td className="border border-gray-300 px-1.5 py-1">
+                        {g.gradedCount ? `${g.belowRSCount} of ${g.gradedCount}` : '—'}
+                      </td>
+                      <td className="border border-gray-300 px-1.5 py-1">{g.resetReason || 'first group'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {(d.psrIssues || []).length > 0 && (
